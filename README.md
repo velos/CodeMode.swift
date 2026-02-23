@@ -49,6 +49,67 @@ print(response.resultJSON ?? "null")
 
 `execute` now performs schema-first argument validation (required args, type checks, unknown-argument rejection) before bridge execution. Argument errors include a usage hint with expected argument types and an example call to help small models recover without another tool call.
 
+## Eval CLI
+
+The package includes an eval CLI (`codemode-eval`) for prompt-to-tool/script evaluation using mocked bridges and objective checks.
+
+`codemode-eval` now runs a bounded multi-step planner for execute scenarios (up to 4 turns): it can call `search`, then `execute`, and perform one automatic repair retry after static validation/runtime errors.
+
+Run with scripted baseline:
+
+```bash
+swift run codemode-eval --model scripted
+```
+
+Run with Wavelike proxy model provider:
+
+```bash
+export WAVELIKE_APP_ID=your-app-id
+export WAVELIKE_MODEL_ID=gpt-4.1-mini
+# optional:
+# export WAVELIKE_ENV=stage   # local|stage|production
+# export WAVELIKE_API_KEY=...
+# or export WAVELIKE_USER_ID=... && export WAVELIKE_USER_KEY=...
+
+swift run codemode-eval --model wavelike
+```
+
+Run with local Apple Foundation Model via Wavelike engine:
+
+```bash
+# optional; defaults to com.apple.SystemLanguageModel.default
+# export WAVELIKE_MODEL_ID=com.apple.SystemLanguageModel.default
+# optional; defaults to codemode-eval-local
+# export WAVELIKE_APP_ID=codemode-eval-local
+
+swift run codemode-eval --model apple
+```
+
+Filter scenarios or inspect generated calls:
+
+```bash
+swift run codemode-eval --model scripted --scenario morning-brief,fetch-json-and-save --show-generated
+```
+
+Trace model-level diagnostics (prompt, raw-output preview, and detailed error chain):
+
+```bash
+swift run codemode-eval --model apple --trace-model
+```
+
+Pluggable external model adapter:
+
+```bash
+swift run codemode-eval --model command --model-command /path/to/adapter
+```
+
+The command adapter reads JSON from stdin (`prompt`, `capabilities`) and must return JSON:
+- `{"tool":"search","search":{"mode":"discover","query":"...","limit":10}}`
+- `{"tool":"search","search":{"mode":"describe","capability":"calendar.write"}}`
+- `{"tool":"execute","code":"...javascript..."}`
+
+`guidance` may also be included in stdin for multi-step planning context (prior search output or error feedback).
+
 ## Host App Permissions and Capabilities
 
 Yes, host apps must provide privacy usage strings for bridged APIs that request protected resources.

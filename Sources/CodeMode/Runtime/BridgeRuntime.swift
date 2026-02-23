@@ -83,7 +83,12 @@ public final class BridgeRuntime: @unchecked Sendable {
             auditLogger: config.auditLogger
         )
 
-        var diagnostics: [ToolDiagnostic] = []
+        let diagnosticsBox = SynchronizedBox<[ToolDiagnostic]>([])
+        func appendDiagnostic(_ diagnostic: ToolDiagnostic) {
+            diagnosticsBox.mutate { diagnostics in
+                diagnostics.append(diagnostic)
+            }
+        }
         let context = JSContext()
 
         guard let context else {
@@ -96,7 +101,7 @@ public final class BridgeRuntime: @unchecked Sendable {
         }
 
         context.exceptionHandler = { _, exception in
-            diagnostics.append(
+            appendDiagnostic(
                 ToolDiagnostic(
                     severity: .error,
                     code: "JS_EXCEPTION",
@@ -105,14 +110,21 @@ public final class BridgeRuntime: @unchecked Sendable {
             )
         }
 
-        installBaseRuntime(into: context, invocationContext: invocationContext, diagnostics: &diagnostics)
+        installBaseRuntime(into: context, invocationContext: invocationContext, appendDiagnostic: appendDiagnostic)
 
-        let timedOut = runUserScript(request.code, timeoutMs: request.timeoutMs, context: context, diagnostics: &diagnostics)
+        let timedOut = runUserScript(request.code, timeoutMs: request.timeoutMs, context: context, appendDiagnostic: appendDiagnostic)
         if timedOut {
-            diagnostics.append(ToolDiagnostic(severity: .error, code: BridgeError.timeout(milliseconds: request.timeoutMs).diagnosticCode, message: BridgeError.timeout(milliseconds: request.timeoutMs).localizedDescription))
+            appendDiagnostic(
+                ToolDiagnostic(
+                    severity: .error,
+                    code: BridgeError.timeout(milliseconds: request.timeoutMs).diagnosticCode,
+                    message: BridgeError.timeout(milliseconds: request.timeoutMs).localizedDescription
+                )
+            )
         }
 
         let resultJSON = context.evaluateScript("JSON.stringify(globalThis.__codemode.result ?? null)")?.toString()
+        let diagnostics = diagnosticsBox.get()
 
         return ExecuteResponse(
             resultJSON: resultJSON,
@@ -122,7 +134,11 @@ public final class BridgeRuntime: @unchecked Sendable {
         )
     }
 
-    private func installBaseRuntime(into context: JSContext, invocationContext: BridgeInvocationContext, diagnostics: inout [ToolDiagnostic]) {
+    private func installBaseRuntime(
+        into context: JSContext,
+        invocationContext: BridgeInvocationContext,
+        appendDiagnostic: (ToolDiagnostic) -> Void
+    ) {
         let invokeBlock: @convention(block) (String, String) -> String = { capability, payload in
             do {
                 let data = Data(payload.utf8)
@@ -164,11 +180,16 @@ public final class BridgeRuntime: @unchecked Sendable {
 
         let bootScript = RuntimeJavaScript.bootstrap
         if context.evaluateScript(bootScript) == nil {
-            diagnostics.append(ToolDiagnostic(severity: .error, code: "JS_BOOTSTRAP", message: "Failed to install base runtime"))
+            appendDiagnostic(ToolDiagnostic(severity: .error, code: "JS_BOOTSTRAP", message: "Failed to install base runtime"))
         }
     }
 
-    private func runUserScript(_ code: String, timeoutMs: Int, context: JSContext, diagnostics: inout [ToolDiagnostic]) -> Bool {
+    private func runUserScript(
+        _ code: String,
+        timeoutMs: Int,
+        context: JSContext,
+        appendDiagnostic: (ToolDiagnostic) -> Void
+    ) -> Bool {
         let script = """
         globalThis.__codemode.state = 'pending';
         globalThis.__codemode.result = null;
@@ -197,7 +218,7 @@ public final class BridgeRuntime: @unchecked Sendable {
             if state == "rejected" {
                 let code = context.evaluateScript("globalThis.__codemode.error?.code ?? 'JS_REJECTED'")?.toString() ?? "JS_REJECTED"
                 let message = context.evaluateScript("globalThis.__codemode.error?.message ?? 'JavaScript promise rejected'")?.toString() ?? "JavaScript promise rejected"
-                diagnostics.append(ToolDiagnostic(severity: .error, code: code, message: message))
+                appendDiagnostic(ToolDiagnostic(severity: .error, code: code, message: message))
                 return false
             }
             Thread.sleep(forTimeInterval: 0.01)

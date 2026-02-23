@@ -19,4 +19,10 @@ final class SynchronizedBox<Value>: @unchecked Sendable {
         defer { lock.unlock() }
         return storage
     }
+
+    func mutate(_ transform: (inout Value) -> Void) {
+        lock.lock()
+        transform(&storage)
+        lock.unlock()
+    }
 }

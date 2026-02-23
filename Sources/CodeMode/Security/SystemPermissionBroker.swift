@@ -47,7 +47,8 @@ public final class SystemPermissionBroker: PermissionBroker, @unchecked Sendable
 
     private func locationStatus() -> PermissionStatus {
         #if canImport(CoreLocation)
-        switch CLLocationManager.authorizationStatus() {
+        let manager = CLLocationManager()
+        switch manager.authorizationStatus {
         case .authorizedWhenInUse, .authorizedAlways:
             return .granted
         case .denied:
