@@ -49,6 +49,14 @@ public enum HostConfigurationValidator {
             keys.insert("NSHomeKitUsageDescription")
         }
 
+        if capabilities.contains(.alarmPermissionRequest) ||
+            capabilities.contains(.alarmRead) ||
+            capabilities.contains(.alarmSchedule) ||
+            capabilities.contains(.alarmCancel)
+        {
+            keys.insert("NSAlarmKitUsageDescription")
+        }
+
         return keys
     }
 
@@ -103,6 +111,20 @@ public enum HostConfigurationValidator {
                     severity: .warning,
                     key: "HomeKit capability",
                     message: "Ensure HomeKit entitlement/capability is enabled for the target before using home.* capabilities."
+                )
+            )
+        }
+
+        if requiredCapabilities.contains(.alarmPermissionRequest) ||
+            requiredCapabilities.contains(.alarmRead) ||
+            requiredCapabilities.contains(.alarmSchedule) ||
+            requiredCapabilities.contains(.alarmCancel)
+        {
+            issues.append(
+                HostConfigurationIssue(
+                    severity: .warning,
+                    key: "AlarmKit platform requirement",
+                    message: "AlarmKit requires iOS 26+ and runtime authorization before using alarm.* capabilities."
                 )
             )
         }

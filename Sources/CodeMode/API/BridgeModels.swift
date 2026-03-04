@@ -230,6 +230,11 @@ public enum CapabilityID: String, Sendable, Codable, CaseIterable, Hashable {
     case notificationsPendingRead = "notifications.pending.read"
     case notificationsPendingDelete = "notifications.pending.delete"
 
+    case alarmPermissionRequest = "alarm.permission.request"
+    case alarmRead = "alarm.read"
+    case alarmSchedule = "alarm.schedule"
+    case alarmCancel = "alarm.cancel"
+
     case homeRead = "home.read"
     case homeWrite = "home.write"
 

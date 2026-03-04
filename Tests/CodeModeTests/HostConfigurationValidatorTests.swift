@@ -4,7 +4,7 @@ import Testing
 
 @Test func requiredInfoPlistKeysMatchCapabilitySet() {
     let keys = HostConfigurationValidator.requiredInfoPlistKeys(
-        for: [.locationRead, .contactsSearch, .calendarRead, .remindersWrite, .photosRead, .homeWrite]
+        for: [.locationRead, .contactsSearch, .calendarRead, .remindersWrite, .photosRead, .homeWrite, .alarmSchedule]
     )
 
     #expect(keys.contains("NSLocationWhenInUseUsageDescription"))
@@ -14,6 +14,7 @@ import Testing
     #expect(keys.contains("NSRemindersFullAccessUsageDescription"))
     #expect(keys.contains("NSPhotoLibraryUsageDescription"))
     #expect(keys.contains("NSHomeKitUsageDescription"))
+    #expect(keys.contains("NSAlarmKitUsageDescription"))
 }
 
 @Test func validatorReportsMissingUsageDescriptions() {
@@ -79,4 +80,14 @@ import Testing
 
     #expect(issues.contains(where: { $0.key == "UserNotifications authorization" && $0.severity == .warning }))
     #expect(issues.contains(where: { $0.key == "HomeKit capability" && $0.severity == .warning }))
+}
+
+@Test func validatorRequiresAlarmKitUsageAndAddsPlatformWarning() {
+    let issues = HostConfigurationValidator.validate(
+        requiredCapabilities: [.alarmSchedule],
+        infoPlist: [:]
+    )
+
+    #expect(issues.contains(where: { $0.key == "NSAlarmKitUsageDescription" && $0.severity == .error }))
+    #expect(issues.contains(where: { $0.key == "AlarmKit platform requirement" && $0.severity == .warning }))
 }

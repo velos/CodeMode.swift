@@ -12,6 +12,7 @@ public enum DefaultCapabilityLoader {
         let photos = PhotosBridge()
         let vision = VisionBridge()
         let notifications = NotificationsBridge()
+        let alarm = AlarmBridge()
         let home = HomeBridge()
         let media = MediaBridge()
 
@@ -388,6 +389,78 @@ public enum DefaultCapabilityLoader {
                 ),
                 handler: { args, context in
                     try notifications.deletePending(arguments: args, context: context)
+                }
+            ),
+            CapabilityRegistration(
+                descriptor: .init(
+                    id: .alarmPermissionRequest,
+                    title: "Request AlarmKit permission",
+                    summary: "Request AlarmKit authorization from the user.",
+                    tags: ["alarmkit", "permission", "alarms"],
+                    example: "await ios.alarm.requestPermission()",
+                    resultSummary: "Object with status/granted fields."
+                ),
+                handler: { _, context in
+                    try alarm.requestPermission(context: context)
+                }
+            ),
+            CapabilityRegistration(
+                descriptor: .init(
+                    id: .alarmRead,
+                    title: "List scheduled alarms",
+                    summary: "List scheduled alarms known to the bridge runtime.",
+                    tags: ["alarmkit", "alarms", "schedule"],
+                    example: "await ios.alarm.list({ limit: 20 })",
+                    requiredPermissions: [.alarmKit],
+                    optionalArguments: ["limit"],
+                    argumentHints: [
+                        "limit": "Max number of scheduled alarms returned, default 50.",
+                    ],
+                    resultSummary: "Array of scheduled alarms with identifier/title/timing fields."
+                ),
+                handler: { args, context in
+                    try alarm.read(arguments: args, context: context)
+                }
+            ),
+            CapabilityRegistration(
+                descriptor: .init(
+                    id: .alarmSchedule,
+                    title: "Schedule AlarmKit alarm",
+                    summary: "Schedule an AlarmKit alarm using secondsFromNow or fireDate.",
+                    tags: ["alarmkit", "alarms", "schedule"],
+                    example: "await ios.alarm.schedule({ title: 'Wake up', secondsFromNow: 1800 })",
+                    requiredPermissions: [.alarmKit],
+                    requiredArguments: ["title"],
+                    optionalArguments: ["identifier", "secondsFromNow", "fireDate"],
+                    argumentHints: [
+                        "title": "Alarm title shown in presentation.",
+                        "identifier": "Optional UUID string; generated when omitted.",
+                        "secondsFromNow": "Fallback relative delay in seconds, default 60.",
+                        "fireDate": "Optional absolute ISO8601 date; used when provided.",
+                    ],
+                    resultSummary: "Object with identifier/scheduled/title."
+                ),
+                handler: { args, context in
+                    try alarm.schedule(arguments: args, context: context)
+                }
+            ),
+            CapabilityRegistration(
+                descriptor: .init(
+                    id: .alarmCancel,
+                    title: "Cancel scheduled alarms",
+                    summary: "Cancel one or more scheduled alarms by identifier, or clear all known alarms.",
+                    tags: ["alarmkit", "alarms", "schedule"],
+                    example: "await ios.alarm.cancel({ identifiers: ['8F11679B-92E8-4D2F-84B4-4D0A7C95E3C3'] })",
+                    requiredPermissions: [.alarmKit],
+                    optionalArguments: ["identifier", "identifiers"],
+                    argumentHints: [
+                        "identifier": "Single alarm identifier UUID string.",
+                        "identifiers": "Array of alarm identifier UUID strings. Omit both to cancel all known alarms.",
+                    ],
+                    resultSummary: "Object with deleted/count fields."
+                ),
+                handler: { args, context in
+                    try alarm.cancel(arguments: args, context: context)
                 }
             ),
             CapabilityRegistration(

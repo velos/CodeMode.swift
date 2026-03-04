@@ -968,6 +968,7 @@ struct AllowAllPermissionBroker: PermissionBroker {
 final class MockState: @unchecked Sendable {
     private let lock = NSLock()
     private var keychain: [String: String] = [:]
+    private var alarms: [String: [String: JSONValue]] = [:]
     private var events: [[String: JSONValue]] = [
         [
             "identifier": .string("evt-1"),
@@ -1003,6 +1004,46 @@ final class MockState: @unchecked Sendable {
         lock.lock()
         keychain.removeValue(forKey: key)
         lock.unlock()
+    }
+
+    func readAlarms(limit: Int) -> [JSONValue] {
+        lock.lock()
+        defer { lock.unlock() }
+        return Array(alarms.values.prefix(limit)).map { .object($0) }
+    }
+
+    func scheduleAlarm(identifier: String, title: String, secondsFromNow: Double, fireDate: String?) -> [String: JSONValue] {
+        lock.lock()
+        defer { lock.unlock() }
+
+        let alarm: [String: JSONValue] = [
+            "identifier": .string(identifier),
+            "title": .string(title),
+            "secondsFromNow": .number(secondsFromNow),
+            "fireDate": .string(fireDate ?? ""),
+            "scheduledAt": .string(Date().ISO8601Format()),
+        ]
+        alarms[identifier] = alarm
+        return alarm
+    }
+
+    func cancelAlarms(identifiers: [String]) -> Int {
+        lock.lock()
+        defer { lock.unlock() }
+
+        if identifiers.isEmpty {
+            let count = alarms.count
+            alarms.removeAll()
+            return count
+        }
+
+        var deleted = 0
+        for identifier in identifiers {
+            if alarms.removeValue(forKey: identifier) != nil {
+                deleted += 1
+            }
+        }
+        return deleted
     }
 
     func readEvents() -> [JSONValue] {
@@ -1267,6 +1308,52 @@ func makeEvalHost(recorder: InvocationRecorder, sandbox: EvalSandbox) -> CodeMod
             return .object([
                 "deleted": .bool(true),
                 "count": .number(count),
+            ])
+        },
+        registration(.alarmPermissionRequest) { _, _ in
+            .object([
+                "status": .string(PermissionStatus.granted.rawValue),
+                "granted": .bool(true),
+            ])
+        },
+        registration(.alarmRead) { args, _ in
+            let limit = max(1, args.int("limit") ?? 50)
+            return .array(state.readAlarms(limit: limit))
+        },
+        registration(.alarmSchedule) { args, _ in
+            guard let title = args.string("title"), title.isEmpty == false else {
+                throw BridgeError.invalidArguments("alarm.schedule requires title")
+            }
+
+            let identifier = args.string("identifier") ?? UUID().uuidString
+            let secondsFromNow = max(1, args.double("secondsFromNow") ?? 60)
+            let snapshot = state.scheduleAlarm(
+                identifier: identifier,
+                title: title,
+                secondsFromNow: secondsFromNow,
+                fireDate: args.string("fireDate")
+            )
+
+            return .object([
+                "identifier": snapshot["identifier"] ?? .string(identifier),
+                "scheduled": .bool(true),
+                "title": snapshot["title"] ?? .string(title),
+            ])
+        },
+        registration(.alarmCancel) { args, _ in
+            let identifiers: [String]
+            if let single = args.string("identifier"), single.isEmpty == false {
+                identifiers = [single]
+            } else if let multiple = args.array("identifiers")?.compactMap(\.stringValue), multiple.isEmpty == false {
+                identifiers = multiple
+            } else {
+                identifiers = []
+            }
+
+            let deleted = state.cancelAlarms(identifiers: identifiers)
+            return .object([
+                "deleted": .bool(true),
+                "count": .number(Double(deleted)),
             ])
         },
         registration(.homeRead) { args, _ in

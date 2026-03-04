@@ -20,6 +20,10 @@ import Photos
 import UserNotifications
 #endif
 
+#if canImport(AlarmKit)
+import AlarmKit
+#endif
+
 #if canImport(HomeKit)
 import HomeKit
 #endif
@@ -43,6 +47,8 @@ public final class SystemPermissionBroker: PermissionBroker, @unchecked Sendable
             return photoLibraryStatus()
         case .notifications:
             return notificationsStatus()
+        case .alarmKit:
+            return alarmKitStatus()
         case .homeKit:
             return homeKitStatus()
         }
@@ -64,6 +70,8 @@ public final class SystemPermissionBroker: PermissionBroker, @unchecked Sendable
             return requestPhotoLibraryPermission()
         case .notifications:
             return requestNotificationsPermission()
+        case .alarmKit:
+            return requestAlarmKitPermission()
         case .homeKit:
             return requestHomeKitPermission()
         }
@@ -299,6 +307,17 @@ public final class SystemPermissionBroker: PermissionBroker, @unchecked Sendable
         #endif
     }
 
+    private func alarmKitStatus() -> PermissionStatus {
+        #if canImport(AlarmKit) && os(iOS)
+        if #available(iOS 26.0, *) {
+            return mapAlarmAuthorizationDescription(String(describing: AlarmManager.shared.authorizationState))
+        }
+        return .unavailable
+        #else
+        return .unavailable
+        #endif
+    }
+
     private func requestLocationPermission() -> PermissionStatus {
         #if canImport(CoreLocation) && os(iOS)
         let manager = CLLocationManager()
@@ -446,6 +465,54 @@ public final class SystemPermissionBroker: PermissionBroker, @unchecked Sendable
         #else
         return .unavailable
         #endif
+    }
+
+    private func requestAlarmKitPermission() -> PermissionStatus {
+        #if canImport(AlarmKit) && os(iOS)
+        if #available(iOS 26.0, *) {
+            let current = alarmKitStatus()
+            if current != .notDetermined {
+                return current
+            }
+
+            let semaphore = DispatchSemaphore(value: 0)
+            let requested = LockedBox<PermissionStatus>(.unavailable)
+
+            Task {
+                do {
+                    let state = try await AlarmManager.shared.requestAuthorization()
+                    requested.set(mapAlarmAuthorizationDescription(String(describing: state)))
+                } catch {
+                    requested.set(.denied)
+                }
+                semaphore.signal()
+            }
+
+            if semaphore.wait(timeout: .now() + 15) == .timedOut {
+                return .unavailable
+            }
+
+            return requested.get()
+        }
+
+        return .unavailable
+        #else
+        return .unavailable
+        #endif
+    }
+
+    private func mapAlarmAuthorizationDescription(_ description: String) -> PermissionStatus {
+        let value = description.replacingOccurrences(of: " ", with: "").lowercased()
+        if value.contains("authorized") {
+            return .granted
+        }
+        if value.contains("denied") {
+            return .denied
+        }
+        if value.contains("notdetermined") {
+            return .notDetermined
+        }
+        return .unavailable
     }
 }
 

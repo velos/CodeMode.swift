@@ -117,6 +117,13 @@ enum RuntimeJavaScript {
         cancelPending: function(args) { return __invokeAsync('notifications.pending.delete', args || {}); }
     };
 
+    globalThis.ios.alarm = {
+        requestPermission: function() { return __invokeAsync('alarm.permission.request', {}); },
+        list: function(args) { return __invokeAsync('alarm.read', args || {}); },
+        schedule: function(args) { return __invokeAsync('alarm.schedule', args || {}); },
+        cancel: function(args) { return __invokeAsync('alarm.cancel', args || {}); }
+    };
+
     globalThis.ios.home = {
         list: function(args) { return __invokeAsync('home.read', args || {}); },
         writeCharacteristic: function(args) { return __invokeAsync('home.write', args || {}); }
