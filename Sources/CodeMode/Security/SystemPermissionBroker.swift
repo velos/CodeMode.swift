@@ -12,6 +12,18 @@ import Contacts
 import EventKit
 #endif
 
+#if canImport(Photos)
+import Photos
+#endif
+
+#if canImport(UserNotifications)
+import UserNotifications
+#endif
+
+#if canImport(HomeKit)
+import HomeKit
+#endif
+
 public final class SystemPermissionBroker: PermissionBroker, @unchecked Sendable {
     public init() {}
 
@@ -27,6 +39,12 @@ public final class SystemPermissionBroker: PermissionBroker, @unchecked Sendable
             return calendarWriteStatus()
         case .reminders:
             return remindersStatus()
+        case .photoLibrary:
+            return photoLibraryStatus()
+        case .notifications:
+            return notificationsStatus()
+        case .homeKit:
+            return homeKitStatus()
         }
     }
 
@@ -42,6 +60,12 @@ public final class SystemPermissionBroker: PermissionBroker, @unchecked Sendable
             return requestCalendarWritePermission()
         case .reminders:
             return requestRemindersPermission()
+        case .photoLibrary:
+            return requestPhotoLibraryPermission()
+        case .notifications:
+            return requestNotificationsPermission()
+        case .homeKit:
+            return requestHomeKitPermission()
         }
     }
 
@@ -194,6 +218,87 @@ public final class SystemPermissionBroker: PermissionBroker, @unchecked Sendable
         #endif
     }
 
+    private func photoLibraryStatus() -> PermissionStatus {
+        #if canImport(Photos)
+        if #available(iOS 14.0, macOS 11.0, *) {
+            switch PHPhotoLibrary.authorizationStatus(for: .readWrite) {
+            case .authorized, .limited:
+                return .granted
+            case .denied:
+                return .denied
+            case .restricted:
+                return .restricted
+            case .notDetermined:
+                return .notDetermined
+            @unknown default:
+                return .unavailable
+            }
+        }
+
+        switch PHPhotoLibrary.authorizationStatus() {
+        case .authorized:
+            return .granted
+        case .denied:
+            return .denied
+        case .restricted:
+            return .restricted
+        case .notDetermined:
+            return .notDetermined
+        case .limited:
+            return .granted
+        @unknown default:
+            return .unavailable
+        }
+        #else
+        return .unavailable
+        #endif
+    }
+
+    private func notificationsStatus() -> PermissionStatus {
+        #if canImport(UserNotifications)
+        let semaphore = DispatchSemaphore(value: 0)
+        let resolved = LockedBox<PermissionStatus>(.unavailable)
+
+        UNUserNotificationCenter.current().getNotificationSettings { settings in
+            switch settings.authorizationStatus {
+            case .authorized, .provisional, .ephemeral:
+                resolved.set(.granted)
+            case .denied:
+                resolved.set(.denied)
+            case .notDetermined:
+                resolved.set(.notDetermined)
+            @unknown default:
+                resolved.set(.unavailable)
+            }
+            semaphore.signal()
+        }
+
+        _ = semaphore.wait(timeout: .now() + 10)
+        return resolved.get()
+        #else
+        return .unavailable
+        #endif
+    }
+
+    private func homeKitStatus() -> PermissionStatus {
+        #if canImport(HomeKit)
+        switch HMHomeManager.authorizationStatus() {
+        case .authorized:
+            return .granted
+        case .denied:
+            return .denied
+        case .restricted:
+            return .restricted
+        case .notDetermined:
+            return .notDetermined
+        @unknown default:
+            return .unavailable
+        }
+        #else
+        return .unavailable
+        #endif
+    }
+
     private func requestLocationPermission() -> PermissionStatus {
         #if canImport(CoreLocation) && os(iOS)
         let manager = CLLocationManager()
@@ -290,6 +395,58 @@ public final class SystemPermissionBroker: PermissionBroker, @unchecked Sendable
         return .unavailable
         #endif
     }
+
+    private func requestPhotoLibraryPermission() -> PermissionStatus {
+        #if canImport(Photos)
+        let semaphore = DispatchSemaphore(value: 0)
+
+        if #available(iOS 14.0, macOS 11.0, *) {
+            PHPhotoLibrary.requestAuthorization(for: .readWrite) { _ in
+                semaphore.signal()
+            }
+        } else {
+            PHPhotoLibrary.requestAuthorization { _ in
+                semaphore.signal()
+            }
+        }
+
+        _ = semaphore.wait(timeout: .now() + 10)
+        return photoLibraryStatus()
+        #else
+        return .unavailable
+        #endif
+    }
+
+    private func requestNotificationsPermission() -> PermissionStatus {
+        #if canImport(UserNotifications)
+        let semaphore = DispatchSemaphore(value: 0)
+
+        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .badge, .sound]) { _, _ in
+            semaphore.signal()
+        }
+
+        _ = semaphore.wait(timeout: .now() + 10)
+        return notificationsStatus()
+        #else
+        return .unavailable
+        #endif
+    }
+
+    private func requestHomeKitPermission() -> PermissionStatus {
+        #if canImport(HomeKit)
+        if homeKitStatus() != .notDetermined {
+            return homeKitStatus()
+        }
+
+        let delegate = HomeKitPermissionDelegate()
+        let manager = HMHomeManager()
+        manager.delegate = delegate
+        _ = delegate.wait(timeout: 10)
+        return homeKitStatus()
+        #else
+        return .unavailable
+        #endif
+    }
 }
 
 #if canImport(CoreLocation) && os(iOS)
@@ -297,6 +454,21 @@ private final class LocationPermissionDelegate: NSObject, CLLocationManagerDeleg
     private let semaphore = DispatchSemaphore(value: 0)
 
     func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
+        semaphore.signal()
+    }
+
+    func wait(timeout: TimeInterval) -> DispatchTimeoutResult {
+        semaphore.wait(timeout: .now() + timeout)
+    }
+}
+#endif
+
+#if canImport(HomeKit)
+private final class HomeKitPermissionDelegate: NSObject, HMHomeManagerDelegate {
+    private let semaphore = DispatchSemaphore(value: 0)
+
+    func homeManagerDidUpdateHomes(_ manager: HMHomeManager) {
+        _ = manager
         semaphore.signal()
     }
 

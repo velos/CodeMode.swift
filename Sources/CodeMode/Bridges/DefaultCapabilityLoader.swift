@@ -9,6 +9,10 @@ public enum DefaultCapabilityLoader {
         let weather = WeatherBridge()
         let eventKit = EventKitBridge()
         let contacts = ContactsBridge()
+        let photos = PhotosBridge()
+        let vision = VisionBridge()
+        let notifications = NotificationsBridge()
+        let home = HomeBridge()
         let media = MediaBridge()
 
         return [
@@ -252,6 +256,185 @@ public enum DefaultCapabilityLoader {
                 ),
                 handler: { args, context in
                     try contacts.search(arguments: args, context: context)
+                }
+            ),
+            CapabilityRegistration(
+                descriptor: .init(
+                    id: .photosRead,
+                    title: "List photo library assets",
+                    summary: "List photos/videos from the user photo library.",
+                    tags: ["photos", "photo-library", "media"],
+                    example: "await ios.photos.list({ mediaType: 'image', limit: 20 })",
+                    requiredPermissions: [.photoLibrary],
+                    optionalArguments: ["mediaType", "limit"],
+                    argumentHints: [
+                        "mediaType": "any (default), image, or video.",
+                        "limit": "Max number of results, default 50.",
+                    ],
+                    resultSummary: "Array of assets with localIdentifier/mediaType/dimensions/date metadata."
+                ),
+                handler: { args, context in
+                    try photos.read(arguments: args, context: context)
+                }
+            ),
+            CapabilityRegistration(
+                descriptor: .init(
+                    id: .photosExport,
+                    title: "Export photo library asset",
+                    summary: "Export a photo/video asset to sandbox file path and register artifact handle.",
+                    tags: ["photos", "photo-library", "artifact"],
+                    example: "await ios.photos.export({ localIdentifier: 'ABC/L0/001', outputPath: 'tmp:exported.jpg' })",
+                    requiredPermissions: [.photoLibrary],
+                    requiredArguments: ["localIdentifier"],
+                    optionalArguments: ["outputPath"],
+                    argumentHints: [
+                        "localIdentifier": "PHAsset localIdentifier from photos.read result.",
+                        "outputPath": "Optional sandbox output path; defaults to tmp-generated file.",
+                    ],
+                    resultSummary: "Object with path/artifactID/localIdentifier/mediaType/bytes."
+                ),
+                handler: { args, context in
+                    try photos.export(arguments: args, context: context)
+                }
+            ),
+            CapabilityRegistration(
+                descriptor: .init(
+                    id: .visionImageAnalyze,
+                    title: "Analyze image with Vision",
+                    summary: "Run on-device image analysis for labels/text/barcodes on sandbox image paths.",
+                    tags: ["vision", "image-analysis", "ml"],
+                    example: "await ios.vision.analyzeImage({ path: 'tmp:receipt.jpg', features: ['text'], maxResults: 10 })",
+                    requiredArguments: ["path"],
+                    optionalArguments: ["features", "maxResults"],
+                    argumentHints: [
+                        "path": "Sandbox image path to analyze.",
+                        "features": "Optional array including labels/text/barcodes.",
+                        "maxResults": "Max observations returned per feature, default 5.",
+                    ],
+                    resultSummary: "Object containing requested analysis sections such as labels/text/barcodes."
+                ),
+                handler: { args, context in
+                    try vision.analyzeImage(arguments: args, context: context)
+                }
+            ),
+            CapabilityRegistration(
+                descriptor: .init(
+                    id: .notificationsPermissionRequest,
+                    title: "Request notification permission",
+                    summary: "Request local notification authorization from the user.",
+                    tags: ["notifications", "permission"],
+                    example: "await ios.notifications.requestPermission()",
+                    resultSummary: "Object with status/granted fields."
+                ),
+                handler: { _, context in
+                    try notifications.requestPermission(context: context)
+                }
+            ),
+            CapabilityRegistration(
+                descriptor: .init(
+                    id: .notificationsSchedule,
+                    title: "Schedule local notification",
+                    summary: "Schedule a local notification using time interval or fireDate trigger.",
+                    tags: ["notifications", "local", "schedule"],
+                    example: "await ios.notifications.schedule({ title: 'Stand up', body: 'Stretch break', secondsFromNow: 900 })",
+                    requiredPermissions: [.notifications],
+                    requiredArguments: ["title"],
+                    optionalArguments: ["identifier", "subtitle", "body", "secondsFromNow", "fireDate", "repeats"],
+                    argumentHints: [
+                        "title": "Notification title text.",
+                        "identifier": "Optional request identifier; defaults to codemode UUID.",
+                        "secondsFromNow": "Delay in seconds for time interval trigger (default 5).",
+                        "fireDate": "Optional ISO8601 timestamp for calendar trigger.",
+                        "repeats": "Boolean repeat flag (time interval requires >= 60 seconds).",
+                    ],
+                    resultSummary: "Object with identifier/scheduled/repeats."
+                ),
+                handler: { args, context in
+                    try notifications.schedule(arguments: args, context: context)
+                }
+            ),
+            CapabilityRegistration(
+                descriptor: .init(
+                    id: .notificationsPendingRead,
+                    title: "List pending local notifications",
+                    summary: "List pending local notification requests.",
+                    tags: ["notifications", "local", "schedule"],
+                    example: "await ios.notifications.listPending({ limit: 20 })",
+                    requiredPermissions: [.notifications],
+                    optionalArguments: ["limit"],
+                    argumentHints: [
+                        "limit": "Max number of pending requests to return, default 50.",
+                    ],
+                    resultSummary: "Array of pending requests with identifiers/content/trigger metadata."
+                ),
+                handler: { args, context in
+                    try notifications.readPending(arguments: args, context: context)
+                }
+            ),
+            CapabilityRegistration(
+                descriptor: .init(
+                    id: .notificationsPendingDelete,
+                    title: "Delete pending local notifications",
+                    summary: "Delete pending local notifications by identifier list or clear all.",
+                    tags: ["notifications", "local", "schedule"],
+                    example: "await ios.notifications.cancelPending({ identifiers: ['codemode.1', 'codemode.2'] })",
+                    requiredPermissions: [.notifications],
+                    optionalArguments: ["identifier", "identifiers"],
+                    argumentHints: [
+                        "identifier": "Single pending request identifier to remove.",
+                        "identifiers": "Array of pending request identifiers to remove. Omit both to clear all pending requests.",
+                    ],
+                    resultSummary: "Object with deleted/count fields."
+                ),
+                handler: { args, context in
+                    try notifications.deletePending(arguments: args, context: context)
+                }
+            ),
+            CapabilityRegistration(
+                descriptor: .init(
+                    id: .homeRead,
+                    title: "Read HomeKit graph",
+                    summary: "Read homes/accessories/services (and optional characteristics) from HomeKit.",
+                    tags: ["homekit", "iot", "devices"],
+                    example: "await ios.home.list({ includeCharacteristics: true, limit: 5 })",
+                    requiredPermissions: [.homeKit],
+                    optionalArguments: ["includeCharacteristics", "limit"],
+                    argumentHints: [
+                        "includeCharacteristics": "Boolean; include characteristic details when true.",
+                        "limit": "Max number of homes to return, default 10.",
+                    ],
+                    resultSummary: "Array of homes with accessories/services snapshot."
+                ),
+                handler: { args, context in
+                    try home.read(arguments: args, context: context)
+                }
+            ),
+            CapabilityRegistration(
+                descriptor: .init(
+                    id: .homeWrite,
+                    title: "Write HomeKit characteristic",
+                    summary: "Write a value to a writable HomeKit characteristic for a target accessory.",
+                    tags: ["homekit", "iot", "devices", "control"],
+                    example: "await ios.home.writeCharacteristic({ accessoryIdentifier: 'UUID', characteristicType: 'HMCharacteristicTypePowerState', value: true })",
+                    requiredPermissions: [.homeKit],
+                    requiredArguments: ["accessoryIdentifier", "characteristicType", "value"],
+                    optionalArguments: ["serviceType"],
+                    argumentTypes: [
+                        "accessoryIdentifier": .string,
+                        "characteristicType": .string,
+                        "value": .any,
+                        "serviceType": .string,
+                    ],
+                    argumentHints: [
+                        "accessoryIdentifier": "Accessory UUID string from home.read output.",
+                        "characteristicType": "Characteristic type identifier (e.g. HMCharacteristicTypePowerState).",
+                        "value": "Target value; string/number/bool/null.",
+                        "serviceType": "Optional service type filter for characteristic lookup.",
+                    ],
+                    resultSummary: "Object with accessoryIdentifier/characteristicType/written."
+                ),
+                handler: { args, context in
+                    try home.write(arguments: args, context: context)
                 }
             ),
             CapabilityRegistration(

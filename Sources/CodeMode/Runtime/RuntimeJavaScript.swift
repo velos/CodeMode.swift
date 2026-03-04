@@ -101,6 +101,27 @@ enum RuntimeJavaScript {
         search: function(args) { return __invokeAsync('contacts.search', args || {}); }
     };
 
+    globalThis.ios.photos = {
+        list: function(args) { return __invokeAsync('photos.read', args || {}); },
+        export: function(args) { return __invokeAsync('photos.export', args || {}); }
+    };
+
+    globalThis.ios.vision = {
+        analyzeImage: function(args) { return __invokeAsync('vision.image.analyze', args || {}); }
+    };
+
+    globalThis.ios.notifications = {
+        requestPermission: function() { return __invokeAsync('notifications.permission.request', {}); },
+        schedule: function(args) { return __invokeAsync('notifications.schedule', args || {}); },
+        listPending: function(args) { return __invokeAsync('notifications.pending.read', args || {}); },
+        cancelPending: function(args) { return __invokeAsync('notifications.pending.delete', args || {}); }
+    };
+
+    globalThis.ios.home = {
+        list: function(args) { return __invokeAsync('home.read', args || {}); },
+        writeCharacteristic: function(args) { return __invokeAsync('home.write', args || {}); }
+    };
+
     globalThis.ios.media = {
         metadata: function(args) { return __invokeAsync('media.metadata.read', args || {}); },
         extractFrame: function(args) { return __invokeAsync('media.frame.extract', args || {}); },

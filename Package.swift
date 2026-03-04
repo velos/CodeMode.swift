@@ -39,5 +39,9 @@ let package = Package(
             name: "CodeModeTests",
             dependencies: ["CodeMode"]
         ),
+        .testTarget(
+            name: "CodeModeEvalCLITests",
+            dependencies: ["CodeModeEvalCLI"]
+        ),
     ]
 )

@@ -6,6 +6,9 @@ public enum PermissionKind: String, Sendable, Codable, CaseIterable {
     case calendar = "calendar"
     case calendarWriteOnly = "calendar.writeOnly"
     case reminders = "reminders"
+    case photoLibrary = "photoLibrary"
+    case notifications = "notifications"
+    case homeKit = "homeKit"
 }
 
 public enum PermissionStatus: String, Sendable, Codable, Equatable {

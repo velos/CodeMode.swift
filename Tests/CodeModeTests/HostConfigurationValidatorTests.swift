@@ -4,7 +4,7 @@ import Testing
 
 @Test func requiredInfoPlistKeysMatchCapabilitySet() {
     let keys = HostConfigurationValidator.requiredInfoPlistKeys(
-        for: [.locationRead, .contactsSearch, .calendarRead, .remindersWrite]
+        for: [.locationRead, .contactsSearch, .calendarRead, .remindersWrite, .photosRead, .homeWrite]
     )
 
     #expect(keys.contains("NSLocationWhenInUseUsageDescription"))
@@ -12,6 +12,8 @@ import Testing
     #expect(keys.contains("NSCalendarsFullAccessUsageDescription"))
     #expect(keys.contains("NSCalendarsWriteOnlyAccessUsageDescription"))
     #expect(keys.contains("NSRemindersFullAccessUsageDescription"))
+    #expect(keys.contains("NSPhotoLibraryUsageDescription"))
+    #expect(keys.contains("NSHomeKitUsageDescription"))
 }
 
 @Test func validatorReportsMissingUsageDescriptions() {
@@ -55,4 +57,26 @@ import Testing
 
     #expect(issues.contains(where: { $0.key == "NSCalendarsWriteOnlyAccessUsageDescription" && $0.severity == .error }))
     #expect(issues.contains(where: { $0.key == "NSCalendarsFullAccessUsageDescription" }) == false)
+}
+
+@Test func validatorReportsPhotosAndHomeKitMissingUsageDescriptions() {
+    let issues = HostConfigurationValidator.validate(
+        requiredCapabilities: [.photosRead, .homeRead],
+        infoPlist: [:]
+    )
+
+    #expect(issues.contains(where: { $0.key == "NSPhotoLibraryUsageDescription" && $0.severity == .error }))
+    #expect(issues.contains(where: { $0.key == "NSHomeKitUsageDescription" && $0.severity == .error }))
+}
+
+@Test func validatorAddsNotificationsAndHomeWarnings() {
+    let issues = HostConfigurationValidator.validate(
+        requiredCapabilities: [.notificationsSchedule, .homeRead],
+        infoPlist: [
+            "NSHomeKitUsageDescription": "Need HomeKit to read home accessories",
+        ]
+    )
+
+    #expect(issues.contains(where: { $0.key == "UserNotifications authorization" && $0.severity == .warning }))
+    #expect(issues.contains(where: { $0.key == "HomeKit capability" && $0.severity == .warning }))
 }

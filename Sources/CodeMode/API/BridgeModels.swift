@@ -220,6 +220,19 @@ public enum CapabilityID: String, Sendable, Codable, CaseIterable, Hashable {
     case contactsRead = "contacts.read"
     case contactsSearch = "contacts.search"
 
+    case photosRead = "photos.read"
+    case photosExport = "photos.export"
+
+    case visionImageAnalyze = "vision.image.analyze"
+
+    case notificationsPermissionRequest = "notifications.permission.request"
+    case notificationsSchedule = "notifications.schedule"
+    case notificationsPendingRead = "notifications.pending.read"
+    case notificationsPendingDelete = "notifications.pending.delete"
+
+    case homeRead = "home.read"
+    case homeWrite = "home.write"
+
     case mediaMetadataRead = "media.metadata.read"
     case mediaFrameExtract = "media.frame.extract"
     case mediaTranscode = "media.transcode"

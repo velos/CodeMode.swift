@@ -10,7 +10,7 @@
 - iOS-first target (`iOS 18+`) with `JavaScriptCore` runtime.
 - Hybrid JS surface:
   - web-style globals: `fetch`, `URL`, `URLSearchParams`, `setTimeout`, `console`
-  - privileged namespaces: `ios.keychain`, `ios.location`, `ios.weather`, `ios.calendar`, `ios.reminders`, `ios.contacts`, `ios.media`, `ios.fs`
+  - privileged namespaces: `ios.keychain`, `ios.location`, `ios.weather`, `ios.calendar`, `ios.reminders`, `ios.contacts`, `ios.photos`, `ios.vision`, `ios.notifications`, `ios.home`, `ios.media`, `ios.fs`
 - Node compatibility subset: `globalThis.fs.promises` aliases for common file operations.
 - Sandboxed filesystem policy with allowed roots (`tmp`, `caches`, `documents`).
 
@@ -121,6 +121,13 @@ Required Info.plist keys by capability:
 - Calendar read (`calendar.read`): `NSCalendarsFullAccessUsageDescription`
 - Calendar write-only (`calendar.write`): `NSCalendarsWriteOnlyAccessUsageDescription`
 - Reminders (`reminders.read`, `reminders.write`): `NSRemindersFullAccessUsageDescription`
+- Photos (`photos.read`, `photos.export`): `NSPhotoLibraryUsageDescription`
+- HomeKit (`home.read`, `home.write`): `NSHomeKitUsageDescription`
+
+Notifications:
+
+- Local notification scheduling/management (`notifications.*`) requires runtime authorization via `ios.notifications.requestPermission()`.
+- No additional Info.plist privacy string is required for `UNUserNotificationCenter` authorization prompts.
 
 Weather:
 
@@ -148,7 +155,6 @@ for issue in issues {
 
 The package intentionally defers these to later phases:
 
-- Push notifications / APNs token lifecycle
+- Push notifications / APNs token lifecycle (local notifications are included in v1)
 - PassKit wallet APIs
-- Photos + Vision pipeline
-- Other frameworks such as Speech, MusicKit, HomeKit, Foundation Models
+- Other frameworks such as Speech, MusicKit, Foundation Models

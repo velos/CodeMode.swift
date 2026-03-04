@@ -41,6 +41,14 @@ public enum HostConfigurationValidator {
             keys.insert("NSRemindersFullAccessUsageDescription")
         }
 
+        if capabilities.contains(.photosRead) || capabilities.contains(.photosExport) {
+            keys.insert("NSPhotoLibraryUsageDescription")
+        }
+
+        if capabilities.contains(.homeRead) || capabilities.contains(.homeWrite) {
+            keys.insert("NSHomeKitUsageDescription")
+        }
+
         return keys
     }
 
@@ -71,6 +79,30 @@ public enum HostConfigurationValidator {
                     severity: .warning,
                     key: "WeatherKit capability",
                     message: "Ensure WeatherKit is enabled for the App ID and target capability before using weather.read."
+                )
+            )
+        }
+
+        if requiredCapabilities.contains(.notificationsSchedule) ||
+            requiredCapabilities.contains(.notificationsPendingRead) ||
+            requiredCapabilities.contains(.notificationsPendingDelete) ||
+            requiredCapabilities.contains(.notificationsPermissionRequest)
+        {
+            issues.append(
+                HostConfigurationIssue(
+                    severity: .warning,
+                    key: "UserNotifications authorization",
+                    message: "Schedule/management calls require user authorization via notifications.permission.request at runtime."
+                )
+            )
+        }
+
+        if requiredCapabilities.contains(.homeRead) || requiredCapabilities.contains(.homeWrite) {
+            issues.append(
+                HostConfigurationIssue(
+                    severity: .warning,
+                    key: "HomeKit capability",
+                    message: "Ensure HomeKit entitlement/capability is enabled for the target before using home.* capabilities."
                 )
             )
         }
