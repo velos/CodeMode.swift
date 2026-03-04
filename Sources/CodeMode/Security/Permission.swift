@@ -9,6 +9,7 @@ public enum PermissionKind: String, Sendable, Codable, CaseIterable {
     case photoLibrary = "photoLibrary"
     case notifications = "notifications"
     case alarmKit = "alarmKit"
+    case healthKit = "healthKit"
     case homeKit = "homeKit"
 }
 

@@ -235,6 +235,10 @@ public enum CapabilityID: String, Sendable, Codable, CaseIterable, Hashable {
     case alarmSchedule = "alarm.schedule"
     case alarmCancel = "alarm.cancel"
 
+    case healthPermissionRequest = "health.permission.request"
+    case healthRead = "health.read"
+    case healthWrite = "health.write"
+
     case homeRead = "home.read"
     case homeWrite = "home.write"
 

@@ -24,6 +24,10 @@ import UserNotifications
 import AlarmKit
 #endif
 
+#if canImport(HealthKit)
+import HealthKit
+#endif
+
 #if canImport(HomeKit)
 import HomeKit
 #endif
@@ -49,6 +53,8 @@ public final class SystemPermissionBroker: PermissionBroker, @unchecked Sendable
             return notificationsStatus()
         case .alarmKit:
             return alarmKitStatus()
+        case .healthKit:
+            return healthKitStatus()
         case .homeKit:
             return homeKitStatus()
         }
@@ -72,6 +78,8 @@ public final class SystemPermissionBroker: PermissionBroker, @unchecked Sendable
             return requestNotificationsPermission()
         case .alarmKit:
             return requestAlarmKitPermission()
+        case .healthKit:
+            return requestHealthKitPermission()
         case .homeKit:
             return requestHomeKitPermission()
         }
@@ -307,6 +315,17 @@ public final class SystemPermissionBroker: PermissionBroker, @unchecked Sendable
         #endif
     }
 
+    private func healthKitStatus() -> PermissionStatus {
+        #if canImport(HealthKit)
+        guard HKHealthStore.isHealthDataAvailable() else {
+            return .unavailable
+        }
+        return .granted
+        #else
+        return .unavailable
+        #endif
+    }
+
     private func alarmKitStatus() -> PermissionStatus {
         #if canImport(AlarmKit) && os(iOS)
         if #available(iOS 26.0, *) {
@@ -465,6 +484,10 @@ public final class SystemPermissionBroker: PermissionBroker, @unchecked Sendable
         #else
         return .unavailable
         #endif
+    }
+
+    private func requestHealthKitPermission() -> PermissionStatus {
+        healthKitStatus()
     }
 
     private func requestAlarmKitPermission() -> PermissionStatus {

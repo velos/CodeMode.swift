@@ -57,6 +57,14 @@ public enum HostConfigurationValidator {
             keys.insert("NSAlarmKitUsageDescription")
         }
 
+        if capabilities.contains(.healthPermissionRequest) || capabilities.contains(.healthRead) {
+            keys.insert("NSHealthShareUsageDescription")
+        }
+
+        if capabilities.contains(.healthPermissionRequest) || capabilities.contains(.healthWrite) {
+            keys.insert("NSHealthUpdateUsageDescription")
+        }
+
         return keys
     }
 
@@ -125,6 +133,19 @@ public enum HostConfigurationValidator {
                     severity: .warning,
                     key: "AlarmKit platform requirement",
                     message: "AlarmKit requires iOS 26+ and runtime authorization before using alarm.* capabilities."
+                )
+            )
+        }
+
+        if requiredCapabilities.contains(.healthPermissionRequest) ||
+            requiredCapabilities.contains(.healthRead) ||
+            requiredCapabilities.contains(.healthWrite)
+        {
+            issues.append(
+                HostConfigurationIssue(
+                    severity: .warning,
+                    key: "HealthKit capability",
+                    message: "Ensure HealthKit capability/entitlement is enabled before using health.* capabilities."
                 )
             )
         }

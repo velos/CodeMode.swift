@@ -969,6 +969,19 @@ final class MockState: @unchecked Sendable {
     private let lock = NSLock()
     private var keychain: [String: String] = [:]
     private var alarms: [String: [String: JSONValue]] = [:]
+    private var healthSamples: [String: [[String: JSONValue]]] = [
+        "stepCount": [
+            [
+                "identifier": .string("health-step-1"),
+                "type": .string("stepCount"),
+                "value": .number(1240),
+                "unit": .string("count"),
+                "startDate": .string(Date().addingTimeInterval(-7200).ISO8601Format()),
+                "endDate": .string(Date().addingTimeInterval(-3600).ISO8601Format()),
+                "source": .string("CodeModeEval"),
+            ],
+        ],
+    ]
     private var events: [[String: JSONValue]] = [
         [
             "identifier": .string("evt-1"),
@@ -1044,6 +1057,33 @@ final class MockState: @unchecked Sendable {
             }
         }
         return deleted
+    }
+
+    func readHealthSamples(type: String, limit: Int) -> [JSONValue] {
+        lock.lock()
+        defer { lock.unlock() }
+        let values = healthSamples[type] ?? []
+        return Array(values.prefix(limit)).map { .object($0) }
+    }
+
+    func writeHealthSample(type: String, value: Double, unit: String, startDate: String, endDate: String) -> [String: JSONValue] {
+        lock.lock()
+        defer { lock.unlock() }
+
+        let sample: [String: JSONValue] = [
+            "identifier": .string("health-\(type)-\(UUID().uuidString)"),
+            "type": .string(type),
+            "value": .number(value),
+            "unit": .string(unit),
+            "startDate": .string(startDate),
+            "endDate": .string(endDate),
+            "source": .string("CodeModeEval"),
+        ]
+
+        var list = healthSamples[type] ?? []
+        list.insert(sample, at: 0)
+        healthSamples[type] = list
+        return sample
     }
 
     func readEvents() -> [JSONValue] {
@@ -1354,6 +1394,46 @@ func makeEvalHost(recorder: InvocationRecorder, sandbox: EvalSandbox) -> CodeMod
             return .object([
                 "deleted": .bool(true),
                 "count": .number(Double(deleted)),
+            ])
+        },
+        registration(.healthPermissionRequest) { args, _ in
+            let readTypes = args.array("readTypes")?.compactMap(\.stringValue) ?? []
+            let writeTypes = args.array("writeTypes")?.compactMap(\.stringValue) ?? []
+            return .object([
+                "status": .string(PermissionStatus.granted.rawValue),
+                "granted": .bool(true),
+                "readTypes": .array(readTypes.map(JSONValue.string)),
+                "writeTypes": .array(writeTypes.map(JSONValue.string)),
+            ])
+        },
+        registration(.healthRead) { args, _ in
+            guard let type = args.string("type"), type.isEmpty == false else {
+                throw BridgeError.invalidArguments("health.read requires type")
+            }
+            let limit = max(1, args.int("limit") ?? 50)
+            return .array(state.readHealthSamples(type: type, limit: limit))
+        },
+        registration(.healthWrite) { args, _ in
+            guard let type = args.string("type"), type.isEmpty == false else {
+                throw BridgeError.invalidArguments("health.write requires type")
+            }
+            guard let value = args.double("value") else {
+                throw BridgeError.invalidArguments("health.write requires numeric value")
+            }
+
+            let start = args.string("start") ?? Date().ISO8601Format()
+            let end = args.string("end") ?? start
+            let unit = args.string("unit") ?? "count"
+            let sample = state.writeHealthSample(type: type, value: value, unit: unit, startDate: start, endDate: end)
+
+            return .object([
+                "identifier": sample["identifier"] ?? .string(""),
+                "type": sample["type"] ?? .string(type),
+                "value": sample["value"] ?? .number(value),
+                "unit": sample["unit"] ?? .string(unit),
+                "startDate": sample["startDate"] ?? .string(start),
+                "endDate": sample["endDate"] ?? .string(end),
+                "written": .bool(true),
             ])
         },
         registration(.homeRead) { args, _ in

@@ -10,7 +10,7 @@
 - iOS-first target (`iOS 18+`) with `JavaScriptCore` runtime.
 - Hybrid JS surface:
   - web-style globals: `fetch`, `URL`, `URLSearchParams`, `setTimeout`, `console`
-  - privileged namespaces: `ios.keychain`, `ios.location`, `ios.weather`, `ios.calendar`, `ios.reminders`, `ios.contacts`, `ios.photos`, `ios.vision`, `ios.notifications`, `ios.alarm`, `ios.home`, `ios.media`, `ios.fs`
+  - privileged namespaces: `ios.keychain`, `ios.location`, `ios.weather`, `ios.calendar`, `ios.reminders`, `ios.contacts`, `ios.photos`, `ios.vision`, `ios.notifications`, `ios.alarm`, `ios.health`, `ios.home`, `ios.media`, `ios.fs`
 - Node compatibility subset: `globalThis.fs.promises` aliases for common file operations.
 - Sandboxed filesystem policy with allowed roots (`tmp`, `caches`, `documents`).
 
@@ -123,6 +123,8 @@ Required Info.plist keys by capability:
 - Reminders (`reminders.read`, `reminders.write`): `NSRemindersFullAccessUsageDescription`
 - Photos (`photos.read`, `photos.export`): `NSPhotoLibraryUsageDescription`
 - AlarmKit (`alarm.permission.request`, `alarm.read`, `alarm.schedule`, `alarm.cancel`): `NSAlarmKitUsageDescription`
+- HealthKit read (`health.permission.request`, `health.read`): `NSHealthShareUsageDescription`
+- HealthKit write (`health.permission.request`, `health.write`): `NSHealthUpdateUsageDescription`
 - HomeKit (`home.read`, `home.write`): `NSHomeKitUsageDescription`
 
 Notifications:
@@ -133,6 +135,10 @@ Notifications:
 AlarmKit:
 
 - `alarm.*` requires iOS 26+ and runtime authorization via `ios.alarm.requestPermission()`.
+
+HealthKit:
+
+- `health.*` requires HealthKit capability/entitlement and runtime authorization (use `ios.health.requestPermission(...)`).
 
 Weather:
 

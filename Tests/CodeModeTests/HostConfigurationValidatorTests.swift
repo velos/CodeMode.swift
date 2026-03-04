@@ -4,7 +4,7 @@ import Testing
 
 @Test func requiredInfoPlistKeysMatchCapabilitySet() {
     let keys = HostConfigurationValidator.requiredInfoPlistKeys(
-        for: [.locationRead, .contactsSearch, .calendarRead, .remindersWrite, .photosRead, .homeWrite, .alarmSchedule]
+        for: [.locationRead, .contactsSearch, .calendarRead, .remindersWrite, .photosRead, .homeWrite, .alarmSchedule, .healthRead, .healthWrite]
     )
 
     #expect(keys.contains("NSLocationWhenInUseUsageDescription"))
@@ -15,6 +15,8 @@ import Testing
     #expect(keys.contains("NSPhotoLibraryUsageDescription"))
     #expect(keys.contains("NSHomeKitUsageDescription"))
     #expect(keys.contains("NSAlarmKitUsageDescription"))
+    #expect(keys.contains("NSHealthShareUsageDescription"))
+    #expect(keys.contains("NSHealthUpdateUsageDescription"))
 }
 
 @Test func validatorReportsMissingUsageDescriptions() {
@@ -90,4 +92,15 @@ import Testing
 
     #expect(issues.contains(where: { $0.key == "NSAlarmKitUsageDescription" && $0.severity == .error }))
     #expect(issues.contains(where: { $0.key == "AlarmKit platform requirement" && $0.severity == .warning }))
+}
+
+@Test func validatorRequiresHealthKitKeysAndAddsCapabilityWarning() {
+    let issues = HostConfigurationValidator.validate(
+        requiredCapabilities: [.healthRead, .healthWrite],
+        infoPlist: [:]
+    )
+
+    #expect(issues.contains(where: { $0.key == "NSHealthShareUsageDescription" && $0.severity == .error }))
+    #expect(issues.contains(where: { $0.key == "NSHealthUpdateUsageDescription" && $0.severity == .error }))
+    #expect(issues.contains(where: { $0.key == "HealthKit capability" && $0.severity == .warning }))
 }

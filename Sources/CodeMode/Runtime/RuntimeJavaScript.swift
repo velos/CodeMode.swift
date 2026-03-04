@@ -124,6 +124,12 @@ enum RuntimeJavaScript {
         cancel: function(args) { return __invokeAsync('alarm.cancel', args || {}); }
     };
 
+    globalThis.ios.health = {
+        requestPermission: function(args) { return __invokeAsync('health.permission.request', args || {}); },
+        read: function(args) { return __invokeAsync('health.read', args || {}); },
+        write: function(args) { return __invokeAsync('health.write', args || {}); }
+    };
+
     globalThis.ios.home = {
         list: function(args) { return __invokeAsync('home.read', args || {}); },
         writeCharacteristic: function(args) { return __invokeAsync('home.write', args || {}); }

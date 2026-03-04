@@ -13,6 +13,7 @@ public enum DefaultCapabilityLoader {
         let vision = VisionBridge()
         let notifications = NotificationsBridge()
         let alarm = AlarmBridge()
+        let health = HealthBridge()
         let home = HomeBridge()
         let media = MediaBridge()
 
@@ -461,6 +462,86 @@ public enum DefaultCapabilityLoader {
                 ),
                 handler: { args, context in
                     try alarm.cancel(arguments: args, context: context)
+                }
+            ),
+            CapabilityRegistration(
+                descriptor: .init(
+                    id: .healthPermissionRequest,
+                    title: "Request HealthKit permission",
+                    summary: "Request HealthKit authorization for requested read/write types.",
+                    tags: ["healthkit", "health", "permission"],
+                    example: "await ios.health.requestPermission({ readTypes: ['stepCount', 'heartRate'], writeTypes: ['stepCount'] })",
+                    optionalArguments: ["readTypes", "writeTypes"],
+                    argumentTypes: [
+                        "readTypes": .array,
+                        "writeTypes": .array,
+                    ],
+                    argumentHints: [
+                        "readTypes": "Optional array of type names to read, e.g. stepCount, heartRate, activeEnergyBurned.",
+                        "writeTypes": "Optional array of type names to write (quantity types only).",
+                    ],
+                    resultSummary: "Object with status/granted fields and requested type arrays."
+                ),
+                handler: { args, context in
+                    try health.requestPermission(arguments: args, context: context)
+                }
+            ),
+            CapabilityRegistration(
+                descriptor: .init(
+                    id: .healthRead,
+                    title: "Read HealthKit samples",
+                    summary: "Read HealthKit samples for a supported type and date range.",
+                    tags: ["healthkit", "health", "query"],
+                    example: "await ios.health.read({ type: 'stepCount', start: '2026-03-03T00:00:00Z', end: '2026-03-04T00:00:00Z', limit: 25, unit: 'count' })",
+                    requiredArguments: ["type"],
+                    optionalArguments: ["start", "end", "limit", "unit"],
+                    argumentTypes: [
+                        "type": .string,
+                        "start": .string,
+                        "end": .string,
+                        "limit": .number,
+                        "unit": .string,
+                    ],
+                    argumentHints: [
+                        "type": "Supported: stepCount, heartRate, activeEnergyBurned, bodyMass, distanceWalkingRunning, sleepAnalysis, workout.",
+                        "start": "Optional ISO8601 start timestamp; defaults to last 24h.",
+                        "end": "Optional ISO8601 end timestamp; defaults to now.",
+                        "limit": "Max number of samples, default 50.",
+                        "unit": "Optional unit override for quantity types (count, bpm, kcal, kg, m).",
+                    ],
+                    resultSummary: "Array of samples with identifier/type/value and timing metadata."
+                ),
+                handler: { args, context in
+                    try health.read(arguments: args, context: context)
+                }
+            ),
+            CapabilityRegistration(
+                descriptor: .init(
+                    id: .healthWrite,
+                    title: "Write HealthKit quantity sample",
+                    summary: "Write a HealthKit quantity sample for supported writable quantity types.",
+                    tags: ["healthkit", "health", "write"],
+                    example: "await ios.health.write({ type: 'stepCount', value: 1200, unit: 'count', start: '2026-03-04T08:00:00Z', end: '2026-03-04T08:30:00Z' })",
+                    requiredArguments: ["type", "value"],
+                    optionalArguments: ["unit", "start", "end"],
+                    argumentTypes: [
+                        "type": .string,
+                        "value": .number,
+                        "unit": .string,
+                        "start": .string,
+                        "end": .string,
+                    ],
+                    argumentHints: [
+                        "type": "Writable types: stepCount, heartRate, activeEnergyBurned, bodyMass, distanceWalkingRunning.",
+                        "value": "Numeric sample value.",
+                        "unit": "Optional unit (count, bpm, kcal, kg, m).",
+                        "start": "Optional ISO8601 start timestamp; defaults to now.",
+                        "end": "Optional ISO8601 end timestamp; defaults to start.",
+                    ],
+                    resultSummary: "Object with identifier/type/value/unit and written=true."
+                ),
+                handler: { args, context in
+                    try health.write(arguments: args, context: context)
                 }
             ),
             CapabilityRegistration(
