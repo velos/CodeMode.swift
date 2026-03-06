@@ -101,11 +101,12 @@ import Testing
 }
 
 @Test func executeUsesFileSystemBridge() async throws {
-    let (host, sandbox) = try makeHost()
+    let (tools, sandbox) = try makeTools()
     defer { cleanup(sandbox) }
 
-    let response = try await host.execute(
-        ExecuteRequest(
+    let observed = try await execute(
+        tools,
+        request: JavaScriptExecutionRequest(
             code: """
             await ios.fs.write({ path: 'tmp:execute-fs.txt', data: 'fs-from-execute' });
             const text = await fs.promises.readFile('tmp:execute-fs.txt', 'utf8');
@@ -115,7 +116,6 @@ import Testing
         )
     )
 
-    #expect(response.diagnostics.isEmpty)
-    let payload = try requireJSONObject(from: response)
+    let payload = try requireJSONObject(from: try #require(observed.result))
     #expect(payload["text"] as? String == "fs-from-execute")
 }

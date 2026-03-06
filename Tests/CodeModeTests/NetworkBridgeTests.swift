@@ -105,11 +105,12 @@ private final class StubHTTPURLProtocol: URLProtocol {
 }
 
 @Test func executeUsesNetworkBridgeViaFetch() async throws {
-    let (host, sandbox) = try makeHost()
+    let (tools, sandbox) = try makeTools()
     defer { cleanup(sandbox) }
 
-    let response = try await host.execute(
-        ExecuteRequest(
+    let observed = try await execute(
+        tools,
+        request: JavaScriptExecutionRequest(
             code: """
             await fetch('://');
             return { ok: true };
@@ -118,5 +119,5 @@ private final class StubHTTPURLProtocol: URLProtocol {
         )
     )
 
-    #expect(response.diagnostics.contains(where: { $0.code == "INVALID_ARGUMENTS" || $0.code == "NATIVE_FAILURE" }))
+    #expect(observed.error?.code == "INVALID_ARGUMENTS" || observed.error?.code == "NATIVE_FAILURE")
 }

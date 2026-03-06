@@ -1,9 +1,9 @@
 # CodeMode
 
-`CodeMode` is a Swift package that exposes two MCP-style operations over JavaScriptCore:
+`CodeMode` is a Swift package that exposes two agent-oriented operations over JavaScriptCore:
 
-- `search`: fuzzy discovery of bridged APIs and examples.
-- `execute`: run constrained JavaScript with explicit capability allowlisting.
+- `searchJavaScriptAPI`: fuzzy discovery of the bundled JS APIs and examples.
+- `executeJavaScript`: run constrained JavaScript with explicit capability allowlisting.
 
 ## Highlights
 
@@ -19,96 +19,44 @@
 ```swift
 import CodeMode
 
-let host = CodeModeBridgeHost()
+let tools = CodeModeAgentTools()
 
-let search = try await host.search(
-    SearchRequest(mode: .discover, query: "create reminder", limit: 5)
+let search = try await tools.searchJavaScriptAPI(
+    JavaScriptAPISearchRequest(query: "create reminder", limit: 5)
 )
 
-let detail = try await host.search(
-    SearchRequest(mode: .describe, capability: .remindersWrite)
+let detail = try await tools.searchJavaScriptAPI(
+    JavaScriptAPISearchRequest(capability: .remindersWrite)
 )
 
-let response = try await host.execute(
-    ExecuteRequest(
+let call = try await tools.executeJavaScript(
+    JavaScriptExecutionRequest(
         code: """
-        await ios.fs.write({ path: 'tmp:note.txt', data: 'hello' });
-        return await fs.promises.readFile('tmp:note.txt', 'utf8');
-        """,
+            await ios.fs.write({ path: 'tmp:note.txt', data: 'hello' });
+            return await fs.promises.readFile('tmp:note.txt', 'utf8');
+            """,
         allowedCapabilities: [.fsWrite, .fsRead]
     )
 )
 
-print(response.resultJSON ?? "null")
+for await event in call.events {
+    if case .log(let entry) = event {
+        print(entry.message)
+    }
+}
+
+let result = try await call.result
+print(result.output ?? .null)
 ```
 
-`search` modes:
+`searchJavaScriptAPI` supports:
 
-- `discover`: fuzzy capability search using `query`, optional `tags`, and `limit`.
-- `describe`: schema/detail lookup for one capability using `capability` (required/optional args + expected types).
+- fuzzy text lookup using `query`, optional `tags`, and `limit`
+- exact capability lookup using `capability`
 
-`execute` now performs schema-first argument validation (required args, type checks, unknown-argument rejection) before bridge execution. Argument errors include a usage hint with expected argument types and an example call to help small models recover without another tool call.
+`executeJavaScript` returns a streaming call handle. The event stream emits logs, non-fatal diagnostics, and a terminal event for syntax errors, missing JS helpers, JS throws, or tool failures. `call.result` returns the final structured output or throws a `CodeModeToolError` with machine-readable fields that hosts can format however they want.
 
-## Eval CLI
-
-The package includes an eval CLI (`codemode-eval`) for prompt-to-tool/script evaluation using mocked bridges and objective checks.
-
-`codemode-eval` now runs a bounded multi-step planner for execute scenarios (up to 4 turns): it can call `search`, then `execute`, and perform one automatic repair retry after static validation/runtime errors.
-
-Run with scripted baseline:
-
-```bash
-swift run codemode-eval --model scripted
-```
-
-Run with Wavelike proxy model provider:
-
-```bash
-export WAVELIKE_APP_ID=your-app-id
-export WAVELIKE_MODEL_ID=gpt-4.1-mini
-# optional:
-# export WAVELIKE_ENV=stage   # local|stage|production
-# export WAVELIKE_API_KEY=...
-# or export WAVELIKE_USER_ID=... && export WAVELIKE_USER_KEY=...
-
-swift run codemode-eval --model wavelike
-```
-
-Run with local Apple Foundation Model via Wavelike engine:
-
-```bash
-# optional; defaults to com.apple.SystemLanguageModel.default
-# export WAVELIKE_MODEL_ID=com.apple.SystemLanguageModel.default
-# optional; defaults to codemode-eval-local
-# export WAVELIKE_APP_ID=codemode-eval-local
-
-swift run codemode-eval --model apple
-```
-
-Filter scenarios or inspect generated calls:
-
-```bash
-swift run codemode-eval --model scripted --scenario morning-brief,fetch-json-and-save --show-generated
-```
-
-Trace model-level diagnostics (prompt, raw-output preview, and detailed error chain):
-
-```bash
-swift run codemode-eval --model apple --trace-model
-```
-
-Pluggable external model adapter:
-
-```bash
-swift run codemode-eval --model command --model-command /path/to/adapter
-```
-
-The command adapter reads JSON from stdin (`prompt`, `capabilities`) and must return JSON:
-- `{"tool":"search","search":{"mode":"discover","query":"...","limit":10}}`
-- `{"tool":"search","search":{"mode":"describe","capability":"calendar.write"}}`
-- `{"tool":"execute","code":"...javascript..."}`
-
-`guidance` may also be included in stdin for multi-step planning context (prior search output or error feedback).
+The root package is library-only. Eval tooling lives in a separate package at `Tools/CodeModeEvalCLI`.
 
 ## Host App Permissions and Capabilities
 

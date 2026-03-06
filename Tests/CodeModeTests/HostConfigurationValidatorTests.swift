@@ -10,7 +10,7 @@ import Testing
     #expect(keys.contains("NSLocationWhenInUseUsageDescription"))
     #expect(keys.contains("NSContactsUsageDescription"))
     #expect(keys.contains("NSCalendarsFullAccessUsageDescription"))
-    #expect(keys.contains("NSCalendarsWriteOnlyAccessUsageDescription"))
+    #expect(keys.contains("NSCalendarsWriteOnlyAccessUsageDescription") == false)
     #expect(keys.contains("NSRemindersFullAccessUsageDescription"))
     #expect(keys.contains("NSPhotoLibraryUsageDescription"))
     #expect(keys.contains("NSHomeKitUsageDescription"))

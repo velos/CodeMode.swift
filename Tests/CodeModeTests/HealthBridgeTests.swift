@@ -46,11 +46,12 @@ import Testing
 
 @Test func executeUsesHealthBridgeWithPermissionDenial() async throws {
     let broker = FixedPermissionBroker(statuses: [.healthKit: .denied])
-    let (host, sandbox) = try makeHost(permissionBroker: broker)
+    let (tools, sandbox) = try makeTools(permissionBroker: broker)
     defer { cleanup(sandbox) }
 
-    let response = try await host.execute(
-        ExecuteRequest(
+    let observed = try await execute(
+        tools,
+        request: JavaScriptExecutionRequest(
             code: """
             await ios.health.read({ type: 'stepCount', limit: 1 });
             return { ok: true };
@@ -59,5 +60,5 @@ import Testing
         )
     )
 
-    #expect(response.diagnostics.contains(where: { $0.code == "PERMISSION_DENIED" }))
+    #expect(observed.error?.code == "PERMISSION_DENIED")
 }

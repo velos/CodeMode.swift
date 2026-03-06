@@ -54,11 +54,12 @@ import Testing
 }
 
 @Test func executeUsesMediaBridgeValidation() async throws {
-    let (host, sandbox) = try makeHost()
+    let (tools, sandbox) = try makeTools()
     defer { cleanup(sandbox) }
 
-    let response = try await host.execute(
-        ExecuteRequest(
+    let observed = try await execute(
+        tools,
+        request: JavaScriptExecutionRequest(
             code: """
             await ios.media.metadata({});
             return { ok: true };
@@ -68,8 +69,8 @@ import Testing
     )
 
     #if canImport(AVFoundation)
-    #expect(response.diagnostics.contains(where: { $0.code == "INVALID_ARGUMENTS" }))
+    #expect(observed.error?.code == "INVALID_ARGUMENTS")
     #else
-    #expect(response.diagnostics.contains(where: { $0.code == "UNSUPPORTED_PLATFORM" }))
+    #expect(observed.error?.code == "UNSUPPORTED_PLATFORM")
     #endif
 }

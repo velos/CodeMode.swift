@@ -1,122 +1,49 @@
 import Foundation
 
-public enum SearchMode: String, Sendable, Codable {
-    case discover
-    case describe
-}
-
-public struct SearchRequest: Sendable, Codable {
-    public var mode: SearchMode = .discover
-    public var query: String?
-    public var capability: CapabilityID?
-    public var limit: Int
-    public var tags: [String]?
-    public var code: String?
+public struct CodeModeConfiguration: Sendable {
+    public var pathPolicy: any PathPolicy
+    public var artifactStore: any ArtifactStore
+    public var permissionBroker: any PermissionBroker
+    public var auditLogger: any AuditLogger
 
     public init(
-        mode: SearchMode = .discover,
+        pathPolicy: any PathPolicy = DefaultPathPolicy(),
+        artifactStore: any ArtifactStore = InMemoryArtifactStore(),
+        permissionBroker: any PermissionBroker = SystemPermissionBroker(),
+        auditLogger: any AuditLogger = SyncAuditLogger()
+    ) {
+        self.pathPolicy = pathPolicy
+        self.artifactStore = artifactStore
+        self.permissionBroker = permissionBroker
+        self.auditLogger = auditLogger
+    }
+}
+
+public struct JavaScriptAPISearchRequest: Sendable, Codable, Equatable {
+    public var query: String?
+    public var capability: CapabilityID?
+    public var tags: [String]
+    public var limit: Int
+
+    public init(
         query: String? = nil,
         capability: CapabilityID? = nil,
-        limit: Int = 10,
-        tags: [String]? = nil,
-        code: String? = nil
+        tags: [String] = [],
+        limit: Int = 8
     ) {
-        self.mode = mode
         self.query = query
         self.capability = capability
+        self.tags = tags
         self.limit = limit
-        self.tags = tags
-        self.code = code
-    }
-
-    public init(query: String, limit: Int = 10, tags: [String]? = nil) {
-        self.init(mode: .discover, query: query, limit: limit, tags: tags)
-    }
-
-    public init(describe capability: CapabilityID) {
-        self.init(mode: .describe, capability: capability, limit: 1)
-    }
-
-    public init(code: String, limit: Int = 10, tags: [String]? = nil) {
-        self.init(mode: .discover, query: code, limit: limit, tags: tags, code: code)
     }
 }
 
-public struct SearchResponse: Sendable, Codable {
-    public var items: [BridgeAPIDoc]
-    public var detail: CapabilityDetail?
-    public var diagnostics: [ToolDiagnostic]
-
-    public init(items: [BridgeAPIDoc], detail: CapabilityDetail? = nil, diagnostics: [ToolDiagnostic] = []) {
-        self.items = items
-        self.detail = detail
-        self.diagnostics = diagnostics
-    }
-}
-
-public struct ExecuteRequest: Sendable, Codable {
-    public var code: String
-    public var allowedCapabilities: [CapabilityID]
-    public var timeoutMs: Int
-    public var context: ExecutionContext
-
-    public init(code: String, allowedCapabilities: [CapabilityID], timeoutMs: Int = 10_000, context: ExecutionContext = .init()) {
-        self.code = code
-        self.allowedCapabilities = allowedCapabilities
-        self.timeoutMs = timeoutMs
-        self.context = context
-    }
-}
-
-public struct ExecuteResponse: Sendable, Codable {
-    public var resultJSON: String?
-    public var logs: [ExecutionLog]
-    public var diagnostics: [ToolDiagnostic]
-    public var permissionEvents: [PermissionEvent]
-
-    public init(resultJSON: String?, logs: [ExecutionLog], diagnostics: [ToolDiagnostic], permissionEvents: [PermissionEvent]) {
-        self.resultJSON = resultJSON
-        self.logs = logs
-        self.diagnostics = diagnostics
-        self.permissionEvents = permissionEvents
-    }
-}
-
-public struct ExecutionContext: Sendable, Codable {
-    public var userID: String?
-    public var sessionID: String?
-    public var metadata: [String: String]
-
-    public init(userID: String? = nil, sessionID: String? = nil, metadata: [String: String] = [:]) {
-        self.userID = userID
-        self.sessionID = sessionID
-        self.metadata = metadata
-    }
-}
-
-public struct BridgeAPIDoc: Sendable, Codable, Equatable {
+public struct JavaScriptAPIReference: Sendable, Codable, Equatable {
     public var capability: CapabilityID
-    public var title: String
+    public var jsNames: [String]
     public var summary: String
     public var tags: [String]
     public var example: String
-
-    public init(capability: CapabilityID, title: String, summary: String, tags: [String], example: String) {
-        self.capability = capability
-        self.title = title
-        self.summary = summary
-        self.tags = tags
-        self.example = example
-    }
-}
-
-public struct CapabilityDetail: Sendable, Codable, Equatable {
-    public var capability: CapabilityID
-    public var title: String
-    public var summary: String
-    public var tags: [String]
-    public var example: String
-    public var requiredPermissions: [PermissionKind]
     public var requiredArguments: [String]
     public var optionalArguments: [String]
     public var argumentTypes: [String: CapabilityArgumentType]
@@ -125,11 +52,10 @@ public struct CapabilityDetail: Sendable, Codable, Equatable {
 
     public init(
         capability: CapabilityID,
-        title: String,
+        jsNames: [String],
         summary: String,
         tags: [String],
         example: String,
-        requiredPermissions: [PermissionKind],
         requiredArguments: [String],
         optionalArguments: [String],
         argumentTypes: [String: CapabilityArgumentType],
@@ -137,16 +63,184 @@ public struct CapabilityDetail: Sendable, Codable, Equatable {
         resultSummary: String
     ) {
         self.capability = capability
-        self.title = title
+        self.jsNames = jsNames
         self.summary = summary
         self.tags = tags
         self.example = example
-        self.requiredPermissions = requiredPermissions
         self.requiredArguments = requiredArguments
         self.optionalArguments = optionalArguments
         self.argumentTypes = argumentTypes
         self.argumentHints = argumentHints
         self.resultSummary = resultSummary
+    }
+}
+
+public struct JavaScriptAPISearchResponse: Sendable, Codable, Equatable {
+    public var matches: [JavaScriptAPIReference]
+    public var diagnostics: [ToolDiagnostic]
+
+    public init(matches: [JavaScriptAPIReference], diagnostics: [ToolDiagnostic] = []) {
+        self.matches = matches
+        self.diagnostics = diagnostics
+    }
+}
+
+public struct JavaScriptExecutionRequest: Sendable, Codable, Equatable {
+    public var code: String
+    public var allowedCapabilities: [CapabilityID]
+    public var timeoutMs: Int
+    public var context: ExecutionContext
+
+    public init(
+        code: String,
+        allowedCapabilities: [CapabilityID],
+        timeoutMs: Int = 10_000,
+        context: ExecutionContext = .init()
+    ) {
+        self.code = code
+        self.allowedCapabilities = allowedCapabilities
+        self.timeoutMs = timeoutMs
+        self.context = context
+    }
+}
+
+public enum JavaScriptExecutionEvent: Sendable, Equatable {
+    case log(ExecutionLog)
+    case diagnostic(ToolDiagnostic)
+    case syntaxError(CodeModeToolError)
+    case functionNotFound(CodeModeToolError)
+    case thrownError(CodeModeToolError)
+    case toolError(CodeModeToolError)
+    case finished
+}
+
+public struct JavaScriptExecutionResult: Sendable, Codable, Equatable {
+    public var output: JSONValue?
+    public var logs: [ExecutionLog]
+    public var diagnostics: [ToolDiagnostic]
+    public var permissionEvents: [PermissionEvent]
+
+    public init(
+        output: JSONValue?,
+        logs: [ExecutionLog],
+        diagnostics: [ToolDiagnostic],
+        permissionEvents: [PermissionEvent]
+    ) {
+        self.output = output
+        self.logs = logs
+        self.diagnostics = diagnostics
+        self.permissionEvents = permissionEvents
+    }
+}
+
+public struct CodeModeToolError: Error, Sendable, Codable, Equatable {
+    public var code: String
+    public var message: String
+    public var functionName: String?
+    public var capability: CapabilityID?
+    public var line: Int?
+    public var column: Int?
+    public var suggestions: [String]
+    public var diagnostics: [ToolDiagnostic]
+    public var logs: [ExecutionLog]
+    public var permissionEvents: [PermissionEvent]
+
+    public init(
+        code: String,
+        message: String,
+        functionName: String? = nil,
+        capability: CapabilityID? = nil,
+        line: Int? = nil,
+        column: Int? = nil,
+        suggestions: [String] = [],
+        diagnostics: [ToolDiagnostic] = [],
+        logs: [ExecutionLog] = [],
+        permissionEvents: [PermissionEvent] = []
+    ) {
+        self.code = code
+        self.message = message
+        self.functionName = functionName
+        self.capability = capability
+        self.line = line
+        self.column = column
+        self.suggestions = suggestions
+        self.diagnostics = diagnostics
+        self.logs = logs
+        self.permissionEvents = permissionEvents
+    }
+}
+
+extension CodeModeToolError: LocalizedError {
+    public var errorDescription: String? {
+        message
+    }
+}
+
+public final class JavaScriptExecutionCall: @unchecked Sendable {
+    public let events: AsyncStream<JavaScriptExecutionEvent>
+
+    private let resultTask: Task<JavaScriptExecutionResult, Error>
+    private let cancelImpl: @Sendable () -> Void
+
+    init(
+        events: AsyncStream<JavaScriptExecutionEvent>,
+        resultTask: Task<JavaScriptExecutionResult, Error>,
+        cancelImpl: @escaping @Sendable () -> Void
+    ) {
+        self.events = events
+        self.resultTask = resultTask
+        self.cancelImpl = cancelImpl
+    }
+
+    public var result: JavaScriptExecutionResult {
+        get async throws {
+            let outcome = await withTaskCancellationHandler {
+                await waitForResultOutcome()
+            } onCancel: {
+                self.cancel()
+            }
+
+            switch outcome {
+            case let .success(result):
+                return result
+            case let .failure(error as CodeModeToolError):
+                throw error
+            case let .failure(error as CancellationError):
+                _ = error
+                throw CodeModeToolError(code: "CANCELLED", message: "Execution cancelled")
+            case let .failure(error):
+                throw error
+            }
+        }
+    }
+
+    public func cancel() {
+        cancelImpl()
+        resultTask.cancel()
+    }
+
+    private func waitForResultOutcome() async -> Result<JavaScriptExecutionResult, Error> {
+        await withCheckedContinuation { continuation in
+            Task.detached {
+                do {
+                    continuation.resume(returning: .success(try await self.resultTask.value))
+                } catch {
+                    continuation.resume(returning: .failure(error))
+                }
+            }
+        }
+    }
+}
+
+public struct ExecutionContext: Sendable, Codable, Equatable {
+    public var userID: String?
+    public var sessionID: String?
+    public var metadata: [String: String]
+
+    public init(userID: String? = nil, sessionID: String? = nil, metadata: [String: String] = [:]) {
+        self.userID = userID
+        self.sessionID = sessionID
+        self.metadata = metadata
     }
 }
 
@@ -160,11 +254,30 @@ public struct ToolDiagnostic: Sendable, Codable, Equatable {
     public var severity: Severity
     public var code: String
     public var message: String
+    public var category: String?
+    public var line: Int?
+    public var column: Int?
+    public var functionName: String?
+    public var suggestions: [String]
 
-    public init(severity: Severity, code: String, message: String) {
+    public init(
+        severity: Severity,
+        code: String,
+        message: String,
+        category: String? = nil,
+        line: Int? = nil,
+        column: Int? = nil,
+        functionName: String? = nil,
+        suggestions: [String] = []
+    ) {
         self.severity = severity
         self.code = code
         self.message = message
+        self.category = category
+        self.line = line
+        self.column = column
+        self.functionName = functionName
+        self.suggestions = suggestions
     }
 }
 

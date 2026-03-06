@@ -2,111 +2,209 @@ import Foundation
 import Testing
 @testable import CodeMode
 
-@Test func searchFindsReminderCapabilities() async throws {
-    let (host, sandbox) = try makeHost()
+@Test func searchFindsReminderCapabilitiesFromNaturalLanguage() async throws {
+    let (tools, sandbox) = try makeTools()
     defer { cleanup(sandbox) }
 
-    let response = try await host.search(
-        SearchRequest(
-            mode: .discover,
-            query: "create reminder",
-            limit: 10
-        )
+    let response = try await tools.searchJavaScriptAPI(
+        JavaScriptAPISearchRequest(query: "create reminder", limit: 10)
     )
 
-    #expect(response.items.isEmpty == false)
-    #expect(response.items.contains(where: { $0.capability == .remindersWrite }))
+    #expect(response.matches.isEmpty == false)
+    #expect(response.matches.contains(where: { $0.capability == .remindersWrite }))
+}
+
+@Test func searchFindsExactJavaScriptAliases() async throws {
+    let (tools, sandbox) = try makeTools()
+    defer { cleanup(sandbox) }
+
+    let response = try await tools.searchJavaScriptAPI(
+        JavaScriptAPISearchRequest(query: "fs.promises.readFile")
+    )
+
+    #expect(response.matches.first?.capability == .fsRead)
+    #expect(response.matches.first?.jsNames.contains("fs.promises.readFile") == true)
 }
 
 @Test func searchSupportsTagFiltering() async throws {
-    let (host, sandbox) = try makeHost()
+    let (tools, sandbox) = try makeTools()
     defer { cleanup(sandbox) }
 
-    let response = try await host.search(
-        SearchRequest(mode: .discover, query: "media", limit: 20, tags: ["media"])
+    let response = try await tools.searchJavaScriptAPI(
+        JavaScriptAPISearchRequest(query: "media", tags: ["media"], limit: 20)
     )
 
-    #expect(response.items.isEmpty == false)
-    #expect(response.items.allSatisfy { $0.tags.contains("media") })
+    #expect(response.matches.isEmpty == false)
+    #expect(response.matches.allSatisfy { $0.tags.contains("media") })
 }
 
-@Test func searchDescribeReturnsCapabilityDetails() async throws {
-    let (host, sandbox) = try makeHost()
+@Test func searchReturnsDetailedCapabilityLookup() async throws {
+    let (tools, sandbox) = try makeTools()
     defer { cleanup(sandbox) }
 
-    let response = try await host.search(
-        SearchRequest(mode: .describe, capability: .calendarWrite)
+    let response = try await tools.searchJavaScriptAPI(
+        JavaScriptAPISearchRequest(capability: .calendarWrite)
     )
 
-    #expect(response.diagnostics.isEmpty)
-    #expect(response.detail?.capability == .calendarWrite)
-    #expect(response.detail?.requiredArguments.contains("title") == true)
-    #expect(response.detail?.requiredArguments.contains("start") == true)
-    #expect(response.detail?.requiredArguments.contains("end") == true)
-    #expect(response.detail?.argumentTypes["start"] == .string)
+    let match = try #require(response.matches.first)
+    #expect(match.capability == .calendarWrite)
+    #expect(match.requiredArguments.contains("title"))
+    #expect(match.requiredArguments.contains("start"))
+    #expect(match.requiredArguments.contains("end"))
 }
 
-@Test func searchDescribeRequiresCapability() async throws {
-    let (host, sandbox) = try makeHost()
+@Test func searchRejectsEmptyInputWithoutCapability() async throws {
+    let (tools, sandbox) = try makeTools()
     defer { cleanup(sandbox) }
 
-    let response = try await host.search(
-        SearchRequest(mode: .describe)
-    )
-
-    #expect(response.items.isEmpty)
-    #expect(response.detail == nil)
-    #expect(response.diagnostics.contains(where: { $0.code == "INVALID_REQUEST" }))
+    await #expect(throws: CodeModeToolError.self) {
+        _ = try await tools.searchJavaScriptAPI(JavaScriptAPISearchRequest())
+    }
 }
 
-@Test func executeRejectsDisallowedCapabilities() async throws {
-    let (host, sandbox) = try makeHost()
+@Test func executeRejectsDisallowedCapabilitiesAsToolError() async throws {
+    let (tools, sandbox) = try makeTools()
     defer { cleanup(sandbox) }
 
-    let response = try await host.execute(
-        ExecuteRequest(
+    let observed = try await execute(
+        tools,
+        request: JavaScriptExecutionRequest(
             code: "return await ios.fs.read({ path: 'tmp:blocked.txt' });",
             allowedCapabilities: []
         )
     )
 
-    #expect(response.diagnostics.contains(where: { $0.code == "CAPABILITY_DENIED" }))
+    #expect(observed.result == nil)
+    #expect(observed.error?.code == "CAPABILITY_DENIED")
+    #expect(observed.events.contains(where: {
+        if case .toolError(let error) = $0 {
+            return error.code == "CAPABILITY_DENIED"
+        }
+        return false
+    }))
 }
 
-@Test func executeSurfacesJavaScriptRejection() async throws {
-    let (host, sandbox) = try makeHost()
+@Test func executeEmitsSyntaxErrorsAsTerminalEvents() async throws {
+    let (tools, sandbox) = try makeTools()
     defer { cleanup(sandbox) }
 
-    let response = try await host.execute(
-        ExecuteRequest(
-            code: "throw new Error('boom');",
+    let observed = try await execute(
+        tools,
+        request: JavaScriptExecutionRequest(
+            code: "const value = ;",
+            allowedCapabilities: []
+        )
+    )
+
+    #expect(observed.result == nil)
+    #expect(observed.error?.code == "JS_SYNTAX_ERROR")
+    #expect(observed.error?.line != nil)
+    #expect(observed.events.contains(where: {
+        if case .syntaxError(let error) = $0 {
+            return error.code == "JS_SYNTAX_ERROR"
+        }
+        return false
+    }))
+}
+
+@Test func executeClassifiesMissingJavaScriptHelpers() async throws {
+    let (tools, sandbox) = try makeTools()
+    defer { cleanup(sandbox) }
+
+    let observed = try await execute(
+        tools,
+        request: JavaScriptExecutionRequest(
+            code: "return await ios.fs.reed({ path: 'tmp:file.txt' });",
             allowedCapabilities: [.fsRead]
         )
     )
 
-    #expect(response.diagnostics.contains(where: { $0.message.contains("boom") }))
+    #expect(observed.result == nil)
+    #expect(observed.error?.code == "JS_API_NOT_FOUND")
+    #expect(observed.error?.functionName == "ios.fs.reed")
+    #expect(observed.error?.suggestions.contains("ios.fs.read") == true)
+    #expect(observed.events.contains(where: {
+        if case .functionNotFound(let error) = $0 {
+            return error.code == "JS_API_NOT_FOUND"
+        }
+        return false
+    }))
 }
 
-@Test func pathTraversalIsBlocked() async throws {
-    let (host, sandbox) = try makeHost()
+@Test func executeSurfacesThrownJavaScriptErrors() async throws {
+    let (tools, sandbox) = try makeTools()
     defer { cleanup(sandbox) }
 
-    let response = try await host.execute(
-        ExecuteRequest(
+    let observed = try await execute(
+        tools,
+        request: JavaScriptExecutionRequest(
+            code: "throw new Error('boom');",
+            allowedCapabilities: []
+        )
+    )
+
+    #expect(observed.result == nil)
+    #expect(observed.error?.code == "JS_RUNTIME_ERROR")
+    #expect(observed.error?.message.contains("boom") == true)
+    #expect(observed.events.contains(where: {
+        if case .thrownError(let error) = $0 {
+            return error.message.contains("boom")
+        }
+        return false
+    }))
+}
+
+@Test func executeKeepsGenericReferenceErrorsAsThrownErrors() async throws {
+    let (tools, sandbox) = try makeTools()
+    defer { cleanup(sandbox) }
+
+    let observed = try await execute(
+        tools,
+        request: JavaScriptExecutionRequest(
+            code: "return missingVariable;",
+            allowedCapabilities: []
+        )
+    )
+
+    #expect(observed.result == nil)
+    #expect(observed.error?.code == "JS_RUNTIME_ERROR")
+    #expect(observed.events.contains(where: {
+        if case .thrownError(let error) = $0 {
+            return error.code == "JS_RUNTIME_ERROR"
+        }
+        return false
+    }))
+    #expect(observed.events.contains(where: {
+        if case .functionNotFound = $0 {
+            return true
+        }
+        return false
+    }) == false)
+}
+
+@Test func pathTraversalIsBlockedAsToolError() async throws {
+    let (tools, sandbox) = try makeTools()
+    defer { cleanup(sandbox) }
+
+    let observed = try await execute(
+        tools,
+        request: JavaScriptExecutionRequest(
             code: "return await ios.fs.write({ path: 'tmp:../escape.txt', data: 'x' });",
             allowedCapabilities: [.fsWrite]
         )
     )
 
-    #expect(response.diagnostics.contains(where: { $0.code == "PATH_POLICY_VIOLATION" }))
+    #expect(observed.result == nil)
+    #expect(observed.error?.code == "PATH_POLICY_VIOLATION")
 }
 
 @Test func iosFSAndNodeAliasesMatch() async throws {
-    let (host, sandbox) = try makeHost()
+    let (tools, sandbox) = try makeTools()
     defer { cleanup(sandbox) }
 
-    let response = try await host.execute(
-        ExecuteRequest(
+    let observed = try await execute(
+        tools,
+        request: JavaScriptExecutionRequest(
             code: """
             await ios.fs.write({ path: 'tmp:alias.txt', data: 'hello world' });
             const iosRead = await ios.fs.read({ path: 'tmp:alias.txt' });
@@ -117,21 +215,21 @@ import Testing
         )
     )
 
-    #expect(response.diagnostics.isEmpty)
-
-    let payload = try requireJSONObject(from: response)
+    let result = try #require(observed.result)
+    let payload = try requireJSONObject(from: result)
     #expect(payload["ios"] as? String == "hello world")
     #expect(payload["node"] as? String == "hello world")
+    #expect(observed.events.last == .finished)
 }
 
 @Test func executeSupportsLoopDrivenBridgeCalls() async throws {
-    let (host, sandbox) = try makeHost()
+    let (tools, sandbox) = try makeTools()
     defer { cleanup(sandbox) }
 
-    let response = try await host.execute(
-        ExecuteRequest(
+    let observed = try await execute(
+        tools,
+        request: JavaScriptExecutionRequest(
             code: """
-            let total = 0;
             for (let i = 0; i < 5; i++) {
               await ios.fs.write({ path: `tmp:loop-${i}.txt`, data: `v${i}` });
             }
@@ -143,17 +241,17 @@ import Testing
         )
     )
 
-    #expect(response.diagnostics.isEmpty)
-    let payload = try requireJSONObject(from: response)
+    let payload = try requireJSONObject(from: try #require(observed.result))
     #expect((payload["count"] as? Int ?? 0) >= 5)
 }
 
 @Test func executeSupportsPromiseAllAndNodeAlias() async throws {
-    let (host, sandbox) = try makeHost()
+    let (tools, sandbox) = try makeTools()
     defer { cleanup(sandbox) }
 
-    let response = try await host.execute(
-        ExecuteRequest(
+    let observed = try await execute(
+        tools,
+        request: JavaScriptExecutionRequest(
             code: """
             const names = ['a', 'b', 'c', 'd'];
             await Promise.all(names.map((n, i) => fs.promises.writeFile(`tmp:${n}.txt`, `item-${i}`, 'utf8')));
@@ -164,19 +262,19 @@ import Testing
         )
     )
 
-    #expect(response.diagnostics.isEmpty)
-    let payload = try requireJSONObject(from: response)
+    let payload = try requireJSONObject(from: try #require(observed.result))
     let values = payload["values"] as? [String] ?? []
     #expect(values.count == 4)
     #expect(payload["combined"] as? String == "item-0|item-1|item-2|item-3")
 }
 
-@Test func executeCapturesConsoleLogs() async throws {
-    let (host, sandbox) = try makeHost()
+@Test func executeStreamsConsoleLogsBeforeFinish() async throws {
+    let (tools, sandbox) = try makeTools()
     defer { cleanup(sandbox) }
 
-    let response = try await host.execute(
-        ExecuteRequest(
+    let observed = try await execute(
+        tools,
+        request: JavaScriptExecutionRequest(
             code: """
             console.log('first-log');
             console.warn('second-log');
@@ -186,17 +284,45 @@ import Testing
         )
     )
 
-    #expect(response.diagnostics.isEmpty)
-    #expect(response.logs.contains(where: { $0.message.contains("first-log") }))
-    #expect(response.logs.contains(where: { $0.message.contains("second-log") }))
+    let logMessages = observed.events.compactMap { event -> String? in
+        if case .log(let entry) = event {
+            return entry.message
+        }
+        return nil
+    }
+
+    #expect(logMessages.contains(where: { $0.contains("first-log") }))
+    #expect(logMessages.contains(where: { $0.contains("second-log") }))
+    #expect(observed.events.last == .finished)
+}
+
+@Test func executeReturnsNilOutputWhenScriptOmitsReturnValue() async throws {
+    let (tools, sandbox) = try makeTools()
+    defer { cleanup(sandbox) }
+
+    let observed = try await execute(
+        tools,
+        request: JavaScriptExecutionRequest(
+            code: """
+            const value = 42;
+            console.log('ran', value);
+            """,
+            allowedCapabilities: []
+        )
+    )
+
+    let result = try #require(observed.result)
+    #expect(result.output == nil)
+    #expect(observed.events.last == .finished)
 }
 
 @Test func executeTimesOutOnUnresolvedPromise() async throws {
-    let (host, sandbox) = try makeHost()
+    let (tools, sandbox) = try makeTools()
     defer { cleanup(sandbox) }
 
-    let response = try await host.execute(
-        ExecuteRequest(
+    let observed = try await execute(
+        tools,
+        request: JavaScriptExecutionRequest(
             code: """
             await new Promise(() => {});
             return { never: true };
@@ -206,37 +332,109 @@ import Testing
         )
     )
 
-    #expect(response.diagnostics.contains(where: { $0.code == "EXECUTION_TIMEOUT" }))
+    #expect(observed.result == nil)
+    #expect(observed.error?.code == "EXECUTION_TIMEOUT")
 }
 
-@Test func executeRecordsPermissionEvents() async throws {
+@Test func executeRecordsPermissionEventsOnFailures() async throws {
     let broker = FixedPermissionBroker(statuses: [.locationWhenInUse: .denied])
-    let (host, sandbox) = try makeHost(permissionBroker: broker)
+    let (tools, sandbox) = try makeTools(permissionBroker: broker)
     defer { cleanup(sandbox) }
 
-    let response = try await host.execute(
-        ExecuteRequest(
+    let observed = try await execute(
+        tools,
+        request: JavaScriptExecutionRequest(
             code: "return await ios.location.getCurrentPosition();",
             allowedCapabilities: [.locationRead]
         )
     )
 
-    #expect(response.diagnostics.contains(where: { $0.code == "PERMISSION_DENIED" }))
-    #expect(response.permissionEvents.contains(where: { $0.permission == .locationWhenInUse }))
+    #expect(observed.result == nil)
+    #expect(observed.error?.code == "PERMISSION_DENIED")
+    #expect(observed.error?.permissionEvents.contains(where: { $0.permission == .locationWhenInUse }) == true)
 }
 
-@Test func executeInvalidArgumentsIncludesUsageHint() async throws {
-    let (host, sandbox) = try makeHost()
+@Test func executeInvalidArgumentsIncludeStructuredSuggestions() async throws {
+    let (tools, sandbox) = try makeTools()
     defer { cleanup(sandbox) }
 
-    let response = try await host.execute(
-        ExecuteRequest(
+    let observed = try await execute(
+        tools,
+        request: JavaScriptExecutionRequest(
             code: "return await ios.weather.getCurrentWeather({ latitude: 37.77 });",
             allowedCapabilities: [.weatherRead]
         )
     )
 
-    #expect(response.diagnostics.contains(where: { $0.code == "INVALID_ARGUMENTS" }))
-    #expect(response.diagnostics.contains(where: { $0.message.contains("Hint:") }))
-    #expect(response.diagnostics.contains(where: { $0.message.contains("required: latitude:number, longitude:number") }))
+    #expect(observed.result == nil)
+    #expect(observed.error?.code == "INVALID_ARGUMENTS")
+    #expect(observed.error?.suggestions.contains(where: { $0.contains("latitude:number") }) == true)
+    #expect(observed.error?.suggestions.contains(where: { $0.contains("Example:") }) == true)
+}
+
+@Test func executeCanBeCancelledExplicitly() async throws {
+    let (tools, sandbox) = try makeTools()
+    defer { cleanup(sandbox) }
+
+    let call = try await tools.executeJavaScript(
+        JavaScriptExecutionRequest(
+            code: """
+            await new Promise(() => {});
+            return { never: true };
+            """,
+            allowedCapabilities: []
+        )
+    )
+
+    call.cancel()
+    let observed = await observe(call)
+
+    #expect(observed.result == nil)
+    #expect(observed.error?.code == "CANCELLED")
+    #expect(observed.events.contains(where: {
+        if case .toolError(let error) = $0 {
+            return error.code == "CANCELLED"
+        }
+        return false
+    }))
+}
+
+@Test func executeCancelsWhenAwaitingTaskIsCancelled() async throws {
+    let (tools, sandbox) = try makeTools()
+    defer { cleanup(sandbox) }
+
+    let call = try await tools.executeJavaScript(
+        JavaScriptExecutionRequest(
+            code: """
+            await new Promise(() => {});
+            return { never: true };
+            """,
+            allowedCapabilities: []
+        )
+    )
+
+    let waiter = Task<Result<JavaScriptExecutionResult, CodeModeToolError>, Never> {
+        do {
+            return .success(try await call.result)
+        } catch let error as CodeModeToolError {
+            return .failure(error)
+        } catch {
+            return .failure(CodeModeToolError(code: "INTERNAL_FAILURE", message: error.localizedDescription))
+        }
+    }
+
+    await Task.yield()
+    waiter.cancel()
+    let waiterResult = await waiter.value
+
+    switch waiterResult {
+    case .success:
+        #expect(Bool(false))
+    case let .failure(error):
+        #expect(error.code == "CANCELLED")
+    }
+
+    let observed = await observe(call)
+    #expect(observed.result == nil)
+    #expect(observed.error?.code == "CANCELLED")
 }

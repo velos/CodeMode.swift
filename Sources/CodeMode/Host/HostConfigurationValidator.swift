@@ -29,7 +29,7 @@ public enum HostConfigurationValidator {
             keys.insert("NSContactsUsageDescription")
         }
 
-        if capabilities.contains(.calendarRead) || capabilities.contains(.calendarWrite) {
+        if capabilities.contains(.calendarWrite) {
             keys.insert("NSCalendarsWriteOnlyAccessUsageDescription")
         }
 

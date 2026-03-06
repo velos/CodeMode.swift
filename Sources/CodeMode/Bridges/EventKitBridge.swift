@@ -140,16 +140,7 @@ public final class EventKitBridge: @unchecked Sendable {
     }
 
     private func resolvePermission(_ permission: PermissionKind, context: BridgeInvocationContext) -> PermissionStatus {
-        let status = context.permissionBroker.status(for: permission)
-        context.recordPermission(permission, status: status)
-
-        if status == .notDetermined {
-            let requested = context.permissionBroker.request(for: permission)
-            context.recordPermission(permission, status: requested)
-            return requested
-        }
-
-        return status
+        context.resolvedPermission(for: permission)
     }
 
     private func isoDate(_ text: String?) -> Date? {

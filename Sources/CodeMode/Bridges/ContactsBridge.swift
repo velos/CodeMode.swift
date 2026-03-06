@@ -81,15 +81,7 @@ public final class ContactsBridge: @unchecked Sendable {
     }
 
     private func resolvePermission(context: BridgeInvocationContext) -> PermissionStatus {
-        let status = context.permissionBroker.status(for: .contacts)
-        context.recordPermission(.contacts, status: status)
-        if status == .notDetermined {
-            let requested = context.permissionBroker.request(for: .contacts)
-            context.recordPermission(.contacts, status: requested)
-            return requested
-        }
-
-        return status
+        context.resolvedPermission(for: .contacts)
     }
 
     #if canImport(Contacts)

@@ -16,11 +16,12 @@ import Testing
 }
 
 @Test func executeUsesVisionBridgeValidation() async throws {
-    let (host, sandbox) = try makeHost()
+    let (tools, sandbox) = try makeTools()
     defer { cleanup(sandbox) }
 
-    let response = try await host.execute(
-        ExecuteRequest(
+    let observed = try await execute(
+        tools,
+        request: JavaScriptExecutionRequest(
             code: """
             await ios.vision.analyzeImage({ features: ['text'] });
             return { ok: true };
@@ -29,5 +30,5 @@ import Testing
         )
     )
 
-    #expect(response.diagnostics.contains(where: { $0.code == "INVALID_ARGUMENTS" }))
+    #expect(observed.error?.code == "INVALID_ARGUMENTS")
 }

@@ -177,6 +177,8 @@ public final class CapabilityRegistry: @unchecked Sendable {
     }
 
     public func invoke(_ capabilityID: String, arguments: [String: JSONValue], context: BridgeInvocationContext) throws -> JSONValue {
+        try context.checkCancellation()
+
         guard let capability = CapabilityID(rawValue: capabilityID) else {
             throw BridgeError.capabilityNotFound(capabilityID)
         }
@@ -196,6 +198,7 @@ public final class CapabilityRegistry: @unchecked Sendable {
         try validateArguments(arguments, for: capability, descriptor: registration.descriptor)
 
         for permission in registration.descriptor.requiredPermissions {
+            try context.checkCancellation()
             let status = context.permissionBroker.status(for: permission)
             context.recordPermission(permission, status: status)
 
@@ -211,8 +214,11 @@ public final class CapabilityRegistry: @unchecked Sendable {
             guard resolvedStatus == .granted else {
                 throw BridgeError.permissionDenied(permission)
             }
+
+            context.markPermissionValidated(permission)
         }
 
+        try context.checkCancellation()
         return try registration.handler(arguments, context)
     }
 

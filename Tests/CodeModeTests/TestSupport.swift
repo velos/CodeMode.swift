@@ -9,6 +9,12 @@ struct TestSandbox {
     let documents: URL
 }
 
+struct ObservedExecution {
+    let events: [JavaScriptExecutionEvent]
+    let result: JavaScriptExecutionResult?
+    let error: CodeModeToolError?
+}
+
 func makeTestSandbox() throws -> TestSandbox {
     let fileManager = FileManager.default
     let root = fileManager.temporaryDirectory.appendingPathComponent("CodeModeTests-\(UUID().uuidString)", isDirectory: true)
@@ -27,22 +33,22 @@ func cleanup(_ sandbox: TestSandbox) {
     try? FileManager.default.removeItem(at: sandbox.root)
 }
 
-func makeHost(permissionBroker: any PermissionBroker = NoopPermissionBroker()) throws -> (CodeModeBridgeHost, TestSandbox) {
+func makeTools(permissionBroker: any PermissionBroker = NoopPermissionBroker()) throws -> (CodeModeAgentTools, TestSandbox) {
     let sandbox = try makeTestSandbox()
 
     let pathPolicy = DefaultPathPolicy(
         config: PathPolicyConfig(tmpRoot: sandbox.tmp, cachesRoot: sandbox.caches, documentsRoot: sandbox.documents)
     )
 
-    let runtime = BridgeRuntimeConfig(
+    let configuration = CodeModeConfiguration(
         pathPolicy: pathPolicy,
         artifactStore: InMemoryArtifactStore(),
         permissionBroker: permissionBroker,
         auditLogger: SyncAuditLogger()
     )
 
-    let host = CodeModeBridgeHost(config: .init(runtimeConfig: runtime))
-    return (host, sandbox)
+    let tools = CodeModeAgentTools(config: configuration)
+    return (tools, sandbox)
 }
 
 func makeInvocationContext(
@@ -60,10 +66,43 @@ func makeInvocationContext(
         pathPolicy: pathPolicy,
         artifactStore: InMemoryArtifactStore(),
         permissionBroker: permissionBroker,
-        auditLogger: SyncAuditLogger()
+        auditLogger: SyncAuditLogger(),
+        transcript: ExecutionTranscript(),
+        cancellationController: ExecutionCancellationController()
     )
 
     return (context, sandbox)
+}
+
+func observe(_ call: JavaScriptExecutionCall) async -> ObservedExecution {
+    let eventTask = Task { () -> [JavaScriptExecutionEvent] in
+        var events: [JavaScriptExecutionEvent] = []
+        for await event in call.events {
+            events.append(event)
+        }
+        return events
+    }
+
+    do {
+        let result = try await call.result
+        let events = await eventTask.value
+        return ObservedExecution(events: events, result: result, error: nil)
+    } catch let error as CodeModeToolError {
+        let events = await eventTask.value
+        return ObservedExecution(events: events, result: nil, error: error)
+    } catch {
+        let events = await eventTask.value
+        return ObservedExecution(
+            events: events,
+            result: nil,
+            error: CodeModeToolError(code: "INTERNAL_FAILURE", message: error.localizedDescription)
+        )
+    }
+}
+
+func execute(_ tools: CodeModeAgentTools, request: JavaScriptExecutionRequest) async throws -> ObservedExecution {
+    let call = try await tools.executeJavaScript(request)
+    return await observe(call)
 }
 
 struct FixedPermissionBroker: PermissionBroker {
@@ -85,17 +124,14 @@ struct FixedPermissionBroker: PermissionBroker {
 }
 
 @discardableResult
-func requireJSONObject(from response: ExecuteResponse) throws -> [String: Any] {
-    guard let resultJSON = response.resultJSON else {
-        throw BridgeError.nativeFailure("Missing result JSON")
+func requireJSONObject(from result: JavaScriptExecutionResult) throws -> [String: Any] {
+    guard let output = result.output else {
+        throw BridgeError.nativeFailure("Missing result output")
     }
 
-    guard let data = resultJSON.data(using: .utf8) else {
-        throw BridgeError.nativeFailure("Unable to decode result JSON")
-    }
-
+    let data = try JSONEncoder.codeModeBridge.encode(output)
     guard let object = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-        throw BridgeError.nativeFailure("Result JSON is not an object")
+        throw BridgeError.nativeFailure("Result output is not an object")
     }
 
     return object
@@ -104,6 +140,10 @@ func requireJSONObject(from response: ExecuteResponse) throws -> [String: Any] {
 func requireBridgeErrorCode(_ error: Error) -> String {
     if let bridgeError = error as? BridgeError {
         return bridgeError.diagnosticCode
+    }
+
+    if let toolError = error as? CodeModeToolError {
+        return toolError.code
     }
 
     if let localized = error as? LocalizedError {

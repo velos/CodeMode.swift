@@ -49,11 +49,12 @@ import Testing
 
 @Test func executeUsesCalendarBridgeWithPermissionDenial() async throws {
     let broker = FixedPermissionBroker(statuses: [.calendar: .denied])
-    let (host, sandbox) = try makeHost(permissionBroker: broker)
+    let (tools, sandbox) = try makeTools(permissionBroker: broker)
     defer { cleanup(sandbox) }
 
-    let response = try await host.execute(
-        ExecuteRequest(
+    let observed = try await execute(
+        tools,
+        request: JavaScriptExecutionRequest(
             code: """
             await ios.calendar.listEvents({});
             return { ok: true };
@@ -62,7 +63,7 @@ import Testing
         )
     )
 
-    #expect(response.diagnostics.contains(where: { $0.code == "PERMISSION_DENIED" }))
+    #expect(observed.error?.code == "PERMISSION_DENIED")
 }
 
 @Test func executeCalendarWriteUsesWriteOnlyPermissionPath() async throws {
@@ -70,11 +71,12 @@ import Testing
         statuses: [.calendarWriteOnly: .notDetermined],
         requestStatuses: [.calendarWriteOnly: .granted]
     )
-    let (host, sandbox) = try makeHost(permissionBroker: broker)
+    let (tools, sandbox) = try makeTools(permissionBroker: broker)
     defer { cleanup(sandbox) }
 
-    let response = try await host.execute(
-        ExecuteRequest(
+    let observed = try await execute(
+        tools,
+        request: JavaScriptExecutionRequest(
             code: """
             await ios.calendar.createEvent({});
             return { ok: true };
@@ -84,20 +86,20 @@ import Testing
     )
 
     #if canImport(EventKit)
-    #expect(response.diagnostics.contains(where: { $0.code == "INVALID_ARGUMENTS" }))
-    #expect(response.diagnostics.contains(where: { $0.code == "PERMISSION_DENIED" }) == false)
+    #expect(observed.error?.code == "INVALID_ARGUMENTS")
     #else
-    #expect(response.diagnostics.contains(where: { $0.code == "UNSUPPORTED_PLATFORM" }))
+    #expect(observed.error?.code == "UNSUPPORTED_PLATFORM")
     #endif
 }
 
 @Test func executeUsesReminderBridgeWithPermissionDenial() async throws {
     let broker = FixedPermissionBroker(statuses: [.reminders: .denied])
-    let (host, sandbox) = try makeHost(permissionBroker: broker)
+    let (tools, sandbox) = try makeTools(permissionBroker: broker)
     defer { cleanup(sandbox) }
 
-    let response = try await host.execute(
-        ExecuteRequest(
+    let observed = try await execute(
+        tools,
+        request: JavaScriptExecutionRequest(
             code: """
             await ios.reminders.listReminders({});
             return { ok: true };
@@ -106,5 +108,5 @@ import Testing
         )
     )
 
-    #expect(response.diagnostics.contains(where: { $0.code == "PERMISSION_DENIED" }))
+    #expect(observed.error?.code == "PERMISSION_DENIED")
 }

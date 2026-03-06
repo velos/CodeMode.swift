@@ -1,6 +1,6 @@
 import Foundation
 
-public enum BridgeError: Error, Sendable {
+enum BridgeError: Error, Sendable {
     case invalidRequest(String)
     case invalidArguments(String)
     case capabilityDenied(CapabilityID)
@@ -8,6 +8,7 @@ public enum BridgeError: Error, Sendable {
     case permissionDenied(PermissionKind)
     case unsupportedPlatform(String)
     case timeout(milliseconds: Int)
+    case cancelled
     case pathViolation(String)
     case javascriptError(String)
     case nativeFailure(String)
@@ -30,6 +31,8 @@ extension BridgeError: LocalizedError {
             return "Unsupported platform for \(feature)"
         case let .timeout(milliseconds):
             return "Execution timed out after \(milliseconds)ms"
+        case .cancelled:
+            return "Execution cancelled"
         case let .pathViolation(message):
             return message
         case let .javascriptError(message):
@@ -55,6 +58,8 @@ extension BridgeError: LocalizedError {
             return "UNSUPPORTED_PLATFORM"
         case .timeout:
             return "EXECUTION_TIMEOUT"
+        case .cancelled:
+            return "CANCELLED"
         case .pathViolation:
             return "PATH_POLICY_VIOLATION"
         case .javascriptError:

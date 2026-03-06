@@ -38,11 +38,12 @@ import Testing
 }
 
 @Test func executeUsesKeychainBridge() async throws {
-    let (host, sandbox) = try makeHost()
+    let (tools, sandbox) = try makeTools()
     defer { cleanup(sandbox) }
 
-    let response = try await host.execute(
-        ExecuteRequest(
+    let observed = try await execute(
+        tools,
+        request: JavaScriptExecutionRequest(
             code: """
             const key = 'execute-keychain-' + String(Date.now());
             await ios.keychain.set(key, 'value-from-execute');
@@ -54,7 +55,6 @@ import Testing
         )
     )
 
-    #expect(response.diagnostics.isEmpty)
-    let payload = try requireJSONObject(from: response)
+    let payload = try requireJSONObject(from: try #require(observed.result))
     #expect(payload["value"] as? String == "value-from-execute")
 }

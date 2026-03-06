@@ -150,15 +150,7 @@ public final class NotificationsBridge: @unchecked Sendable {
     }
 
     private func resolvePermission(context: BridgeInvocationContext) -> PermissionStatus {
-        let status = context.permissionBroker.status(for: .notifications)
-        context.recordPermission(.notifications, status: status)
-        if status == .notDetermined {
-            let requested = context.permissionBroker.request(for: .notifications)
-            context.recordPermission(.notifications, status: requested)
-            return requested
-        }
-
-        return status
+        context.resolvedPermission(for: .notifications)
     }
 
     private func isoDate(_ text: String?) -> Date? {

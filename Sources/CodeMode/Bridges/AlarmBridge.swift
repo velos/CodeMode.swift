@@ -110,15 +110,7 @@ public final class AlarmBridge: @unchecked Sendable {
     }
 
     private func resolvePermission(context: BridgeInvocationContext) -> PermissionStatus {
-        let status = context.permissionBroker.status(for: .alarmKit)
-        context.recordPermission(.alarmKit, status: status)
-        if status == .notDetermined {
-            let requested = context.permissionBroker.request(for: .alarmKit)
-            context.recordPermission(.alarmKit, status: requested)
-            return requested
-        }
-
-        return status
+        context.resolvedPermission(for: .alarmKit)
     }
 
     private func scheduledAlarmSnapshot(id: String, title: String, secondsFromNow: TimeInterval, fireDate: Date?) -> [String: JSONValue] {

@@ -12,36 +12,14 @@ let package = Package(
             name: "CodeMode",
             targets: ["CodeMode"]
         ),
-        .executable(
-            name: "codemode-eval",
-            targets: ["CodeModeEvalCLI"]
-        ),
-    ],
-    dependencies: [
-        .package(path: "../../collab/collab-proxy/packages/ios/Wavelike"),
-        .package(path: "../../collab/collab-proxy/packages/ios/WavelikeEngineApple"),
-        .package(url: "https://github.com/apple/swift-argument-parser.git", from: "1.5.0"),
     ],
     targets: [
         .target(
             name: "CodeMode"
         ),
-        .executableTarget(
-            name: "CodeModeEvalCLI",
-            dependencies: [
-                "CodeMode",
-                .product(name: "Wavelike", package: "Wavelike"),
-                .product(name: "WavelikeEngineApple", package: "WavelikeEngineApple"),
-                .product(name: "ArgumentParser", package: "swift-argument-parser"),
-            ]
-        ),
         .testTarget(
             name: "CodeModeTests",
             dependencies: ["CodeMode"]
-        ),
-        .testTarget(
-            name: "CodeModeEvalCLITests",
-            dependencies: ["CodeModeEvalCLI"]
         ),
     ]
 )

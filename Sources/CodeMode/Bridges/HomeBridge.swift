@@ -130,15 +130,7 @@ public final class HomeBridge: @unchecked Sendable {
     }
 
     private func resolvePermission(context: BridgeInvocationContext) -> PermissionStatus {
-        let status = context.permissionBroker.status(for: .homeKit)
-        context.recordPermission(.homeKit, status: status)
-        if status == .notDetermined {
-            let requested = context.permissionBroker.request(for: .homeKit)
-            context.recordPermission(.homeKit, status: requested)
-            return requested
-        }
-
-        return status
+        context.resolvedPermission(for: .homeKit)
     }
 
     #if canImport(HomeKit)

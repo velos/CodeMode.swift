@@ -42,11 +42,12 @@ import Testing
 
 @Test func executeUsesLocationBridgePermissionStatus() async throws {
     let broker = FixedPermissionBroker(statuses: [.locationWhenInUse: .unavailable])
-    let (host, sandbox) = try makeHost(permissionBroker: broker)
+    let (tools, sandbox) = try makeTools(permissionBroker: broker)
     defer { cleanup(sandbox) }
 
-    let response = try await host.execute(
-        ExecuteRequest(
+    let observed = try await execute(
+        tools,
+        request: JavaScriptExecutionRequest(
             code: """
             const status = await ios.location.getPermissionStatus();
             return { status };
@@ -55,7 +56,6 @@ import Testing
         )
     )
 
-    #expect(response.diagnostics.isEmpty)
-    let payload = try requireJSONObject(from: response)
+    let payload = try requireJSONObject(from: try #require(observed.result))
     #expect(payload["status"] as? String == PermissionStatus.unavailable.rawValue)
 }

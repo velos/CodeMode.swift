@@ -43,11 +43,12 @@ import Testing
 
 @Test func executeUsesHomeBridgeWithPermissionDenial() async throws {
     let broker = FixedPermissionBroker(statuses: [.homeKit: .denied])
-    let (host, sandbox) = try makeHost(permissionBroker: broker)
+    let (tools, sandbox) = try makeTools(permissionBroker: broker)
     defer { cleanup(sandbox) }
 
-    let response = try await host.execute(
-        ExecuteRequest(
+    let observed = try await execute(
+        tools,
+        request: JavaScriptExecutionRequest(
             code: """
             await ios.home.list({ includeCharacteristics: true, limit: 3 });
             return { ok: true };
@@ -56,5 +57,5 @@ import Testing
         )
     )
 
-    #expect(response.diagnostics.contains(where: { $0.code == "PERMISSION_DENIED" }))
+    #expect(observed.error?.code == "PERMISSION_DENIED")
 }

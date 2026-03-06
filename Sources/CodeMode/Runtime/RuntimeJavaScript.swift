@@ -14,6 +14,7 @@ enum RuntimeJavaScript {
         if (!envelope.ok) {
             const error = new Error(envelope.error && envelope.error.message ? envelope.error.message : 'Bridge call failed');
             error.code = envelope.error && envelope.error.code ? envelope.error.code : 'BRIDGE_ERROR';
+            error.capability = envelope.error && envelope.error.capability ? envelope.error.capability : null;
             throw error;
         }
         return envelope.value;
