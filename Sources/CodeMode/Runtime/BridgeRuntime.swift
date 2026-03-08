@@ -27,35 +27,56 @@ final class BridgeRuntime: @unchecked Sendable {
     }
 
     func search(_ request: JavaScriptAPISearchRequest) throws -> JavaScriptAPISearchResponse {
-        var diagnostics: [ToolDiagnostic] = []
-        let limit = min(max(request.limit, 1), 20)
-
-        if request.limit != limit {
-            diagnostics.append(
-                ToolDiagnostic(
-                    severity: .warning,
-                    code: "SEARCH_LIMIT_CLAMPED",
-                    message: "search.limit was clamped to \(limit)",
-                    category: "validation"
-                )
-            )
-        }
-
-        if let capability = request.capability {
-            let matches = catalog.reference(for: capability).map { [$0] } ?? []
-            return JavaScriptAPISearchResponse(matches: matches, diagnostics: diagnostics)
-        }
-
-        let query = request.query?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        guard query.isEmpty == false else {
+        let code = request.code.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard code.isEmpty == false else {
             throw CodeModeToolError(
                 code: "INVALID_REQUEST",
-                message: "searchJavaScriptAPI requires a non-empty query or an explicit capability"
+                message: "searchJavaScriptAPI requires a non-empty async function"
             )
         }
 
-        let matches = catalog.search(query: query, limit: limit, tags: request.tags)
-        return JavaScriptAPISearchResponse(matches: matches, diagnostics: diagnostics)
+        let transcript = ExecutionTranscript()
+        let cancellationController = ExecutionCancellationController()
+        let invocationContext = BridgeInvocationContext(
+            executionContext: .init(),
+            allowedCapabilities: [],
+            pathPolicy: config.pathPolicy,
+            artifactStore: config.artifactStore,
+            permissionBroker: config.permissionBroker,
+            auditLogger: config.auditLogger,
+            transcript: transcript,
+            cancellationController: cancellationController
+        )
+
+        let context = JSContext()
+        guard let context else {
+            throw CodeModeToolError(code: "INTERNAL_FAILURE", message: "Unable to initialize JavaScriptCore context")
+        }
+
+        let lastException = LockedBox<JavaScriptExceptionSnapshot?>(nil)
+        context.exceptionHandler = { _, exception in
+            lastException.set(Self.snapshot(from: exception))
+        }
+
+        try installSearchRuntime(
+            into: context,
+            transcript: transcript,
+            lastException: lastException
+        )
+
+        let output = try runSearchScript(
+            code,
+            timeoutMs: 2_000,
+            context: context,
+            invocationContext: invocationContext,
+            cancellationController: cancellationController,
+            lastException: lastException
+        )
+
+        return JavaScriptAPISearchResponse(
+            result: output,
+            diagnostics: transcript.snapshot().diagnostics
+        )
     }
 
     func makeExecutionCall(_ request: JavaScriptExecutionRequest) -> JavaScriptExecutionCall {
@@ -234,6 +255,51 @@ final class BridgeRuntime: @unchecked Sendable {
         }
     }
 
+    private func installSearchRuntime(
+        into context: JSContext,
+        transcript: ExecutionTranscript,
+        lastException: LockedBox<JavaScriptExceptionSnapshot?>
+    ) throws {
+        let searchConsoleBlock: @convention(block) (String, String) -> Void = { level, message in
+            let severity: ToolDiagnostic.Severity
+            switch level {
+            case "error":
+                severity = .error
+            case "warning":
+                severity = .warning
+            default:
+                severity = .info
+            }
+
+            transcript.record(
+                diagnostic: ToolDiagnostic(
+                    severity: severity,
+                    code: "SEARCH_CONSOLE",
+                    message: message,
+                    category: "search"
+                )
+            )
+        }
+        context.setObject(searchConsoleBlock, forKeyedSubscript: "__searchConsole" as NSString)
+        context.setObject(catalog.searchCatalogValue().any, forKeyedSubscript: "api" as NSString)
+
+        if context.evaluateScript(RuntimeJavaScript.searchBootstrap) == nil {
+            let message = lastException.get()?.message ?? "Failed to install search runtime"
+            throw CodeModeToolError(
+                code: "INTERNAL_FAILURE",
+                message: message,
+                diagnostics: [
+                    ToolDiagnostic(
+                        severity: .error,
+                        code: "JS_SEARCH_BOOTSTRAP",
+                        message: message,
+                        category: "internal"
+                    )
+                ]
+            )
+        }
+    }
+
     private func runUserScript(
         _ code: String,
         timeoutMs: Int,
@@ -268,7 +334,7 @@ final class BridgeRuntime: @unchecked Sendable {
         let evaluation = context.evaluateScript(script)
         let snapshot = lastException.get() ?? Self.snapshot(from: context.exception)
         if snapshot != nil || evaluation == nil {
-            throw syntaxError(from: snapshot)
+            throw syntaxError(from: snapshot, lineOffset: 4)
         }
 
         let deadline = Date().addingTimeInterval(Double(timeoutMs) / 1000.0)
@@ -302,17 +368,119 @@ final class BridgeRuntime: @unchecked Sendable {
         )
     }
 
-    private func decodeOutput(from context: JSContext) throws -> JSONValue? {
+    private func runSearchScript(
+        _ code: String,
+        timeoutMs: Int,
+        context: JSContext,
+        invocationContext: BridgeInvocationContext,
+        cancellationController: ExecutionCancellationController,
+        lastException: LockedBox<JavaScriptExceptionSnapshot?>
+    ) throws -> JSONValue? {
+        let script = """
+        globalThis.__codemode.state = 'pending';
+        globalThis.__codemode.result = undefined;
+        globalThis.__codemode.error = null;
+        Promise.resolve()
+        .then(function(){
+            const __search = (\(code));
+            if (typeof __search !== 'function') {
+                const error = new Error('searchJavaScriptAPI code must evaluate to a function');
+                error.code = 'INVALID_REQUEST';
+                throw error;
+            }
+            return __search();
+        })
+        .then(function(value){
+            globalThis.__codemode.state = 'fulfilled';
+            globalThis.__codemode.result = value;
+        })
+        .catch(function(error){
+            globalThis.__codemode.state = 'rejected';
+            globalThis.__codemode.error = {
+                message: String(error),
+                code: error && error.code ? String(error.code) : null
+            };
+        });
+        """
+
+        lastException.set(nil)
+        let evaluation = context.evaluateScript(script)
+        let snapshot = lastException.get() ?? Self.snapshot(from: context.exception)
+        if snapshot != nil || evaluation == nil {
+            throw syntaxError(from: snapshot, lineOffset: 5)
+        }
+
+        let deadline = Date().addingTimeInterval(Double(timeoutMs) / 1000.0)
+
+        while Date() < deadline {
+            if cancellationController.isCancelled || Task.isCancelled {
+                cancellationController.cancel()
+                throw toolError(
+                    code: "CANCELLED",
+                    message: "Search cancelled",
+                    transcript: invocationContext
+                )
+            }
+
+            let state = context.evaluateScript("globalThis.__codemode.state")?.toString() ?? "unknown"
+            switch state {
+            case "fulfilled":
+                return try decodeOutput(
+                    from: context,
+                    errorCode: "INVALID_SEARCH_RESULT",
+                    errorMessagePrefix: "Search result must be JSON-serializable"
+                )
+            case "rejected":
+                let payload = rejectionPayload(from: context)
+                throw classifySearchRejectedError(payload, invocationContext: invocationContext)
+            default:
+                Thread.sleep(forTimeInterval: 0.01)
+            }
+        }
+
+        throw toolError(
+            code: "SEARCH_TIMEOUT",
+            message: "Search timed out after \(timeoutMs)ms",
+            transcript: invocationContext
+        )
+    }
+
+    private func decodeOutput(
+        from context: JSContext,
+        errorCode: String = "INVALID_RESULT",
+        errorMessagePrefix: String = "Execution result must be JSON-serializable"
+    ) throws -> JSONValue? {
         guard let resultValue = context.evaluateScript("globalThis.__codemode.result"), resultValue.isUndefined == false else {
             return nil
         }
 
-        guard let serialized = context.evaluateScript("JSON.stringify(globalThis.__codemode.result)")?.toString() else {
+        guard let serialization = context.evaluateScript(
+            """
+            (function(){
+                try {
+                    return { ok: true, json: JSON.stringify(globalThis.__codemode.result) };
+                } catch (error) {
+                    return { ok: false, message: String(error) };
+                }
+            })()
+            """
+        ) else {
+            throw CodeModeToolError(code: errorCode, message: errorMessagePrefix)
+        }
+
+        if serialization.forProperty("ok")?.toBool() == false {
+            let message = serialization.forProperty("message")?.toString() ?? errorMessagePrefix
+            throw CodeModeToolError(code: errorCode, message: "\(errorMessagePrefix): \(message)")
+        }
+
+        guard let jsonValue = serialization.forProperty("json"), jsonValue.isUndefined == false, jsonValue.isNull == false,
+              let serialized = jsonValue.toString()
+        else {
             return nil
         }
 
         guard let data = serialized.data(using: .utf8) else {
-            throw CodeModeToolError(code: "INTERNAL_FAILURE", message: "Unable to decode execution output")
+            throw CodeModeToolError(code: errorCode, message: errorMessagePrefix)
         }
 
         return try JSONDecoder.codeModeBridge.decode(JSONValue.self, from: data)
@@ -381,9 +549,30 @@ final class BridgeRuntime: @unchecked Sendable {
         )
     }
 
-    private func syntaxError(from snapshot: JavaScriptExceptionSnapshot?) -> CodeModeToolError {
+    private func classifySearchRejectedError(
+        _ payload: RejectionPayload,
+        invocationContext: BridgeInvocationContext
+    ) -> CodeModeToolError {
+        let diagnostics = invocationContext.allDiagnostics()
+
+        if payload.code == "INVALID_REQUEST" {
+            return CodeModeToolError(
+                code: "INVALID_REQUEST",
+                message: payload.message,
+                diagnostics: diagnostics
+            )
+        }
+
+        return CodeModeToolError(
+            code: "JS_RUNTIME_ERROR",
+            message: payload.message,
+            diagnostics: diagnostics
+        )
+    }
+
+    private func syntaxError(from snapshot: JavaScriptExceptionSnapshot?, lineOffset: Int) -> CodeModeToolError {
         let message = snapshot?.message ?? "JavaScript syntax error"
-        let adjustedLine = snapshot?.line.map { max(1, $0 - 4) }
+        let adjustedLine = snapshot?.line.map { max(1, $0 - lineOffset) }
         return CodeModeToolError(
             code: "JS_SYNTAX_ERROR",
             message: message,

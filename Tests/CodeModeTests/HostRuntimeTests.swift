@@ -2,64 +2,121 @@ import Foundation
 import Testing
 @testable import CodeMode
 
-@Test func searchFindsReminderCapabilitiesFromNaturalLanguage() async throws {
+@Test func searchFiltersCatalogWithJavaScript() async throws {
     let (tools, sandbox) = try makeTools()
     defer { cleanup(sandbox) }
 
     let response = try await tools.searchJavaScriptAPI(
-        JavaScriptAPISearchRequest(query: "create reminder", limit: 10)
+        JavaScriptAPISearchRequest(
+            code: """
+            async () => {
+                return api.references
+                    .filter(ref => ref.tags.includes("reminders"))
+                    .map(ref => ({ capability: ref.capability, jsNames: ref.jsNames }));
+            }
+            """
+        )
     )
 
-    #expect(response.matches.isEmpty == false)
-    #expect(response.matches.contains(where: { $0.capability == .remindersWrite }))
+    let results = try #require(response.result?.arrayValue)
+    #expect(results.isEmpty == false)
+    #expect(results.contains(where: { $0.objectValue?.string("capability") == CapabilityID.remindersWrite.rawValue }))
 }
 
-@Test func searchFindsExactJavaScriptAliases() async throws {
+@Test func searchSupportsDirectJavaScriptAliasLookup() async throws {
     let (tools, sandbox) = try makeTools()
     defer { cleanup(sandbox) }
 
     let response = try await tools.searchJavaScriptAPI(
-        JavaScriptAPISearchRequest(query: "fs.promises.readFile")
+        JavaScriptAPISearchRequest(
+            code: """
+            async () => {
+                return api.byJSName["fs.promises.readFile"];
+            }
+            """
+        )
     )
 
-    #expect(response.matches.first?.capability == .fsRead)
-    #expect(response.matches.first?.jsNames.contains("fs.promises.readFile") == true)
+    let result = try #require(response.result?.objectValue)
+    #expect(result.string("capability") == CapabilityID.fsRead.rawValue)
+    #expect(result.array("jsNames")?.contains(.string("fs.promises.readFile")) == true)
 }
 
-@Test func searchSupportsTagFiltering() async throws {
+@Test func searchSupportsDirectCapabilityLookup() async throws {
     let (tools, sandbox) = try makeTools()
     defer { cleanup(sandbox) }
 
     let response = try await tools.searchJavaScriptAPI(
-        JavaScriptAPISearchRequest(query: "media", tags: ["media"], limit: 20)
+        JavaScriptAPISearchRequest(
+            code: """
+            async () => {
+                return api.byCapability["calendar.write"];
+            }
+            """
+        )
     )
 
-    #expect(response.matches.isEmpty == false)
-    #expect(response.matches.allSatisfy { $0.tags.contains("media") })
+    let result = try #require(response.result?.objectValue)
+    #expect(result.string("capability") == CapabilityID.calendarWrite.rawValue)
+    #expect(result.array("requiredArguments")?.contains(.string("title")) == true)
+    #expect(result.array("requiredArguments")?.contains(.string("start")) == true)
+    #expect(result.array("requiredArguments")?.contains(.string("end")) == true)
 }
 
-@Test func searchReturnsDetailedCapabilityLookup() async throws {
+@Test func searchReturnsProjectedResults() async throws {
     let (tools, sandbox) = try makeTools()
     defer { cleanup(sandbox) }
 
     let response = try await tools.searchJavaScriptAPI(
-        JavaScriptAPISearchRequest(capability: .calendarWrite)
+        JavaScriptAPISearchRequest(
+            code: """
+            async () => {
+                return api.references
+                    .filter(ref => ref.capability.startsWith("fs."))
+                    .slice(0, 3)
+                    .map(ref => ({
+                        capability: ref.capability,
+                        helper: ref.jsNames[0],
+                        requiredArguments: ref.requiredArguments
+                    }));
+            }
+            """
+        )
     )
 
-    let match = try #require(response.matches.first)
-    #expect(match.capability == .calendarWrite)
-    #expect(match.requiredArguments.contains("title"))
-    #expect(match.requiredArguments.contains("start"))
-    #expect(match.requiredArguments.contains("end"))
+    let results = try #require(response.result?.arrayValue)
+    #expect(results.count == 3)
+    #expect(results.allSatisfy { $0.objectValue?.string("capability")?.hasPrefix("fs.") == true })
 }
 
-@Test func searchRejectsEmptyInputWithoutCapability() async throws {
+@Test func searchRejectsEmptyInput() async throws {
     let (tools, sandbox) = try makeTools()
     defer { cleanup(sandbox) }
 
     await #expect(throws: CodeModeToolError.self) {
-        _ = try await tools.searchJavaScriptAPI(JavaScriptAPISearchRequest())
+        _ = try await tools.searchJavaScriptAPI(JavaScriptAPISearchRequest(code: ""))
     }
+}
+
+@Test func searchEmitsConsoleDiagnostics() async throws {
+    let (tools, sandbox) = try makeTools()
+    defer { cleanup(sandbox) }
+
+    let response = try await tools.searchJavaScriptAPI(
+        JavaScriptAPISearchRequest(
+            code: """
+            async () => {
+                console.warn("searching reminders");
+                return api.byCapability["reminders.write"];
+            }
+            """
+        )
+    )
+
+    #expect(response.result?.objectValue?.string("capability") == CapabilityID.remindersWrite.rawValue)
+    #expect(response.diagnostics.contains(where: {
+        $0.code == "SEARCH_CONSOLE" && $0.message.contains("searching reminders")
+    }))
 }
 
 @Test func executeRejectsDisallowedCapabilitiesAsToolError() async throws {

@@ -2,7 +2,7 @@
 
 `CodeMode` is a Swift package that implements [CodeMode](https://blog.cloudflare.com/code-mode/) for iOS native APIs by exposing agents to two tools:
 
-- `searchJavaScriptAPI`: fuzzy discovery of the bundled JavaScript wrapped iOS API surface.
+- `searchJavaScriptAPI`: code-driven discovery of the bundled JavaScript wrapped iOS API surface.
 - `executeJavaScript`: constrained JavaScript execution with capability allowlisting and structured errors.
 
 ## Highlights
@@ -37,10 +37,22 @@ import CodeMode
 let tools = CodeModeAgentTools()
 
 let searchResponse = try await tools.searchJavaScriptAPI(
-    JavaScriptAPISearchRequest(query: "create reminder", limit: 5)
+    JavaScriptAPISearchRequest(
+        code: """
+        async () => {
+            return api.references
+                .filter(ref => ref.tags.includes("reminders"))
+                .map(ref => ({
+                    capability: ref.capability,
+                    jsNames: ref.jsNames,
+                    summary: ref.summary
+                }));
+        }
+        """
+    )
 )
 
-print(searchResponse.matches.map(\.capability))
+print(searchResponse.result ?? .null)
 
 let call = try await tools.executeJavaScript(
     JavaScriptExecutionRequest(
@@ -76,16 +88,53 @@ print(result.output ?? .null)
 
 `searchJavaScriptAPI` accepts `JavaScriptAPISearchRequest`:
 
-- `query`: fuzzy text search
-- `capability`: exact capability lookup
-- `tags`: optional tag filtering
-- `limit`: maximum match count
+- `code`: JavaScript source that evaluates to an async function
 
 Behavior:
 
-- empty search input throws `CodeModeToolError(code: "INVALID_REQUEST", ...)` unless `capability` is provided
-- no matches is a normal success
-- responses include typed `JavaScriptAPIReference` matches plus non-fatal diagnostics
+- empty search input throws `CodeModeToolError(code: "INVALID_REQUEST", ...)`
+- search executes your async function against a preloaded `api` object
+- returned output must be JSON-serializable
+- responses include `result: JSONValue?` plus non-fatal diagnostics
+
+Available in search code:
+
+```ts
+interface JavaScriptAPIReference {
+  capability: string;
+  jsNames: string[];
+  summary: string;
+  tags: string[];
+  example: string;
+  requiredArguments: string[];
+  optionalArguments: string[];
+  argumentTypes: Record<string, string>;
+  argumentHints: Record<string, string>;
+  resultSummary: string;
+}
+
+declare const api: {
+  references: JavaScriptAPIReference[];
+  byCapability: Record<string, JavaScriptAPIReference>;
+  byJSName: Record<string, JavaScriptAPIReference>;
+};
+```
+
+Example search programs:
+
+```javascript
+async () => {
+  return api.references
+    .filter(ref => ref.tags.includes("media"))
+    .map(ref => ({ capability: ref.capability, jsNames: ref.jsNames }));
+}
+```
+
+```javascript
+async () => {
+  return api.byJSName["fs.promises.readFile"];
+}
+```
 
 ## Execution
 

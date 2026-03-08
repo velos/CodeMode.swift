@@ -20,21 +20,10 @@ public struct CodeModeConfiguration: Sendable {
 }
 
 public struct JavaScriptAPISearchRequest: Sendable, Codable, Equatable {
-    public var query: String?
-    public var capability: CapabilityID?
-    public var tags: [String]
-    public var limit: Int
+    public var code: String
 
-    public init(
-        query: String? = nil,
-        capability: CapabilityID? = nil,
-        tags: [String] = [],
-        limit: Int = 8
-    ) {
-        self.query = query
-        self.capability = capability
-        self.tags = tags
-        self.limit = limit
+    public init(code: String) {
+        self.code = code
     }
 }
 
@@ -76,11 +65,11 @@ public struct JavaScriptAPIReference: Sendable, Codable, Equatable {
 }
 
 public struct JavaScriptAPISearchResponse: Sendable, Codable, Equatable {
-    public var matches: [JavaScriptAPIReference]
+    public var result: JSONValue?
     public var diagnostics: [ToolDiagnostic]
 
-    public init(matches: [JavaScriptAPIReference], diagnostics: [ToolDiagnostic] = []) {
-        self.matches = matches
+    public init(result: JSONValue?, diagnostics: [ToolDiagnostic] = []) {
+        self.result = result
         self.diagnostics = diagnostics
     }
 }

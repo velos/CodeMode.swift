@@ -1,6 +1,28 @@
 import Foundation
 
 enum RuntimeJavaScript {
+    static let searchBootstrap = """
+    globalThis.__codemode = globalThis.__codemode || {};
+    globalThis.__codemode.state = 'idle';
+    globalThis.__codemode.result = null;
+    globalThis.__codemode.error = null;
+
+    globalThis.console = {
+        log: function(){ __searchConsole('info', Array.from(arguments).map(function(v){ return String(v); }).join(' ')); },
+        info: function(){ __searchConsole('info', Array.from(arguments).map(function(v){ return String(v); }).join(' ')); },
+        warn: function(){ __searchConsole('warning', Array.from(arguments).map(function(v){ return String(v); }).join(' ')); },
+        error: function(){ __searchConsole('error', Array.from(arguments).map(function(v){ return String(v); }).join(' ')); }
+    };
+
+    globalThis.setTimeout = function(fn, delay) {
+        if (typeof fn === 'function') {
+            fn();
+        }
+        return 0;
+    };
+    globalThis.clearTimeout = function(_) {};
+    """
+
     static let bootstrap = """
     globalThis.__codemode = globalThis.__codemode || {};
     globalThis.__codemode.state = 'idle';

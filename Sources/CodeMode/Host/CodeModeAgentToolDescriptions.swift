@@ -14,7 +14,40 @@ public enum CodeModeAgentToolDescriptions {
     public static let searchJavaScriptAPI = CodeModeAgentToolDescription(
         name: "searchJavaScriptAPI",
         description: """
-        Search the bundled CodeMode JavaScript API surface before executing code. Use this to discover the correct JS helper names, capability IDs, arguments, and examples. Pass a natural-language query such as "create reminder", "read file", "request location permission", or "turn off light", or provide an exact capability for direct lookup. Prefer this tool whenever you are not already certain which CodeMode helper to call. Empty queries are invalid unless capability is provided.
+        Search the bundled CodeMode JavaScript API catalog by executing an async JavaScript function against a preloaded api object. Use this before executeJavaScript to discover the correct JS helper names, capability IDs, required arguments, and examples.
+
+        Available in your search code:
+        interface JavaScriptAPIReference {
+          capability: string;
+          jsNames: string[];
+          summary: string;
+          tags: string[];
+          example: string;
+          requiredArguments: string[];
+          optionalArguments: string[];
+          argumentTypes: Record<string, string>;
+          argumentHints: Record<string, string>;
+          resultSummary: string;
+        }
+
+        declare const api: {
+          references: JavaScriptAPIReference[];
+          byCapability: Record<string, JavaScriptAPIReference>;
+          byJSName: Record<string, JavaScriptAPIReference>;
+        };
+
+        Your code must evaluate to an async function and return JSON-serializable output.
+
+        Examples:
+        async () => {
+          return api.references
+            .filter(ref => ref.tags.includes("reminders"))
+            .map(ref => ({ capability: ref.capability, jsNames: ref.jsNames, summary: ref.summary }));
+        }
+
+        async () => {
+          return api.byJSName["fs.promises.readFile"];
+        }
         """
     )
 
