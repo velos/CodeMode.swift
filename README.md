@@ -27,6 +27,7 @@
 - `JavaScriptExecutionCall.result`
 - `JavaScriptExecutionCall.cancel()`
 - `CodeModeToolError`
+- `CodeModeAgentToolDescriptions`
 
 ## Quick Start
 
@@ -125,6 +126,8 @@ It returns a `JavaScriptExecutionCall` immediately.
 - `diagnostics`
 - `logs`
 - `permissionEvents`
+
+For hosts that vend these methods as LLM tool calls, use `CodeModeAgentToolDescriptions.searchJavaScriptAPI` and `CodeModeAgentToolDescriptions.executeJavaScript` as the canonical tool descriptions.
 
 ## Host App Permissions and Capabilities
 
