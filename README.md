@@ -1,11 +1,11 @@
-# CodeMode
+# CodeMode.swift
 
-`CodeMode` is a Swift package that implements [CodeMode](https://blog.cloudflare.com/code-mode/) for Apple platform APIs by exposing agents to two tools:
+`CodeMode.swift` is a Swift package that implements [CodeMode](https://blog.cloudflare.com/code-mode/) for Apple platform APIs by exposing agents to two tools:
 
 - `searchJavaScriptAPI`: code-driven discovery of the bundled JavaScript wrapped Apple API surface for the current host platform.
 - `executeJavaScript`: constrained JavaScript execution with capability allowlisting and structured errors.
 
-GitHub: [velos/codemode-ios](https://github.com/velos/codemode-ios)
+GitHub: [velos/CodeMode.swift](https://github.com/velos/CodeMode.swift)
 
 ## Highlights
 
@@ -25,16 +25,16 @@ GitHub: [velos/codemode-ios](https://github.com/velos/codemode-ios)
 
 ## Installation
 
-Once `0.1.0` is tagged, add the package with Swift Package Manager:
+Once `0.1.0` is tagged, add `CodeMode.swift` with Swift Package Manager:
 
 ```swift
-.package(url: "https://github.com/velos/codemode-ios", from: "0.1.0")
+.package(name: "CodeMode", url: "https://github.com/velos/CodeMode.swift", from: "0.1.0")
 ```
 
 Then add the product to your target:
 
 ```swift
-.product(name: "CodeMode", package: "codemode-ios")
+.product(name: "CodeMode", package: "CodeMode")
 ```
 
 ## Public API
@@ -170,6 +170,8 @@ It returns a `JavaScriptExecutionCall` immediately.
 
 Cross-platform privileged helpers are installed under `apple.*`. Platform-specific helpers are installed only where supported, for example `ios.alarm.*` on iOS hosts that support AlarmKit.
 
+`apple.location.requestPermission()` is currently exposed only on iOS hosts. Other Apple platforms can expose `apple.location.*` helpers when supported, but the explicit permission-request helper is intentionally hidden outside iOS for now.
+
 `call.events` is a non-throwing `AsyncStream` that can emit:
 
 - `.log(ExecutionLog)`
@@ -207,7 +209,8 @@ Host apps must provide privacy usage strings for bridged APIs that request prote
 
 Required Info.plist keys by capability:
 
-- Location (`location.read`, `location.permission.request`): `NSLocationWhenInUseUsageDescription`
+- Location read (`location.read`): `NSLocationWhenInUseUsageDescription`
+- Location permission request (`location.permission.request`, iOS-only): `NSLocationWhenInUseUsageDescription`
 - Contacts (`contacts.read`, `contacts.search`): `NSContactsUsageDescription`
 - Calendar read (`calendar.read`): `NSCalendarsFullAccessUsageDescription`
 - Calendar write-only (`calendar.write`): `NSCalendarsWriteOnlyAccessUsageDescription`
@@ -269,7 +272,7 @@ This repository is an independent implementation and is not affiliated with Clou
 
 ## Development Process
 
-Development of `CodeMode` was done exclusively with Codex, initiated by an interactively built plan, executed by the model after the plan was finalized.
+Development of `CodeMode.swift` was done exclusively with Codex, initiated by an interactively built plan, executed by the model after the plan was finalized.
 
 ## Deferred in v1
 
