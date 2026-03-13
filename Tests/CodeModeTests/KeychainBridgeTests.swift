@@ -46,9 +46,9 @@ import Testing
         request: JavaScriptExecutionRequest(
             code: """
             const key = 'execute-keychain-' + String(Date.now());
-            await ios.keychain.set(key, 'value-from-execute');
-            const read = await ios.keychain.get(key);
-            await ios.keychain.delete(key);
+            await apple.keychain.set(key, 'value-from-execute');
+            const read = await apple.keychain.get(key);
+            await apple.keychain.delete(key);
             return { value: read ? read.value : null };
             """,
             allowedCapabilities: [.keychainWrite, .keychainRead, .keychainDelete]

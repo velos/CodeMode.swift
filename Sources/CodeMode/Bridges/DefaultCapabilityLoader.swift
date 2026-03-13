@@ -45,7 +45,7 @@ public enum DefaultCapabilityLoader {
                     title: "Read Keychain value",
                     summary: "Read a string value from app-scoped Keychain storage.",
                     tags: ["security", "token", "keychain"],
-                    example: "await ios.keychain.get('auth_token')",
+                    example: "await apple.keychain.get('auth_token')",
                     requiredArguments: ["key"],
                     argumentHints: [
                         "key": "Logical key for this secret value.",
@@ -62,7 +62,7 @@ public enum DefaultCapabilityLoader {
                     title: "Write Keychain value",
                     summary: "Store or update a string value in app-scoped Keychain storage.",
                     tags: ["security", "token", "keychain"],
-                    example: "await ios.keychain.set('auth_token', token)",
+                    example: "await apple.keychain.set('auth_token', token)",
                     requiredArguments: ["key"],
                     optionalArguments: ["value"],
                     argumentHints: [
@@ -81,7 +81,7 @@ public enum DefaultCapabilityLoader {
                     title: "Delete Keychain value",
                     summary: "Delete an app-scoped Keychain value.",
                     tags: ["security", "token", "keychain"],
-                    example: "await ios.keychain.delete('auth_token')",
+                    example: "await apple.keychain.delete('auth_token')",
                     requiredArguments: ["key"],
                     argumentHints: [
                         "key": "Logical key for value removal.",
@@ -98,7 +98,7 @@ public enum DefaultCapabilityLoader {
                     title: "Read location state or coordinates",
                     summary: "Read location permission status or current coordinates.",
                     tags: ["location", "permission", "geospatial"],
-                    example: "await ios.location.getCurrentPosition()",
+                    example: "await apple.location.getCurrentPosition()",
                     requiredPermissions: [],
                     optionalArguments: ["mode"],
                     argumentHints: [
@@ -116,7 +116,7 @@ public enum DefaultCapabilityLoader {
                     title: "Request location permission",
                     summary: "Trigger location when-in-use permission request flow.",
                     tags: ["location", "permission"],
-                    example: "await ios.location.requestPermission()",
+                    example: "await apple.location.requestPermission()",
                     resultSummary: "Permission status string."
                 ),
                 handler: { _, context in
@@ -129,7 +129,7 @@ public enum DefaultCapabilityLoader {
                     title: "Read WeatherKit weather",
                     summary: "Fetch current weather for a latitude/longitude pair.",
                     tags: ["weather", "forecast", "weatherkit"],
-                    example: "await ios.weather.getCurrentWeather({ latitude: 37.77, longitude: -122.41 })",
+                    example: "await apple.weather.getCurrentWeather({ latitude: 37.77, longitude: -122.41 })",
                     requiredArguments: ["latitude", "longitude"],
                     argumentHints: [
                         "latitude": "Latitude in decimal degrees.",
@@ -147,7 +147,7 @@ public enum DefaultCapabilityLoader {
                     title: "Read calendar events",
                     summary: "List events in a date range from EventKit.",
                     tags: ["calendar", "eventkit", "schedule"],
-                    example: "await ios.calendar.listEvents({ start: '2026-02-21T00:00:00Z', end: '2026-03-01T00:00:00Z' })",
+                    example: "await apple.calendar.listEvents({ start: '2026-02-21T00:00:00Z', end: '2026-03-01T00:00:00Z' })",
                     requiredPermissions: [.calendar],
                     optionalArguments: ["start", "end", "limit"],
                     argumentHints: [
@@ -167,7 +167,7 @@ public enum DefaultCapabilityLoader {
                     title: "Create calendar event",
                     summary: "Create a calendar event in the default calendar.",
                     tags: ["calendar", "eventkit", "schedule"],
-                    example: "await ios.calendar.createEvent({ title: 'Standup', start: '2026-02-22T16:00:00Z', end: '2026-02-22T16:15:00Z' })",
+                    example: "await apple.calendar.createEvent({ title: 'Standup', start: '2026-02-22T16:00:00Z', end: '2026-02-22T16:15:00Z' })",
                     requiredPermissions: [.calendarWriteOnly],
                     requiredArguments: ["title", "start", "end"],
                     optionalArguments: ["notes"],
@@ -189,7 +189,7 @@ public enum DefaultCapabilityLoader {
                     title: "Read reminders",
                     summary: "Read incomplete reminders from EventKit.",
                     tags: ["reminders", "eventkit", "task"],
-                    example: "await ios.reminders.listReminders({ limit: 20 })",
+                    example: "await apple.reminders.listReminders({ limit: 20 })",
                     requiredPermissions: [.reminders],
                     optionalArguments: ["limit"],
                     argumentHints: [
@@ -207,7 +207,7 @@ public enum DefaultCapabilityLoader {
                     title: "Create reminder",
                     summary: "Create a reminder in default reminders list.",
                     tags: ["reminders", "eventkit", "task"],
-                    example: "await ios.reminders.createReminder({ title: 'Buy batteries', dueDate: '2026-02-22T18:00:00Z' })",
+                    example: "await apple.reminders.createReminder({ title: 'Buy batteries', dueDate: '2026-02-22T18:00:00Z' })",
                     requiredPermissions: [.reminders],
                     requiredArguments: ["title"],
                     optionalArguments: ["dueDate"],
@@ -227,7 +227,7 @@ public enum DefaultCapabilityLoader {
                     title: "Read contacts",
                     summary: "Read contacts with bounded fields.",
                     tags: ["contacts", "address-book", "people"],
-                    example: "await ios.contacts.list({ limit: 25 })",
+                    example: "await apple.contacts.list({ limit: 25 })",
                     requiredPermissions: [.contacts],
                     optionalArguments: ["limit", "identifiers"],
                     argumentHints: [
@@ -246,7 +246,7 @@ public enum DefaultCapabilityLoader {
                     title: "Search contacts",
                     summary: "Search contacts by name.",
                     tags: ["contacts", "search", "people"],
-                    example: "await ios.contacts.search({ query: 'Alex', limit: 10 })",
+                    example: "await apple.contacts.search({ query: 'Alex', limit: 10 })",
                     requiredPermissions: [.contacts],
                     requiredArguments: ["query"],
                     optionalArguments: ["limit"],
@@ -266,7 +266,7 @@ public enum DefaultCapabilityLoader {
                     title: "List photo library assets",
                     summary: "List photos/videos from the user photo library.",
                     tags: ["photos", "photo-library", "media"],
-                    example: "await ios.photos.list({ mediaType: 'image', limit: 20 })",
+                    example: "await apple.photos.list({ mediaType: 'image', limit: 20 })",
                     requiredPermissions: [.photoLibrary],
                     optionalArguments: ["mediaType", "limit"],
                     argumentHints: [
@@ -285,7 +285,7 @@ public enum DefaultCapabilityLoader {
                     title: "Export photo library asset",
                     summary: "Export a photo/video asset to sandbox file path and register artifact handle.",
                     tags: ["photos", "photo-library", "artifact"],
-                    example: "await ios.photos.export({ localIdentifier: 'ABC/L0/001', outputPath: 'tmp:exported.jpg' })",
+                    example: "await apple.photos.export({ localIdentifier: 'ABC/L0/001', outputPath: 'tmp:exported.jpg' })",
                     requiredPermissions: [.photoLibrary],
                     requiredArguments: ["localIdentifier"],
                     optionalArguments: ["outputPath"],
@@ -305,7 +305,7 @@ public enum DefaultCapabilityLoader {
                     title: "Analyze image with Vision",
                     summary: "Run on-device image analysis for labels/text/barcodes on sandbox image paths.",
                     tags: ["vision", "image-analysis", "ml"],
-                    example: "await ios.vision.analyzeImage({ path: 'tmp:receipt.jpg', features: ['text'], maxResults: 10 })",
+                    example: "await apple.vision.analyzeImage({ path: 'tmp:receipt.jpg', features: ['text'], maxResults: 10 })",
                     requiredArguments: ["path"],
                     optionalArguments: ["features", "maxResults"],
                     argumentHints: [
@@ -325,7 +325,7 @@ public enum DefaultCapabilityLoader {
                     title: "Request notification permission",
                     summary: "Request local notification authorization from the user.",
                     tags: ["notifications", "permission"],
-                    example: "await ios.notifications.requestPermission()",
+                    example: "await apple.notifications.requestPermission()",
                     resultSummary: "Object with status/granted fields."
                 ),
                 handler: { _, context in
@@ -338,7 +338,7 @@ public enum DefaultCapabilityLoader {
                     title: "Schedule local notification",
                     summary: "Schedule a local notification using time interval or fireDate trigger.",
                     tags: ["notifications", "local", "schedule"],
-                    example: "await ios.notifications.schedule({ title: 'Stand up', body: 'Stretch break', secondsFromNow: 900 })",
+                    example: "await apple.notifications.schedule({ title: 'Stand up', body: 'Stretch break', secondsFromNow: 900 })",
                     requiredPermissions: [.notifications],
                     requiredArguments: ["title"],
                     optionalArguments: ["identifier", "subtitle", "body", "secondsFromNow", "fireDate", "repeats"],
@@ -361,7 +361,7 @@ public enum DefaultCapabilityLoader {
                     title: "List pending local notifications",
                     summary: "List pending local notification requests.",
                     tags: ["notifications", "local", "schedule"],
-                    example: "await ios.notifications.listPending({ limit: 20 })",
+                    example: "await apple.notifications.listPending({ limit: 20 })",
                     requiredPermissions: [.notifications],
                     optionalArguments: ["limit"],
                     argumentHints: [
@@ -379,7 +379,7 @@ public enum DefaultCapabilityLoader {
                     title: "Delete pending local notifications",
                     summary: "Delete pending local notifications by identifier list or clear all.",
                     tags: ["notifications", "local", "schedule"],
-                    example: "await ios.notifications.cancelPending({ identifiers: ['codemode.1', 'codemode.2'] })",
+                    example: "await apple.notifications.cancelPending({ identifiers: ['codemode.1', 'codemode.2'] })",
                     requiredPermissions: [.notifications],
                     optionalArguments: ["identifier", "identifiers"],
                     argumentHints: [
@@ -470,7 +470,7 @@ public enum DefaultCapabilityLoader {
                     title: "Request HealthKit permission",
                     summary: "Request HealthKit authorization for requested read/write types.",
                     tags: ["healthkit", "health", "permission"],
-                    example: "await ios.health.requestPermission({ readTypes: ['stepCount', 'heartRate'], writeTypes: ['stepCount'] })",
+                    example: "await apple.health.requestPermission({ readTypes: ['stepCount', 'heartRate'], writeTypes: ['stepCount'] })",
                     optionalArguments: ["readTypes", "writeTypes"],
                     argumentTypes: [
                         "readTypes": .array,
@@ -492,7 +492,7 @@ public enum DefaultCapabilityLoader {
                     title: "Read HealthKit samples",
                     summary: "Read HealthKit samples for a supported type and date range.",
                     tags: ["healthkit", "health", "query"],
-                    example: "await ios.health.read({ type: 'stepCount', start: '2026-03-03T00:00:00Z', end: '2026-03-04T00:00:00Z', limit: 25, unit: 'count' })",
+                    example: "await apple.health.read({ type: 'stepCount', start: '2026-03-03T00:00:00Z', end: '2026-03-04T00:00:00Z', limit: 25, unit: 'count' })",
                     requiredArguments: ["type"],
                     optionalArguments: ["start", "end", "limit", "unit"],
                     argumentTypes: [
@@ -521,7 +521,7 @@ public enum DefaultCapabilityLoader {
                     title: "Write HealthKit quantity sample",
                     summary: "Write a HealthKit quantity sample for supported writable quantity types.",
                     tags: ["healthkit", "health", "write"],
-                    example: "await ios.health.write({ type: 'stepCount', value: 1200, unit: 'count', start: '2026-03-04T08:00:00Z', end: '2026-03-04T08:30:00Z' })",
+                    example: "await apple.health.write({ type: 'stepCount', value: 1200, unit: 'count', start: '2026-03-04T08:00:00Z', end: '2026-03-04T08:30:00Z' })",
                     requiredArguments: ["type", "value"],
                     optionalArguments: ["unit", "start", "end"],
                     argumentTypes: [
@@ -550,7 +550,7 @@ public enum DefaultCapabilityLoader {
                     title: "Read HomeKit graph",
                     summary: "Read homes/accessories/services (and optional characteristics) from HomeKit.",
                     tags: ["homekit", "iot", "devices"],
-                    example: "await ios.home.list({ includeCharacteristics: true, limit: 5 })",
+                    example: "await apple.home.list({ includeCharacteristics: true, limit: 5 })",
                     requiredPermissions: [.homeKit],
                     optionalArguments: ["includeCharacteristics", "limit"],
                     argumentHints: [
@@ -569,7 +569,7 @@ public enum DefaultCapabilityLoader {
                     title: "Write HomeKit characteristic",
                     summary: "Write a value to a writable HomeKit characteristic for a target accessory.",
                     tags: ["homekit", "iot", "devices", "control"],
-                    example: "await ios.home.writeCharacteristic({ accessoryIdentifier: 'UUID', characteristicType: 'HMCharacteristicTypePowerState', value: true })",
+                    example: "await apple.home.writeCharacteristic({ accessoryIdentifier: 'UUID', characteristicType: 'HMCharacteristicTypePowerState', value: true })",
                     requiredPermissions: [.homeKit],
                     requiredArguments: ["accessoryIdentifier", "characteristicType", "value"],
                     optionalArguments: ["serviceType"],
@@ -597,7 +597,7 @@ public enum DefaultCapabilityLoader {
                     title: "Read media metadata",
                     summary: "Read duration and track metadata from media files.",
                     tags: ["media", "avfoundation", "metadata"],
-                    example: "await ios.media.metadata({ path: 'tmp:video.mov' })",
+                    example: "await apple.media.metadata({ path: 'tmp:video.mov' })",
                     requiredArguments: ["path"],
                     argumentHints: [
                         "path": "Sandbox path like tmp:clip.mov.",
@@ -614,7 +614,7 @@ public enum DefaultCapabilityLoader {
                     title: "Extract video frame",
                     summary: "Extract frame at time offset and persist JPEG output.",
                     tags: ["media", "avfoundation", "thumbnail"],
-                    example: "await ios.media.extractFrame({ path: 'tmp:video.mov', timeMs: 1500 })",
+                    example: "await apple.media.extractFrame({ path: 'tmp:video.mov', timeMs: 1500 })",
                     requiredArguments: ["path"],
                     optionalArguments: ["timeMs", "outputPath"],
                     argumentHints: [
@@ -634,7 +634,7 @@ public enum DefaultCapabilityLoader {
                     title: "Transcode media",
                     summary: "Transcode media into MP4 with preset quality.",
                     tags: ["media", "avfoundation", "transcode"],
-                    example: "await ios.media.transcode({ path: 'tmp:input.mov', preset: 'AVAssetExportPresetMediumQuality' })",
+                    example: "await apple.media.transcode({ path: 'tmp:input.mov', preset: 'AVAssetExportPresetMediumQuality' })",
                     requiredArguments: ["path"],
                     optionalArguments: ["outputPath", "preset"],
                     argumentHints: [
@@ -654,7 +654,7 @@ public enum DefaultCapabilityLoader {
                     title: "List directory",
                     summary: "List files/directories within allowed sandbox roots.",
                     tags: ["filesystem", "io", "fs"],
-                    example: "await ios.fs.list({ path: 'tmp:' })",
+                    example: "await apple.fs.list({ path: 'tmp:' })",
                     requiredArguments: ["path"],
                     argumentHints: [
                         "path": "Directory path using allowed root prefix (tmp:, caches:, documents:).",
@@ -671,7 +671,7 @@ public enum DefaultCapabilityLoader {
                     title: "Read file",
                     summary: "Read text/base64 file data within allowed sandbox roots.",
                     tags: ["filesystem", "io", "fs"],
-                    example: "await ios.fs.read({ path: 'tmp:data.json', encoding: 'utf8' })",
+                    example: "await apple.fs.read({ path: 'tmp:data.json', encoding: 'utf8' })",
                     requiredArguments: ["path"],
                     optionalArguments: ["encoding"],
                     argumentHints: [
@@ -690,7 +690,7 @@ public enum DefaultCapabilityLoader {
                     title: "Write file",
                     summary: "Write text/base64 file data within allowed sandbox roots.",
                     tags: ["filesystem", "io", "fs"],
-                    example: "await ios.fs.write({ path: 'tmp:data.json', data: '{\"ok\":true}' })",
+                    example: "await apple.fs.write({ path: 'tmp:data.json', data: '{\"ok\":true}' })",
                     requiredArguments: ["path"],
                     optionalArguments: ["data", "encoding"],
                     argumentHints: [
@@ -710,7 +710,7 @@ public enum DefaultCapabilityLoader {
                     title: "Move file",
                     summary: "Move file/directory within allowed sandbox roots.",
                     tags: ["filesystem", "io", "fs"],
-                    example: "await ios.fs.move({ from: 'tmp:a.txt', to: 'tmp:b.txt' })",
+                    example: "await apple.fs.move({ from: 'tmp:a.txt', to: 'tmp:b.txt' })",
                     requiredArguments: ["from", "to"],
                     argumentHints: [
                         "from": "Source sandbox path.",
@@ -728,7 +728,7 @@ public enum DefaultCapabilityLoader {
                     title: "Copy file",
                     summary: "Copy file/directory within allowed sandbox roots.",
                     tags: ["filesystem", "io", "fs"],
-                    example: "await ios.fs.copy({ from: 'tmp:a.txt', to: 'tmp:b.txt' })",
+                    example: "await apple.fs.copy({ from: 'tmp:a.txt', to: 'tmp:b.txt' })",
                     requiredArguments: ["from", "to"],
                     argumentHints: [
                         "from": "Source sandbox path.",
@@ -746,7 +746,7 @@ public enum DefaultCapabilityLoader {
                     title: "Delete file",
                     summary: "Delete file/directory within allowed sandbox roots.",
                     tags: ["filesystem", "io", "fs"],
-                    example: "await ios.fs.delete({ path: 'tmp:data.json' })",
+                    example: "await apple.fs.delete({ path: 'tmp:data.json' })",
                     requiredArguments: ["path"],
                     optionalArguments: ["recursive"],
                     argumentHints: [
@@ -765,7 +765,7 @@ public enum DefaultCapabilityLoader {
                     title: "Stat path",
                     summary: "Read file metadata within allowed sandbox roots.",
                     tags: ["filesystem", "io", "fs"],
-                    example: "await ios.fs.stat({ path: 'tmp:data.json' })",
+                    example: "await apple.fs.stat({ path: 'tmp:data.json' })",
                     requiredArguments: ["path"],
                     argumentHints: [
                         "path": "File or directory path.",
@@ -782,7 +782,7 @@ public enum DefaultCapabilityLoader {
                     title: "Create directory",
                     summary: "Create directories within allowed sandbox roots.",
                     tags: ["filesystem", "io", "fs"],
-                    example: "await ios.fs.mkdir({ path: 'tmp:artifacts', recursive: true })",
+                    example: "await apple.fs.mkdir({ path: 'tmp:artifacts', recursive: true })",
                     requiredArguments: ["path"],
                     optionalArguments: ["recursive"],
                     argumentHints: [
@@ -801,7 +801,7 @@ public enum DefaultCapabilityLoader {
                     title: "Check path exists",
                     summary: "Check if file/directory exists within allowed sandbox roots.",
                     tags: ["filesystem", "io", "fs"],
-                    example: "await ios.fs.exists({ path: 'tmp:data.json' })",
+                    example: "await apple.fs.exists({ path: 'tmp:data.json' })",
                     requiredArguments: ["path"],
                     argumentHints: [
                         "path": "File or directory path to check.",
@@ -818,7 +818,7 @@ public enum DefaultCapabilityLoader {
                     title: "Check path access",
                     summary: "Check read/write access for path within allowed sandbox roots.",
                     tags: ["filesystem", "io", "fs"],
-                    example: "await ios.fs.access({ path: 'tmp:data.json' })",
+                    example: "await apple.fs.access({ path: 'tmp:data.json' })",
                     requiredArguments: ["path"],
                     argumentHints: [
                         "path": "File or directory path to inspect.",

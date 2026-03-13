@@ -82,5 +82,9 @@ import Testing
     ])
     #expect(CodeModeAgentToolDescriptions.searchJavaScriptAPI.description.contains("api.references"))
     #expect(CodeModeAgentToolDescriptions.searchJavaScriptAPI.description.contains("byJSName"))
+    #expect(CodeModeAgentToolDescriptions.searchJavaScriptAPI.description.contains("current host platform"))
+    #expect(CodeModeAgentToolDescriptions.searchJavaScriptAPI.description.contains("apple.fs.read"))
     #expect(CodeModeAgentToolDescriptions.executeJavaScript.description.contains("allowedCapabilities"))
+    #expect(CodeModeAgentToolDescriptions.executeJavaScript.description.contains("apple.*"))
+    #expect(CodeModeAgentToolDescriptions.executeJavaScript.description.contains("ios.alarm.*"))
 }

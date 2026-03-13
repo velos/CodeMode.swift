@@ -53,7 +53,7 @@ import Testing
         tools,
         request: JavaScriptExecutionRequest(
             code: """
-            await ios.health.read({ type: 'stepCount', limit: 1 });
+            await apple.health.read({ type: 'stepCount', limit: 1 });
             return { ok: true };
             """,
             allowedCapabilities: [.healthRead]

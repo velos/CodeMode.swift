@@ -49,7 +49,7 @@ import Testing
         tools,
         request: JavaScriptExecutionRequest(
             code: """
-            const status = await ios.location.getPermissionStatus();
+            const status = await apple.location.getPermissionStatus();
             return { status };
             """,
             allowedCapabilities: [.locationRead]

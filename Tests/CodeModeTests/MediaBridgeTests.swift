@@ -61,7 +61,7 @@ import Testing
         tools,
         request: JavaScriptExecutionRequest(
             code: """
-            await ios.media.metadata({});
+            await apple.media.metadata({});
             return { ok: true };
             """,
             allowedCapabilities: [.mediaMetadataRead]

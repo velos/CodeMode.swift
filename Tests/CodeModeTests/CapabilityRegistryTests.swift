@@ -10,6 +10,15 @@ import Testing
     #expect(loaded == expected)
 }
 
+@Test func platformSupportFilterMatchesCurrentPlatform() {
+    let registrations = DefaultCapabilityLoader.loadAllRegistrations()
+    let filtered = CapabilityPlatformSupport.filter(registrations, for: .current)
+    let loaded = Set(filtered.map { $0.descriptor.id })
+    let expected = CapabilityPlatformSupport.supportedCapabilities(for: .current)
+
+    #expect(loaded == expected)
+}
+
 @Test func registryRequestsPermissionWhenNotDetermined() throws {
     let descriptor = CapabilityDescriptor(
         id: .contactsRead,

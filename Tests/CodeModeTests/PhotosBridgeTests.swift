@@ -46,7 +46,7 @@ import Testing
         tools,
         request: JavaScriptExecutionRequest(
             code: """
-            await ios.photos.list({ limit: 1 });
+            await apple.photos.list({ limit: 1 });
             return { ok: true };
             """,
             allowedCapabilities: [.photosRead]

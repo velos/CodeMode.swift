@@ -50,7 +50,7 @@ import Testing
         tools,
         request: JavaScriptExecutionRequest(
             code: """
-            await ios.contacts.search({ query: 'alex' });
+            await apple.contacts.search({ query: 'alex' });
             return { ok: true };
             """,
             allowedCapabilities: [.contactsSearch]

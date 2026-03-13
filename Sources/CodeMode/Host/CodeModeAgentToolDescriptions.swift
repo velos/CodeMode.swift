@@ -14,7 +14,7 @@ public enum CodeModeAgentToolDescriptions {
     public static let searchJavaScriptAPI = CodeModeAgentToolDescription(
         name: "searchJavaScriptAPI",
         description: """
-        Search the bundled CodeMode JavaScript API catalog by executing an async JavaScript function against a preloaded api object. Use this before executeJavaScript to discover the correct JS helper names, capability IDs, required arguments, and examples.
+        Search the bundled CodeMode JavaScript API catalog by executing an async JavaScript function against a preloaded api object. Use this before executeJavaScript to discover the correct JS helper names, capability IDs, required arguments, and examples. The catalog is filtered to the current host platform, so unsupported helpers are hidden.
 
         Available in your search code:
         interface JavaScriptAPIReference {
@@ -46,7 +46,7 @@ public enum CodeModeAgentToolDescriptions {
         }
 
         async () => {
-          return api.byJSName["fs.promises.readFile"];
+          return api.byJSName["apple.fs.read"];
         }
         """
     )
@@ -54,7 +54,7 @@ public enum CodeModeAgentToolDescriptions {
     public static let executeJavaScript = CodeModeAgentToolDescription(
         name: "executeJavaScript",
         description: """
-        Execute JavaScript against the CodeMode runtime. Prefer searchJavaScriptAPI first when choosing helpers or arguments. Return the final value you want from the script and include only the required capabilities in allowedCapabilities. Execution streams logs and diagnostics and returns structured CodeModeToolError failures for syntax errors, missing JS helpers, runtime throws, validation failures, permission denials, timeouts, cancellation, and internal errors.
+        Execute JavaScript against the CodeMode runtime. Prefer searchJavaScriptAPI first when choosing helpers or arguments. Cross-platform helpers live under apple.* and platform-specific helpers live under platform namespaces such as ios.alarm.*. Only helpers supported on the current host platform are installed. Return the final value you want from the script and include only the required capabilities in allowedCapabilities. Execution streams logs and diagnostics and returns structured CodeModeToolError failures for syntax errors, missing JS helpers, runtime throws, validation failures, permission denials, timeouts, cancellation, and internal errors.
         """
     )
 

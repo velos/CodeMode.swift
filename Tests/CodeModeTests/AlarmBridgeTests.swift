@@ -50,16 +50,39 @@ import Testing
     let (tools, sandbox) = try makeTools(permissionBroker: broker)
     defer { cleanup(sandbox) }
 
-    let observed = try await execute(
-        tools,
-        request: JavaScriptExecutionRequest(
+    let response = try await tools.searchJavaScriptAPI(
+        JavaScriptAPISearchRequest(
             code: """
-            await ios.alarm.schedule({ title: 'Wake up', secondsFromNow: 60 });
-            return { ok: true };
-            """,
-            allowedCapabilities: [.alarmSchedule]
+            async () => {
+                return {
+                    capability: api.byCapability["alarm.schedule"] ?? null,
+                    helper: api.byJSName["ios.alarm.schedule"] ?? null
+                };
+            }
+            """
         )
     )
 
-    #expect(observed.error?.code == "PERMISSION_DENIED")
+    let payload = try #require(response.result?.objectValue)
+
+    if CapabilityPlatformSupport.isSupported(.alarmSchedule, for: .current) {
+        #expect(payload["capability"] != .null)
+        #expect(payload["helper"] != .null)
+
+        let observed = try await execute(
+            tools,
+            request: JavaScriptExecutionRequest(
+                code: """
+                await ios.alarm.schedule({ title: 'Wake up', secondsFromNow: 60 });
+                return { ok: true };
+                """,
+                allowedCapabilities: [.alarmSchedule]
+            )
+        )
+
+        #expect(observed.error?.code == "PERMISSION_DENIED")
+    } else {
+        #expect(payload["capability"] == .null)
+        #expect(payload["helper"] == .null)
+    }
 }

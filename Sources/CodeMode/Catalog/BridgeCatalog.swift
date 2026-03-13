@@ -97,7 +97,7 @@ struct BridgeCatalog: Sendable {
     private static func reference(from descriptor: CapabilityDescriptor) -> JavaScriptAPIReference {
         JavaScriptAPIReference(
             capability: descriptor.id,
-            jsNames: JavaScriptBindings.names(for: descriptor.id),
+            jsNames: JavaScriptBindingCatalog.names(for: descriptor.id),
             summary: descriptor.summary,
             tags: descriptor.tags,
             example: descriptor.example,
@@ -139,55 +139,4 @@ struct BridgeCatalog: Sendable {
 
         return distances[rhsChars.count]
     }
-}
-
-private enum JavaScriptBindings {
-    static func names(for capability: CapabilityID) -> [String] {
-        bindings[capability] ?? []
-    }
-
-    private static let bindings: [CapabilityID: [String]] = [
-        .networkFetch: ["fetch"],
-        .keychainRead: ["ios.keychain.get"],
-        .keychainWrite: ["ios.keychain.set"],
-        .keychainDelete: ["ios.keychain.delete"],
-        .locationRead: ["ios.location.getPermissionStatus", "ios.location.getCurrentPosition"],
-        .locationPermissionRequest: ["ios.location.requestPermission"],
-        .weatherRead: ["ios.weather.getCurrentWeather"],
-        .calendarRead: ["ios.calendar.listEvents"],
-        .calendarWrite: ["ios.calendar.createEvent"],
-        .remindersRead: ["ios.reminders.listReminders"],
-        .remindersWrite: ["ios.reminders.createReminder"],
-        .contactsRead: ["ios.contacts.list"],
-        .contactsSearch: ["ios.contacts.search"],
-        .photosRead: ["ios.photos.list"],
-        .photosExport: ["ios.photos.export"],
-        .visionImageAnalyze: ["ios.vision.analyzeImage"],
-        .notificationsPermissionRequest: ["ios.notifications.requestPermission"],
-        .notificationsSchedule: ["ios.notifications.schedule"],
-        .notificationsPendingRead: ["ios.notifications.listPending"],
-        .notificationsPendingDelete: ["ios.notifications.cancelPending"],
-        .alarmPermissionRequest: ["ios.alarm.requestPermission"],
-        .alarmRead: ["ios.alarm.list"],
-        .alarmSchedule: ["ios.alarm.schedule"],
-        .alarmCancel: ["ios.alarm.cancel"],
-        .healthPermissionRequest: ["ios.health.requestPermission"],
-        .healthRead: ["ios.health.read"],
-        .healthWrite: ["ios.health.write"],
-        .homeRead: ["ios.home.list"],
-        .homeWrite: ["ios.home.writeCharacteristic"],
-        .mediaMetadataRead: ["ios.media.metadata"],
-        .mediaFrameExtract: ["ios.media.extractFrame"],
-        .mediaTranscode: ["ios.media.transcode"],
-        .fsList: ["ios.fs.list", "fs.promises.readdir"],
-        .fsRead: ["ios.fs.read", "fs.promises.readFile"],
-        .fsWrite: ["ios.fs.write", "fs.promises.writeFile"],
-        .fsMove: ["ios.fs.move", "fs.promises.rename"],
-        .fsCopy: ["ios.fs.copy", "fs.promises.copyFile"],
-        .fsDelete: ["ios.fs.delete", "fs.promises.rm"],
-        .fsStat: ["ios.fs.stat", "fs.promises.stat"],
-        .fsMkdir: ["ios.fs.mkdir", "fs.promises.mkdir"],
-        .fsExists: ["ios.fs.exists"],
-        .fsAccess: ["ios.fs.access", "fs.promises.access"],
-    ]
 }

@@ -92,54 +92,55 @@ enum RuntimeJavaScript {
         return __invokeAsync('network.fetch', { url: String(url), options: options || {} }).then(__response);
     };
 
-    globalThis.ios = globalThis.ios || {};
-    globalThis.ios.keychain = {
+    globalThis.apple = globalThis.apple || {};
+    globalThis.apple.keychain = {
         get: function(key) { return __invokeAsync('keychain.read', { key: String(key) }); },
         set: function(key, value) { return __invokeAsync('keychain.write', { key: String(key), value: String(value) }); },
         delete: function(key) { return __invokeAsync('keychain.delete', { key: String(key) }); }
     };
 
-    globalThis.ios.location = {
+    globalThis.apple.location = {
         getPermissionStatus: function() { return __invokeAsync('location.read', { mode: 'permissionStatus' }); },
         requestPermission: function() { return __invokeAsync('location.permission.request', {}); },
         getCurrentPosition: function() { return __invokeAsync('location.read', { mode: 'current' }); }
     };
 
-    globalThis.ios.weather = {
+    globalThis.apple.weather = {
         getCurrentWeather: function(coords) { return __invokeAsync('weather.read', coords || {}); }
     };
 
-    globalThis.ios.calendar = {
+    globalThis.apple.calendar = {
         listEvents: function(args) { return __invokeAsync('calendar.read', args || {}); },
         createEvent: function(args) { return __invokeAsync('calendar.write', args || {}); }
     };
 
-    globalThis.ios.reminders = {
+    globalThis.apple.reminders = {
         listReminders: function(args) { return __invokeAsync('reminders.read', args || {}); },
         createReminder: function(args) { return __invokeAsync('reminders.write', args || {}); }
     };
 
-    globalThis.ios.contacts = {
+    globalThis.apple.contacts = {
         list: function(args) { return __invokeAsync('contacts.read', args || {}); },
         search: function(args) { return __invokeAsync('contacts.search', args || {}); }
     };
 
-    globalThis.ios.photos = {
+    globalThis.apple.photos = {
         list: function(args) { return __invokeAsync('photos.read', args || {}); },
         export: function(args) { return __invokeAsync('photos.export', args || {}); }
     };
 
-    globalThis.ios.vision = {
+    globalThis.apple.vision = {
         analyzeImage: function(args) { return __invokeAsync('vision.image.analyze', args || {}); }
     };
 
-    globalThis.ios.notifications = {
+    globalThis.apple.notifications = {
         requestPermission: function() { return __invokeAsync('notifications.permission.request', {}); },
         schedule: function(args) { return __invokeAsync('notifications.schedule', args || {}); },
         listPending: function(args) { return __invokeAsync('notifications.pending.read', args || {}); },
         cancelPending: function(args) { return __invokeAsync('notifications.pending.delete', args || {}); }
     };
 
+    globalThis.ios = globalThis.ios || {};
     globalThis.ios.alarm = {
         requestPermission: function() { return __invokeAsync('alarm.permission.request', {}); },
         list: function(args) { return __invokeAsync('alarm.read', args || {}); },
@@ -147,24 +148,24 @@ enum RuntimeJavaScript {
         cancel: function(args) { return __invokeAsync('alarm.cancel', args || {}); }
     };
 
-    globalThis.ios.health = {
+    globalThis.apple.health = {
         requestPermission: function(args) { return __invokeAsync('health.permission.request', args || {}); },
         read: function(args) { return __invokeAsync('health.read', args || {}); },
         write: function(args) { return __invokeAsync('health.write', args || {}); }
     };
 
-    globalThis.ios.home = {
+    globalThis.apple.home = {
         list: function(args) { return __invokeAsync('home.read', args || {}); },
         writeCharacteristic: function(args) { return __invokeAsync('home.write', args || {}); }
     };
 
-    globalThis.ios.media = {
+    globalThis.apple.media = {
         metadata: function(args) { return __invokeAsync('media.metadata.read', args || {}); },
         extractFrame: function(args) { return __invokeAsync('media.frame.extract', args || {}); },
         transcode: function(args) { return __invokeAsync('media.transcode', args || {}); }
     };
 
-    globalThis.ios.fs = {
+    globalThis.apple.fs = {
         list: function(args) { return __invokeAsync('fs.list', args || {}); },
         read: function(args) { return __invokeAsync('fs.read', args || {}); },
         write: function(args) { return __invokeAsync('fs.write', args || {}); },

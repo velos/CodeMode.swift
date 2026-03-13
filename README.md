@@ -1,22 +1,41 @@
 # CodeMode
 
-`CodeMode` is a Swift package that implements [CodeMode](https://blog.cloudflare.com/code-mode/) for iOS native APIs by exposing agents to two tools:
+`CodeMode` is a Swift package that implements [CodeMode](https://blog.cloudflare.com/code-mode/) for Apple platform APIs by exposing agents to two tools:
 
-- `searchJavaScriptAPI`: code-driven discovery of the bundled JavaScript wrapped iOS API surface.
+- `searchJavaScriptAPI`: code-driven discovery of the bundled JavaScript wrapped Apple API surface for the current host platform.
 - `executeJavaScript`: constrained JavaScript execution with capability allowlisting and structured errors.
+
+GitHub: [velos/codemode-ios](https://github.com/velos/codemode-ios)
 
 ## Highlights
 
-- Platforms: `iOS 18+`, `macOS 15+`
+- Platforms: `iOS 18+`, `macOS 15+`, `visionOS 2+`, `watchOS 11+`
 - Typed Swift host API through `CodeModeAgentTools`
 - Streaming execution via `JavaScriptExecutionCall`
 - Structured failures via `CodeModeToolError`
 - Hybrid JS surface:
   - web-style globals: `fetch`, `URL`, `URLSearchParams`, `setTimeout`, `console`
-  - privileged namespaces: `ios.keychain`, `ios.location`, `ios.weather`, `ios.calendar`, `ios.reminders`, `ios.contacts`, `ios.photos`, `ios.vision`, `ios.notifications`, `ios.alarm`, `ios.health`, `ios.home`, `ios.media`, `ios.fs`
+  - cross-platform Apple namespaces: `apple.keychain`, `apple.location`, `apple.weather`, `apple.calendar`, `apple.reminders`, `apple.contacts`, `apple.photos`, `apple.vision`, `apple.notifications`, `apple.health`, `apple.home`, `apple.media`, `apple.fs`
+  - platform-specific namespaces when needed: `ios.alarm`
 - Node-style aliases for file operations through `globalThis.fs.promises`
 - Sandboxed filesystem policy with allowed roots: `tmp`, `caches`, `documents`
+- Search and execution only expose helpers supported on the current host platform
+- `apple.*` is the canonical cross-Apple namespace, not a promise that every helper exists on every Apple OS
 - Library-only package surface
+
+## Installation
+
+Once `0.1.0` is tagged, add the package with Swift Package Manager:
+
+```swift
+.package(url: "https://github.com/velos/codemode-ios", from: "0.1.0")
+```
+
+Then add the product to your target:
+
+```swift
+.product(name: "CodeMode", package: "codemode-ios")
+```
 
 ## Public API
 
@@ -57,7 +76,7 @@ print(searchResponse.result ?? .null)
 let call = try await tools.executeJavaScript(
     JavaScriptExecutionRequest(
         code: """
-        await ios.fs.write({ path: "tmp:note.txt", data: "hello" });
+        await apple.fs.write({ path: "tmp:note.txt", data: "hello" });
         return await fs.promises.readFile("tmp:note.txt", "utf8");
         """,
         allowedCapabilities: [.fsWrite, .fsRead]
@@ -94,7 +113,9 @@ Behavior:
 
 - empty search input throws `CodeModeToolError(code: "INVALID_REQUEST", ...)`
 - search executes your async function against a preloaded `api` object
+- `api` only contains capabilities and JS names supported on the current host platform
 - returned output must be JSON-serializable
+- syntax errors, invalid search programs, timeouts, and runtime failures throw `CodeModeToolError`
 - responses include `result: JSONValue?` plus non-fatal diagnostics
 
 Available in search code:
@@ -132,7 +153,7 @@ async () => {
 
 ```javascript
 async () => {
-  return api.byJSName["fs.promises.readFile"];
+  return api.byJSName["apple.fs.read"];
 }
 ```
 
@@ -146,6 +167,8 @@ async () => {
 - `context`
 
 It returns a `JavaScriptExecutionCall` immediately.
+
+Cross-platform privileged helpers are installed under `apple.*`. Platform-specific helpers are installed only where supported, for example `ios.alarm.*` on iOS hosts that support AlarmKit.
 
 `call.events` is a non-throwing `AsyncStream` that can emit:
 
@@ -197,7 +220,7 @@ Required Info.plist keys by capability:
 
 Notifications:
 
-- Local notification scheduling and management (`notifications.*`) requires runtime authorization via `ios.notifications.requestPermission()`
+- Local notification scheduling and management (`notifications.*`) requires runtime authorization via `apple.notifications.requestPermission()`
 - No additional Info.plist privacy string is required for `UNUserNotificationCenter` authorization prompts
 
 AlarmKit:
@@ -206,7 +229,7 @@ AlarmKit:
 
 HealthKit:
 
-- `health.*` requires the HealthKit entitlement and runtime authorization via `ios.health.requestPermission(...)`
+- `health.*` requires the HealthKit entitlement and runtime authorization via `apple.health.requestPermission(...)`
 
 Weather:
 

@@ -42,6 +42,62 @@ import Testing
     #expect(result.array("jsNames")?.contains(.string("fs.promises.readFile")) == true)
 }
 
+@Test func searchUsesAppleNamespaceAndDropsStaleIOSAliases() async throws {
+    let (tools, sandbox) = try makeTools()
+    defer { cleanup(sandbox) }
+
+    let response = try await tools.searchJavaScriptAPI(
+        JavaScriptAPISearchRequest(
+            code: """
+            async () => {
+                return {
+                    apple: api.byJSName["apple.fs.read"] ?? null,
+                    staleIOS: api.byJSName["ios.fs.read"] ?? null
+                };
+            }
+            """
+        )
+    )
+
+    let result = try #require(response.result?.objectValue)
+    #expect(result.object("apple")?.string("capability") == CapabilityID.fsRead.rawValue)
+    #expect(result["staleIOS"] == .null)
+}
+
+@Test func searchHidesUnsupportedCapabilitiesForCurrentHostPlatform() async throws {
+    let (tools, sandbox) = try makeTools()
+    defer { cleanup(sandbox) }
+
+    let response = try await tools.searchJavaScriptAPI(
+        JavaScriptAPISearchRequest(
+            code: """
+            async () => {
+                return {
+                    locationPermission: api.byCapability["location.permission.request"] ?? null,
+                    alarmSchedule: api.byCapability["alarm.schedule"] ?? null
+                };
+            }
+            """
+        )
+    )
+
+    let result = try #require(response.result?.objectValue)
+    let locationPermission = result["locationPermission"]
+    let alarmSchedule = result["alarmSchedule"]
+
+    if CapabilityPlatformSupport.isSupported(.locationPermissionRequest, for: .current) {
+        #expect(locationPermission != .null)
+    } else {
+        #expect(locationPermission == .null)
+    }
+
+    if CapabilityPlatformSupport.isSupported(.alarmSchedule, for: .current) {
+        #expect(alarmSchedule != .null)
+    } else {
+        #expect(alarmSchedule == .null)
+    }
+}
+
 @Test func searchSupportsDirectCapabilityLookup() async throws {
     let (tools, sandbox) = try makeTools()
     defer { cleanup(sandbox) }
@@ -126,7 +182,7 @@ import Testing
     let observed = try await execute(
         tools,
         request: JavaScriptExecutionRequest(
-            code: "return await ios.fs.read({ path: 'tmp:blocked.txt' });",
+            code: "return await apple.fs.read({ path: 'tmp:blocked.txt' });",
             allowedCapabilities: []
         )
     )
@@ -171,15 +227,15 @@ import Testing
     let observed = try await execute(
         tools,
         request: JavaScriptExecutionRequest(
-            code: "return await ios.fs.reed({ path: 'tmp:file.txt' });",
+            code: "return await apple.fs.reed({ path: 'tmp:file.txt' });",
             allowedCapabilities: [.fsRead]
         )
     )
 
     #expect(observed.result == nil)
     #expect(observed.error?.code == "JS_API_NOT_FOUND")
-    #expect(observed.error?.functionName == "ios.fs.reed")
-    #expect(observed.error?.suggestions.contains("ios.fs.read") == true)
+    #expect(observed.error?.functionName == "apple.fs.reed")
+    #expect(observed.error?.suggestions.contains("apple.fs.read") == true)
     #expect(observed.events.contains(where: {
         if case .functionNotFound(let error) = $0 {
             return error.code == "JS_API_NOT_FOUND"
@@ -246,7 +302,7 @@ import Testing
     let observed = try await execute(
         tools,
         request: JavaScriptExecutionRequest(
-            code: "return await ios.fs.write({ path: 'tmp:../escape.txt', data: 'x' });",
+            code: "return await apple.fs.write({ path: 'tmp:../escape.txt', data: 'x' });",
             allowedCapabilities: [.fsWrite]
         )
     )
@@ -255,7 +311,7 @@ import Testing
     #expect(observed.error?.code == "PATH_POLICY_VIOLATION")
 }
 
-@Test func iosFSAndNodeAliasesMatch() async throws {
+@Test func appleFSAndNodeAliasesMatch() async throws {
     let (tools, sandbox) = try makeTools()
     defer { cleanup(sandbox) }
 
@@ -263,10 +319,10 @@ import Testing
         tools,
         request: JavaScriptExecutionRequest(
             code: """
-            await ios.fs.write({ path: 'tmp:alias.txt', data: 'hello world' });
-            const iosRead = await ios.fs.read({ path: 'tmp:alias.txt' });
+            await apple.fs.write({ path: 'tmp:alias.txt', data: 'hello world' });
+            const appleRead = await apple.fs.read({ path: 'tmp:alias.txt' });
             const nodeRead = await fs.promises.readFile('tmp:alias.txt', 'utf8');
-            return { ios: iosRead.text, node: nodeRead };
+            return { apple: appleRead.text, node: nodeRead };
             """,
             allowedCapabilities: [.fsWrite, .fsRead]
         )
@@ -274,7 +330,7 @@ import Testing
 
     let result = try #require(observed.result)
     let payload = try requireJSONObject(from: result)
-    #expect(payload["ios"] as? String == "hello world")
+    #expect(payload["apple"] as? String == "hello world")
     #expect(payload["node"] as? String == "hello world")
     #expect(observed.events.last == .finished)
 }
@@ -288,9 +344,9 @@ import Testing
         request: JavaScriptExecutionRequest(
             code: """
             for (let i = 0; i < 5; i++) {
-              await ios.fs.write({ path: `tmp:loop-${i}.txt`, data: `v${i}` });
+              await apple.fs.write({ path: `tmp:loop-${i}.txt`, data: `v${i}` });
             }
-            const files = await ios.fs.list({ path: 'tmp:' });
+            const files = await apple.fs.list({ path: 'tmp:' });
             const loopFiles = files.filter(f => f.name.startsWith('loop-'));
             return { count: loopFiles.length };
             """,
@@ -401,7 +457,7 @@ import Testing
     let observed = try await execute(
         tools,
         request: JavaScriptExecutionRequest(
-            code: "return await ios.location.getCurrentPosition();",
+            code: "return await apple.location.getCurrentPosition();",
             allowedCapabilities: [.locationRead]
         )
     )
@@ -418,7 +474,7 @@ import Testing
     let observed = try await execute(
         tools,
         request: JavaScriptExecutionRequest(
-            code: "return await ios.weather.getCurrentWeather({ latitude: 37.77 });",
+            code: "return await apple.weather.getCurrentWeather({ latitude: 37.77 });",
             allowedCapabilities: [.weatherRead]
         )
     )

@@ -25,7 +25,7 @@ import Testing
         tools,
         request: JavaScriptExecutionRequest(
             code: """
-            await ios.weather.getCurrentWeather({});
+            await apple.weather.getCurrentWeather({});
             return { ok: true };
             """,
             allowedCapabilities: [.weatherRead]

@@ -23,7 +23,7 @@ import Testing
         tools,
         request: JavaScriptExecutionRequest(
             code: """
-            await ios.vision.analyzeImage({ features: ['text'] });
+            await apple.vision.analyzeImage({ features: ['text'] });
             return { ok: true };
             """,
             allowedCapabilities: [.visionImageAnalyze]

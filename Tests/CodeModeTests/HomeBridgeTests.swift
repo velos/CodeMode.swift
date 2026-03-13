@@ -50,7 +50,7 @@ import Testing
         tools,
         request: JavaScriptExecutionRequest(
             code: """
-            await ios.home.list({ includeCharacteristics: true, limit: 3 });
+            await apple.home.list({ includeCharacteristics: true, limit: 3 });
             return { ok: true };
             """,
             allowedCapabilities: [.homeRead]

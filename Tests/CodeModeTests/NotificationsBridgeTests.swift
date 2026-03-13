@@ -54,7 +54,7 @@ import Testing
         tools,
         request: JavaScriptExecutionRequest(
             code: """
-            await ios.notifications.schedule({ title: 'Hydrate', body: 'Drink water', secondsFromNow: 60 });
+            await apple.notifications.schedule({ title: 'Hydrate', body: 'Drink water', secondsFromNow: 60 });
             return { ok: true };
             """,
             allowedCapabilities: [.notificationsSchedule]

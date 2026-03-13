@@ -108,7 +108,7 @@ import Testing
         tools,
         request: JavaScriptExecutionRequest(
             code: """
-            await ios.fs.write({ path: 'tmp:execute-fs.txt', data: 'fs-from-execute' });
+            await apple.fs.write({ path: 'tmp:execute-fs.txt', data: 'fs-from-execute' });
             const text = await fs.promises.readFile('tmp:execute-fs.txt', 'utf8');
             return { text };
             """,

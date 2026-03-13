@@ -6,7 +6,11 @@ public final class CodeModeAgentTools: @unchecked Sendable {
     private let runtime: BridgeRuntime
 
     public init(config: CodeModeConfiguration = .init()) {
-        let registry = CapabilityRegistry(registrations: DefaultCapabilityLoader.loadAllRegistrations())
+        let registrations = CapabilityPlatformSupport.filter(
+            DefaultCapabilityLoader.loadAllRegistrations(),
+            for: .current
+        )
+        let registry = CapabilityRegistry(registrations: registrations)
         self.registry = registry
         self.catalog = BridgeCatalog(registry: registry)
         self.runtime = BridgeRuntime(registry: registry, catalog: self.catalog, config: config)

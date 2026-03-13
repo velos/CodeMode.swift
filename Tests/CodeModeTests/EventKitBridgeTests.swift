@@ -56,7 +56,7 @@ import Testing
         tools,
         request: JavaScriptExecutionRequest(
             code: """
-            await ios.calendar.listEvents({});
+            await apple.calendar.listEvents({});
             return { ok: true };
             """,
             allowedCapabilities: [.calendarRead]
@@ -78,7 +78,7 @@ import Testing
         tools,
         request: JavaScriptExecutionRequest(
             code: """
-            await ios.calendar.createEvent({});
+            await apple.calendar.createEvent({});
             return { ok: true };
             """,
             allowedCapabilities: [.calendarWrite]
@@ -101,7 +101,7 @@ import Testing
         tools,
         request: JavaScriptExecutionRequest(
             code: """
-            await ios.reminders.listReminders({});
+            await apple.reminders.listReminders({});
             return { ok: true };
             """,
             allowedCapabilities: [.remindersRead]

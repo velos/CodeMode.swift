@@ -253,6 +253,26 @@ final class BridgeRuntime: @unchecked Sendable {
                 ]
             )
         }
+
+        let supportedCapabilities = Set(registry.allDescriptors().map(\.id))
+        let unsupportedCapabilities = CapabilityID.allCases.filter { supportedCapabilities.contains($0) == false }
+        let pruningScript = JavaScriptBindingCatalog.pruningScript(removing: unsupportedCapabilities)
+
+        if pruningScript.isEmpty == false, context.evaluateScript(pruningScript) == nil {
+            let message = lastException.get()?.message ?? "Failed to prune unsupported JavaScript bindings"
+            throw CodeModeToolError(
+                code: "INTERNAL_FAILURE",
+                message: message,
+                diagnostics: [
+                    ToolDiagnostic(
+                        severity: .error,
+                        code: "JS_BOOTSTRAP",
+                        message: message,
+                        category: "internal"
+                    )
+                ]
+            )
+        }
     }
 
     private func installSearchRuntime(
@@ -723,7 +743,12 @@ final class BridgeRuntime: @unchecked Sendable {
         }
 
         let normalized = name.lowercased()
-        if normalized == "fetch" || normalized.hasPrefix("ios.") || normalized.hasPrefix("fs.") || normalized.hasPrefix("path.") {
+        if normalized == "fetch"
+            || normalized.hasPrefix("apple.")
+            || normalized.hasPrefix("ios.")
+            || normalized.hasPrefix("fs.")
+            || normalized.hasPrefix("path.")
+        {
             return true
         }
 
