@@ -424,7 +424,21 @@ struct CodeModeLLMEvalResult: Codable, Sendable {
     var retryCount: Int
     var exactCapabilityMatched: Bool?
     var assistantMessage: String?
+    var toolAttempts: [CodeModeLLMToolAttempt]? = nil
     var evalResult: CodeModeEvalResult
+}
+
+struct CodeModeLLMToolAttempt: Codable, Sendable {
+    var index: Int
+    var toolName: String
+    var allowedCapabilities: [String]
+    var succeeded: Bool
+    var errorCode: String?
+    var errorMessage: String?
+    var functionName: String?
+    var diagnostics: [String]
+    var suggestions: [String]
+    var repairedByNextAttempt: Bool?
 }
 
 struct CodeModeLLMEvalSummary: Codable, Sendable {
@@ -853,6 +867,7 @@ private final class WavelikeLLMEvalRunner: Sendable {
                 scenario: scenario
             ),
             assistantMessage: finalMessage,
+            toolAttempts: snapshot.toolAttempts,
             evalResult: evalResult
         )
     }
@@ -950,6 +965,7 @@ private actor CodeModeLLMToolState {
     private var executionDiagnostics: [ToolDiagnostic] = []
     private var error: CodeModeToolError?
     private var failures: [String] = []
+    private var toolAttempts: [CodeModeLLMToolAttempt] = []
 
     private let scenario: CodeModeEvalScenario
     private let runtime: CodeModeLLMRuntime
@@ -980,11 +996,23 @@ private actor CodeModeLLMToolState {
             default:
                 let message = "Unknown tool requested by model: \(name)"
                 failures.append(message)
+                recordAttempt(
+                    toolName: name,
+                    succeeded: false,
+                    errorCode: "UNKNOWN_TOOL",
+                    errorMessage: message
+                )
                 return encoded(ToolOutput(ok: false, error: message))
             }
         } catch {
             let message = "Failed to decode arguments for \(name): \(error.localizedDescription)"
             failures.append(message)
+            recordAttempt(
+                toolName: name,
+                succeeded: false,
+                errorCode: "ARGUMENT_DECODE_FAILED",
+                errorMessage: message
+            )
             return encoded(ToolOutput(ok: false, error: message))
         }
     }
@@ -997,14 +1025,30 @@ private actor CodeModeLLMToolState {
             searchResults.append(response.result ?? .null)
             searchResult = combinedSearchResult()
             searchDiagnostics = mergedUnique(searchDiagnostics, response.diagnostics)
+            recordAttempt(
+                toolName: CodeModeAgentToolDescriptions.searchJavaScriptAPI.name,
+                succeeded: true,
+                diagnostics: response.diagnostics
+            )
             return encoded(SearchToolOutput(ok: true, result: response.result, diagnostics: response.diagnostics))
         } catch let toolError as CodeModeToolError {
             error = toolError
             searchDiagnostics = mergedUnique(searchDiagnostics, toolError.diagnostics)
+            recordAttempt(
+                toolName: CodeModeAgentToolDescriptions.searchJavaScriptAPI.name,
+                succeeded: false,
+                error: toolError
+            )
             return encoded(ToolErrorOutput(ok: false, error: toolError))
         } catch {
             let message = error.localizedDescription
             failures.append("searchJavaScriptAPI failed unexpectedly: \(message)")
+            recordAttempt(
+                toolName: CodeModeAgentToolDescriptions.searchJavaScriptAPI.name,
+                succeeded: false,
+                errorCode: "UNEXPECTED_ERROR",
+                errorMessage: message
+            )
             return encoded(ToolOutput(ok: false, error: message))
         }
     }
@@ -1014,6 +1058,13 @@ private actor CodeModeLLMToolState {
         guard unknownCapabilities.isEmpty else {
             let message = "Unknown allowedCapabilities: \(unknownCapabilities.joined(separator: ", "))"
             failures.append(message)
+            recordAttempt(
+                toolName: CodeModeAgentToolDescriptions.executeJavaScript.name,
+                allowedCapabilities: rawCapabilities,
+                succeeded: false,
+                errorCode: "UNKNOWN_CAPABILITY",
+                errorMessage: message
+            )
             return encoded(ToolOutput(ok: false, error: message))
         }
 
@@ -1041,9 +1092,22 @@ private actor CodeModeLLMToolState {
             error = observed.error
 
             if let toolError = observed.error {
+                recordAttempt(
+                    toolName: CodeModeAgentToolDescriptions.executeJavaScript.name,
+                    allowedCapabilities: rawCapabilities,
+                    succeeded: false,
+                    error: toolError,
+                    diagnostics: observed.diagnostics
+                )
                 return encoded(ToolErrorOutput(ok: false, error: toolError))
             }
 
+            recordAttempt(
+                toolName: CodeModeAgentToolDescriptions.executeJavaScript.name,
+                allowedCapabilities: rawCapabilities,
+                succeeded: true,
+                diagnostics: observed.diagnostics
+            )
             return encoded(
                 ExecuteToolOutput(
                     ok: true,
@@ -1056,10 +1120,23 @@ private actor CodeModeLLMToolState {
             error = toolError
             executionLogs = toolError.logs
             executionDiagnostics = toolError.diagnostics
+            recordAttempt(
+                toolName: CodeModeAgentToolDescriptions.executeJavaScript.name,
+                allowedCapabilities: rawCapabilities,
+                succeeded: false,
+                error: toolError
+            )
             return encoded(ToolErrorOutput(ok: false, error: toolError))
         } catch {
             let message = error.localizedDescription
             failures.append("executeJavaScript failed unexpectedly: \(message)")
+            recordAttempt(
+                toolName: CodeModeAgentToolDescriptions.executeJavaScript.name,
+                allowedCapabilities: rawCapabilities,
+                succeeded: false,
+                errorCode: "UNEXPECTED_ERROR",
+                errorMessage: message
+            )
             return encoded(ToolOutput(ok: false, error: message))
         }
     }
@@ -1073,8 +1150,75 @@ private actor CodeModeLLMToolState {
             executionLogs: executionLogs,
             executionDiagnostics: executionDiagnostics,
             error: error,
-            failures: failures
+            failures: failures,
+            toolAttempts: attemptsWithRepairSignals()
         )
+    }
+
+    private func recordAttempt(
+        toolName: String,
+        allowedCapabilities: [String] = [],
+        succeeded: Bool,
+        error: CodeModeToolError? = nil,
+        errorCode: String? = nil,
+        errorMessage: String? = nil,
+        diagnostics: [ToolDiagnostic] = []
+    ) {
+        let allDiagnostics = error.map { mergedUnique(diagnostics, $0.diagnostics) } ?? diagnostics
+        let allSuggestions = error.map { suggestions(from: $0, diagnostics: allDiagnostics) } ?? suggestions(from: nil, diagnostics: allDiagnostics)
+        toolAttempts.append(
+            CodeModeLLMToolAttempt(
+                index: toolAttempts.count + 1,
+                toolName: toolName,
+                allowedCapabilities: allowedCapabilities,
+                succeeded: succeeded,
+                errorCode: error?.code ?? errorCode,
+                errorMessage: error?.message ?? errorMessage,
+                functionName: error?.functionName,
+                diagnostics: diagnosticSummaries(allDiagnostics),
+                suggestions: allSuggestions,
+                repairedByNextAttempt: nil
+            )
+        )
+    }
+
+    private func attemptsWithRepairSignals() -> [CodeModeLLMToolAttempt] {
+        var attempts = toolAttempts
+        for index in attempts.indices where attempts[index].succeeded == false {
+            let toolName = attempts[index].toolName
+            if let nextIndex = attempts.indices.dropFirst(index + 1).first(where: { attempts[$0].toolName == toolName }) {
+                attempts[index].repairedByNextAttempt = attempts[nextIndex].succeeded
+            } else {
+                attempts[index].repairedByNextAttempt = false
+            }
+        }
+        return attempts
+    }
+
+    private func diagnosticSummaries(_ diagnostics: [ToolDiagnostic], limit: Int = 3) -> [String] {
+        Array(diagnostics.prefix(limit)).map { diagnostic in
+            var summary = "[\(diagnostic.severity.rawValue)] \(diagnostic.code): \(diagnostic.message)"
+            if let functionName = diagnostic.functionName {
+                summary += " (\(functionName))"
+            }
+            return summary
+        }
+    }
+
+    private func suggestions(
+        from error: CodeModeToolError?,
+        diagnostics: [ToolDiagnostic],
+        limit: Int = 3
+    ) -> [String] {
+        var values = error?.suggestions ?? []
+        for diagnostic in diagnostics {
+            values.append(contentsOf: diagnostic.suggestions)
+        }
+        var unique: [String] = []
+        for value in values where unique.contains(value) == false {
+            unique.append(value)
+        }
+        return Array(unique.prefix(limit))
     }
 
     private func combinedSearchResult() -> JSONValue? {
@@ -1155,6 +1299,7 @@ private struct CodeModeLLMToolSnapshot: Sendable {
     var executionDiagnostics: [ToolDiagnostic]
     var error: CodeModeToolError?
     var failures: [String]
+    var toolAttempts: [CodeModeLLMToolAttempt]
 }
 
 private final class CodeModeLLMRuntime: Sendable {

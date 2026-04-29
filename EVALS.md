@@ -62,7 +62,7 @@ swift run --package-path Tools/CodeModeEval codemode-eval report \
   --output Tools/CodeModeEval/.build/reports/core-r5.md
 ```
 
-Reports include overall metrics, optional baseline comparison, scenario summaries sorted by weakest signal, failure categories, captured tool order, and `allowedCapabilities`. Add `--include-code` to include generated JavaScript for highlighted runs, `--include-assistant` to include passing final assistant messages, or `--all-runs` to include every raw run.
+Reports include overall metrics, optional baseline comparison, scenario summaries sorted by weakest signal, failure categories, retry diagnostics, captured tool order, and `allowedCapabilities`. Retry diagnostics show each captured tool attempt's status, structured error code, function name, diagnostics, suggestions, and whether the next same-tool attempt repaired the failure. Add `--include-code` to include generated JavaScript for highlighted runs, `--include-assistant` to include passing final assistant messages, or `--all-runs` to include every raw run.
 
 Create a summary-only report from a raw live report:
 

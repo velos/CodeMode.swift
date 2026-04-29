@@ -106,6 +106,7 @@ private struct MarkdownReportRenderer {
 
         sections.append(scenarioSection())
         sections.append(failureCategorySection())
+        sections.append(retryDiagnosticsSection())
         sections.append(runDetailsSection())
         return sections
             .filter { $0.isEmpty == false }
@@ -241,6 +242,87 @@ private struct MarkdownReportRenderer {
         """
     }
 
+    private func retryDiagnosticsSection() -> String {
+        guard report.results.contains(where: { ($0.toolAttempts ?? []).isEmpty == false }) else {
+            return """
+            ## Retry Diagnostics
+
+            Tool-attempt traces are not included in this report. Re-run live LLM evals with this CLI version to capture retry diagnostics.
+            """
+        }
+
+        let results = retryDiagnosticResults()
+        guard results.isEmpty == false else {
+            return """
+            ## Retry Diagnostics
+
+            No failed or high-retry tool attempts recorded.
+            """
+        }
+
+        var lines: [String] = [
+            "## Retry Diagnostics",
+            "",
+            markdownTable(
+                headers: ["Scenario", "Run", "Attempts", "Failed", "Retries", "First Error", "Next Same-Tool Repair"],
+                rows: results.map { result in
+                    let attempts = result.toolAttempts ?? []
+                    let failedAttempts = attempts.filter { $0.succeeded == false }
+                    let firstError = failedAttempts.first
+                    return [
+                        result.scenarioID,
+                        "\(result.runIndex)",
+                        "\(attempts.count)",
+                        "\(failedAttempts.count)",
+                        "\(result.retryCount)",
+                        firstError.map(errorSummary) ?? "-",
+                        firstError.flatMap(repairSummary) ?? "-",
+                    ]
+                }
+            ),
+        ]
+
+        for result in results {
+            guard let attempts = result.toolAttempts, attempts.isEmpty == false else {
+                continue
+            }
+
+            lines.append("")
+            lines.append("### \(result.scenarioID) run \(result.runIndex) attempts")
+            lines.append("")
+            lines.append(
+                markdownTable(
+                    headers: [
+                        "#",
+                        "Tool",
+                        "Status",
+                        "allowedCapabilities",
+                        "Error",
+                        "Function",
+                        "Diagnostics",
+                        "Suggestions",
+                        "Next Same-Tool Repair",
+                    ],
+                    rows: attempts.map { attempt in
+                        [
+                            "\(attempt.index)",
+                            attempt.toolName,
+                            attempt.succeeded ? "ok" : "failed",
+                            attempt.allowedCapabilities.isEmpty ? "-" : attempt.allowedCapabilities.sorted().joined(separator: ", "),
+                            errorSummary(attempt),
+                            attempt.functionName ?? "-",
+                            compactList(attempt.diagnostics),
+                            compactList(attempt.suggestions),
+                            repairSummary(attempt) ?? "-",
+                        ]
+                    }
+                )
+            )
+        }
+
+        return lines.joined(separator: "\n")
+    }
+
     private func runDetailsSection() -> String {
         if report.results.isEmpty {
             return summarizedFailureDetails()
@@ -366,6 +448,10 @@ private struct MarkdownReportRenderer {
             return true
         }
 
+        if result.toolAttempts?.contains(where: { $0.succeeded == false }) == true {
+            return true
+        }
+
         if result.exactCapabilityMatched == false {
             return true
         }
@@ -375,6 +461,54 @@ private struct MarkdownReportRenderer {
 
     private func shouldIncludeAssistant(_ result: CodeModeLLMEvalResult) -> Bool {
         includeAssistant || result.passed == false
+    }
+
+    private func retryDiagnosticResults() -> [CodeModeLLMEvalResult] {
+        report.results
+            .filter { result in
+                let attempts = result.toolAttempts ?? []
+                guard attempts.isEmpty == false else {
+                    return false
+                }
+                if attempts.contains(where: { $0.succeeded == false }) {
+                    return true
+                }
+                if result.passed == false {
+                    return true
+                }
+                return highRetryThreshold > 0 && result.retryCount >= highRetryThreshold
+            }
+            .sorted(by: runSort)
+    }
+
+    private func errorSummary(_ attempt: CodeModeLLMToolAttempt) -> String {
+        guard let errorCode = attempt.errorCode else {
+            return "-"
+        }
+
+        if let errorMessage = attempt.errorMessage, errorMessage.isEmpty == false {
+            return "\(errorCode): \(errorMessage)"
+        }
+        return errorCode
+    }
+
+    private func repairSummary(_ attempt: CodeModeLLMToolAttempt) -> String? {
+        guard let repaired = attempt.repairedByNextAttempt else {
+            return nil
+        }
+        return repaired ? "yes" : "no"
+    }
+
+    private func compactList(_ values: [String], limit: Int = 3) -> String {
+        guard values.isEmpty == false else {
+            return "-"
+        }
+
+        var displayed = Array(values.prefix(limit))
+        if values.count > limit {
+            displayed.append("+\(values.count - limit) more")
+        }
+        return displayed.joined(separator: "<br>")
     }
 
     private func runSort(_ lhs: CodeModeLLMEvalResult, _ rhs: CodeModeLLMEvalResult) -> Bool {

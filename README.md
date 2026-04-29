@@ -302,7 +302,7 @@ Interactive live runs show an in-place progress bar with colored pass/fail
 states; CI output falls back to line-oriented progress. Use `plan` to preview
 request budgets, `--output` to save a JSON report, `summarize` to strip raw
 transcripts before committing baselines, `report` to generate Markdown
-diagnostics, then `compare` to fail on pass-rate,
+diagnostics with tool-attempt retry traces, then `compare` to fail on pass-rate,
 exact-capability, retry, or turn-count regressions. Tolerances are configurable
 with `--pass-rate-tolerance`, `--capability-rate-tolerance`, `--retry-tolerance`,
 and `--turn-tolerance`. Live LLM evals retry transient transport errors by
