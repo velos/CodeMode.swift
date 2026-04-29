@@ -13,14 +13,26 @@ let package = Package(
             name: "CodeMode",
             targets: ["CodeMode"]
         ),
+        .library(
+            name: "CodeModeEvaluation",
+            targets: ["CodeModeEvaluation"]
+        ),
     ],
     targets: [
         .target(
             name: "CodeMode"
         ),
+        .target(
+            name: "CodeModeEvaluation",
+            dependencies: ["CodeMode"]
+        ),
         .testTarget(
             name: "CodeModeTests",
             dependencies: ["CodeMode"]
+        ),
+        .testTarget(
+            name: "CodeModeEvalTests",
+            dependencies: ["CodeModeEvaluation"]
         ),
     ]
 )

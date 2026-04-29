@@ -258,6 +258,45 @@ for issue in issues {
 
 ## Development
 
+- Run the deterministic CodeMode eval harness:
+
+```sh
+swift run --package-path Tools/CodeModeEval codemode-eval
+swift run --package-path Tools/CodeModeEval codemode-eval list
+swift run --package-path Tools/CodeModeEval codemode-eval run fs.round-trip --show-code
+swift run --package-path Tools/CodeModeEval codemode-eval run --json
+```
+
+The eval harness runs 16 built-in user-style scenarios through the same
+`searchJavaScriptAPI` and `executeJavaScript` APIs that host apps expose to
+agents. It validates tool order, discovered catalog output, generated JavaScript
+fragments, exact `allowedCapabilities`, structured errors, repair suggestions,
+console logs, diagnostics, and final output. The scenarios cover filesystem
+workflows, capability minimization, path policy failures, permission failures,
+catalog search behavior, helper suggestions, and execution timeouts.
+
+- Run Wavelike-backed LLM evals:
+
+```sh
+swift run --package-path Tools/CodeModeEval codemode-eval llm fs.round-trip --show-code
+swift run --package-path Tools/CodeModeEval codemode-eval llm --suite smoke --repeat 3
+swift run --package-path Tools/CodeModeEval codemode-eval llm --suite core --json
+```
+
+The LLM runner reads `WAVELIKE_MODEL_ID`, `WAVELIKE_APP_ID`,
+`WAVELIKE_API_KEY`, and optional `WAVELIKE_ENV` from the process environment or
+`.env`. It gives the model the real CodeMode tool descriptions, captures actual
+model tool calls, executes those calls against the local CodeMode runtime, and
+grades the final repaired transcript with the same deterministic expectations.
+When no scenario IDs are supplied, `llm` defaults to `--suite smoke`; available
+suites are `smoke`, `core`, `failures`, and `all`. The JSON output is an eval
+report envelope with raw run results plus aggregate pass rate, average turns,
+retry count, exact/minimal capability success, per-scenario metrics, and failure
+categories such as `wrong_tool`, `wrong_js`, `overbroad_capability`,
+`failed_recovery`, and `no_final_answer`.
+The CLI lives in `Tools/CodeModeEval` so library consumers do not resolve
+ArgumentParser or Wavelike dependencies when they use the `CodeMode` product.
+
 - License: MIT. See [LICENSE](LICENSE)
 
 ## Acknowledgements
