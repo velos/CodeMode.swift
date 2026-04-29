@@ -14,6 +14,7 @@ struct CodeModeEvalCLI: AsyncParsableCommand {
             Compare.self,
             Summarize.self,
             Plan.self,
+            Report.self,
         ],
         defaultSubcommand: Run.self
     )

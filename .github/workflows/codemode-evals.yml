@@ -101,6 +101,17 @@ jobs:
             "$reports_dir/core-r${repeat_count}.json" \
             --output "$reports_dir/core-r${repeat_count}-summary.json" || status=$?
 
+          if [ "$repeat_count" = "5" ]; then
+            swift run --package-path Tools/CodeModeEval codemode-eval report \
+              "$reports_dir/core-r${repeat_count}.json" \
+              --baseline Tools/CodeModeEval/Baselines/core-r5-summary.json \
+              --output "$reports_dir/core-r${repeat_count}.md" || status=$?
+          else
+            swift run --package-path Tools/CodeModeEval codemode-eval report \
+              "$reports_dir/core-r${repeat_count}.json" \
+              --output "$reports_dir/core-r${repeat_count}.md" || status=$?
+          fi
+
           swift run --package-path Tools/CodeModeEval codemode-eval llm \
             --suite failures \
             --repeat "$repeat_count" \
@@ -113,6 +124,17 @@ jobs:
           swift run --package-path Tools/CodeModeEval codemode-eval summarize \
             "$reports_dir/failures-r${repeat_count}.json" \
             --output "$reports_dir/failures-r${repeat_count}-summary.json" || status=$?
+
+          if [ "$repeat_count" = "5" ]; then
+            swift run --package-path Tools/CodeModeEval codemode-eval report \
+              "$reports_dir/failures-r${repeat_count}.json" \
+              --baseline Tools/CodeModeEval/Baselines/failures-r5-summary.json \
+              --output "$reports_dir/failures-r${repeat_count}.md" || status=$?
+          else
+            swift run --package-path Tools/CodeModeEval codemode-eval report \
+              "$reports_dir/failures-r${repeat_count}.json" \
+              --output "$reports_dir/failures-r${repeat_count}.md" || status=$?
+          fi
 
           if [ "$repeat_count" = "5" ]; then
             swift run --package-path Tools/CodeModeEval codemode-eval compare \
@@ -137,5 +159,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: codemode-llm-eval-reports
-          path: Tools/CodeModeEval/.build/reports/*.json
+          path: |
+            Tools/CodeModeEval/.build/reports/*.json
+            Tools/CodeModeEval/.build/reports/*.md
           if-no-files-found: warn

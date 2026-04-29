@@ -53,6 +53,17 @@ swift run --package-path Tools/CodeModeEval codemode-eval compare \
 
 Default comparison policy allows no pass-rate regression and no exact-capability regression. Retry and turn tolerances should stay small because increases there usually mean the model is recovering from avoidable tool or JavaScript mistakes.
 
+Create a human-readable Markdown diagnostics report:
+
+```sh
+swift run --package-path Tools/CodeModeEval codemode-eval report \
+  Tools/CodeModeEval/.build/reports/core-r5.json \
+  --baseline Tools/CodeModeEval/Baselines/core-r5-summary.json \
+  --output Tools/CodeModeEval/.build/reports/core-r5.md
+```
+
+Reports include overall metrics, optional baseline comparison, scenario summaries sorted by weakest signal, failure categories, captured tool order, and `allowedCapabilities`. Add `--include-code` to include generated JavaScript for highlighted runs, `--include-assistant` to include passing final assistant messages, or `--all-runs` to include every raw run.
+
 Create a summary-only report from a raw live report:
 
 ```sh
@@ -68,7 +79,7 @@ The GitHub Actions workflow runs deterministic evals on PRs and pushes. Live LLM
 Scheduled/manual live evals:
 
 - Run `core` and `failures` with repeat count 5 by default.
-- Save raw and summary JSON reports as workflow artifacts.
+- Save raw JSON, summary JSON, and Markdown diagnostics reports as workflow artifacts.
 - Compare repeat-5 reports against committed summary baselines.
 - Use request pacing and transient model retry/backoff to tolerate provider rate limits.
 
