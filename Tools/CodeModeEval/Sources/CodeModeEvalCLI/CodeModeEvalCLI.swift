@@ -12,6 +12,8 @@ struct CodeModeEvalCLI: AsyncParsableCommand {
             Run.self,
             LLM.self,
             Compare.self,
+            Summarize.self,
+            Plan.self,
         ],
         defaultSubcommand: Run.self
     )
@@ -58,7 +60,7 @@ struct Run: AsyncParsableCommand {
         let scenariosByID = Dictionary(uniqueKeysWithValues: scenarios.map { ($0.id, $0) })
 
         for result in results {
-            let status = result.passed ? "PASS" : "FAIL"
+            let status = TerminalUI.status(result.passed ? "PASS" : "FAIL", passed: result.passed)
             print("\(status) \(result.scenarioID) - \(result.title)")
 
             if showCode, let scenario = scenariosByID[result.scenarioID] {
@@ -76,7 +78,15 @@ struct Run: AsyncParsableCommand {
         }
 
         let passed = results.filter(\.passed).count
-        print("Summary: \(passed)/\(results.count) passed")
+        print(
+            TerminalUI.table(
+                title: "Deterministic Eval Summary",
+                rows: [
+                    ("Total runs", "\(results.count)"),
+                    ("Passed", "\(passed)/\(results.count)"),
+                ]
+            )
+        )
     }
 
     private func printIndented(label: String, code: String) {

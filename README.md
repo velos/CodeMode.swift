@@ -279,8 +279,10 @@ catalog search behavior, helper suggestions, and execution timeouts.
 
 ```sh
 swift run --package-path Tools/CodeModeEval codemode-eval llm fs.round-trip --show-code
+swift run --package-path Tools/CodeModeEval codemode-eval plan --suite core --repeat 5 --request-delay-ms 1000
 swift run --package-path Tools/CodeModeEval codemode-eval llm --suite smoke --repeat 3
 swift run --package-path Tools/CodeModeEval codemode-eval llm --suite core --repeat 5 --request-delay-ms 1000 --output Tools/CodeModeEval/.build/reports/core-baseline.json
+swift run --package-path Tools/CodeModeEval codemode-eval summarize Tools/CodeModeEval/.build/reports/core-baseline.json --output Tools/CodeModeEval/.build/reports/core-summary.json
 swift run --package-path Tools/CodeModeEval codemode-eval compare Tools/CodeModeEval/.build/reports/core-baseline.json Tools/CodeModeEval/.build/reports/core-candidate.json
 ```
 
@@ -295,12 +297,17 @@ report envelope with raw run results plus aggregate pass rate, average turns,
 retry count, exact/minimal capability success, per-scenario metrics, and failure
 categories such as `wrong_tool`, `wrong_js`, `overbroad_capability`,
 `failed_recovery`, and `no_final_answer`.
-Use `--output` to save a JSON report, then `compare` to fail on pass-rate,
+Interactive live runs show an in-place progress bar with colored pass/fail
+states; CI output falls back to line-oriented progress. Use `plan` to preview
+request budgets, `--output` to save a JSON report, `summarize` to strip raw
+transcripts before committing baselines, then `compare` to fail on pass-rate,
 exact-capability, retry, or turn-count regressions. Tolerances are configurable
 with `--pass-rate-tolerance`, `--capability-rate-tolerance`, `--retry-tolerance`,
 and `--turn-tolerance`. Live LLM evals retry transient transport errors by
 default; use `--request-delay-ms`, `--model-retries`, and `--retry-delay-ms` to
 pace larger repeated runs against provider rate limits.
+See [EVALS.md](EVALS.md) for CI/nightly policy, baseline handling, and
+recommended commands.
 The CLI lives in `Tools/CodeModeEval` so library consumers do not resolve
 ArgumentParser or Wavelike dependencies when they use the `CodeMode` product.
 

@@ -50,6 +50,9 @@ struct LLM: AsyncParsableCommand {
     @Option(name: .long, help: "Write the JSON report to a file path.")
     var output: String?
 
+    @Flag(name: .long, help: "Suppress per-scenario progress output on stderr.")
+    var quiet = false
+
     @Flag(name: .long, help: "Print captured tool code in text output.")
     var showCode = false
 
@@ -92,20 +95,34 @@ struct LLM: AsyncParsableCommand {
 
         var results: [CodeModeLLMEvalResult] = []
         results.reserveCapacity(scenarios.count * repeatCount)
+        let totalRuns = scenarios.count * repeatCount
+        var completedRuns = 0
         for runIndex in 1...repeatCount {
             for scenario in scenarios {
+                let position = completedRuns + 1
+                let runLabel = progressLabel(position: position, total: totalRuns, runIndex: runIndex, scenario: scenario)
+                printProgressStart(completed: completedRuns, total: totalRuns, label: runLabel)
+                let startedAt = Date()
+                let result: CodeModeLLMEvalResult
+
                 do {
-                    results.append(try await runner.run(scenario, runIndex: runIndex))
+                    result = try await runner.run(scenario, runIndex: runIndex)
                 } catch {
-                    results.append(
-                        failedLLMResult(
-                            modelID: environment.modelID,
-                            runIndex: runIndex,
-                            scenario: scenario,
-                            error: error
-                        )
+                    result = failedLLMResult(
+                        modelID: environment.modelID,
+                        runIndex: runIndex,
+                        scenario: scenario,
+                        error: error
                     )
                 }
+
+                completedRuns += 1
+                results.append(result)
+                printProgressResult(
+                    resultProgressLine(result, label: runLabel, duration: Date().timeIntervalSince(startedAt)),
+                    completed: completedRuns,
+                    total: totalRuns
+                )
             }
         }
 
@@ -128,7 +145,7 @@ struct LLM: AsyncParsableCommand {
         } else {
             printLLMReport(report)
             if let output {
-                print("Wrote JSON report: \(output)")
+                print("Saved JSON -> \(output)")
             }
         }
 
@@ -165,7 +182,7 @@ struct LLM: AsyncParsableCommand {
     private func printLLMReport(_ report: CodeModeLLMEvalReport) {
         let results = report.results
         for result in results {
-            let status = result.passed ? "PASS" : "FAIL"
+            let status = TerminalUI.status(result.passed ? "PASS" : "FAIL", passed: result.passed)
             let runSuffix = report.repeatCount > 1 ? " run \(result.runIndex)" : ""
             let retrySuffix = result.retryCount == 1 ? "1 retry" : "\(result.retryCount) retries"
             print("\(status) \(result.scenarioID)\(runSuffix) - \(result.title) (\(result.turns) turn\(result.turns == 1 ? "" : "s"), \(retrySuffix))")
@@ -208,17 +225,7 @@ struct LLM: AsyncParsableCommand {
     }
 
     private func printSummary(_ summary: CodeModeLLMEvalSummary) {
-        print(
-            "Summary: \(summary.passedRuns)/\(summary.totalRuns) passed " +
-                "(\(percent(summary.passRate))), avg turns \(decimal(summary.averageTurns)), avg retries \(decimal(summary.averageRetries))"
-        )
-
-        if summary.exactCapabilityRuns > 0 {
-            print(
-                "Capabilities: \(summary.exactCapabilityPassedRuns)/\(summary.exactCapabilityRuns) exact/minimal " +
-                    "(\(percent(summary.exactCapabilityPassRate)))"
-            )
-        }
+        print(TerminalUI.table(title: "LLM Eval Summary", rows: summaryRows(summary)))
 
         print("By scenario:")
         for scenario in summary.byScenario {
@@ -237,12 +244,86 @@ struct LLM: AsyncParsableCommand {
         }
     }
 
+    private func summaryRows(_ summary: CodeModeLLMEvalSummary) -> [(String, String)] {
+        var rows: [(String, String)] = [
+            ("Total runs", "\(summary.totalRuns)"),
+            ("Passed", "\(summary.passedRuns)/\(summary.totalRuns)"),
+            ("Pass rate", percent(summary.passRate)),
+            ("Avg turns", decimal(summary.averageTurns)),
+            ("Avg retries", decimal(summary.averageRetries)),
+        ]
+
+        if summary.exactCapabilityRuns > 0 {
+            rows.append(("Exact capabilities", "\(summary.exactCapabilityPassedRuns)/\(summary.exactCapabilityRuns)"))
+            rows.append(("Capability rate", percent(summary.exactCapabilityPassRate)))
+        }
+
+        return rows
+    }
+
     private func percent(_ value: Double) -> String {
         "\(decimal(value * 100))%"
     }
 
     private func decimal(_ value: Double) -> String {
         String(format: "%.1f", value)
+    }
+
+    private func progressLabel(
+        position: Int,
+        total: Int,
+        runIndex: Int,
+        scenario: CodeModeEvalScenario
+    ) -> String {
+        let runText = repeatCount > 1 ? " run \(runIndex)" : ""
+        return "[\(position)/\(total)] \(scenario.id)\(runText)"
+    }
+
+    private func resultProgressLine(
+        _ result: CodeModeLLMEvalResult,
+        label: String,
+        duration: TimeInterval
+    ) -> String {
+        let status = TerminalUI.status(result.passed ? "PASS" : "FAIL", passed: result.passed, stream: .stderr)
+        let capabilityText: String
+        if let exactCapabilityMatched = result.exactCapabilityMatched {
+            capabilityText = exactCapabilityMatched ? ", capabilities exact" : ", capabilities mismatch"
+        } else {
+            capabilityText = ""
+        }
+        let failureText = result.failures.isEmpty ? "" : ", failures \(result.failures.count)"
+        return "\(status) \(label) - \(result.turns) turns, \(result.retryCount) retries\(capabilityText)\(failureText), \(String(format: "%.1f", duration))s"
+    }
+
+    private func printProgressStart(completed: Int, total: Int, label: String) {
+        guard quiet == false else {
+            return
+        }
+
+        if TerminalUI.supportsANSI(.stderr) {
+            TerminalUI.write(
+                "\r\u{001B}[2K\(TerminalUI.progressLine(current: completed, total: total, label: "Running \(label)"))"
+            )
+        } else {
+            TerminalUI.writeLine("START \(label)")
+        }
+    }
+
+    private func printProgressResult(_ message: String, completed: Int, total: Int) {
+        guard quiet == false else {
+            return
+        }
+
+        if TerminalUI.supportsANSI(.stderr) {
+            TerminalUI.write(
+                "\r\u{001B}[2K\(TerminalUI.progressLine(current: completed, total: total, label: message))"
+            )
+            if completed == total {
+                TerminalUI.write("\n")
+            }
+        } else {
+            TerminalUI.writeLine(message)
+        }
     }
 
     private func failedLLMResult(
@@ -328,6 +409,7 @@ struct CodeModeLLMEvalReport: Codable, Sendable {
     var maxTurns: Int
     var summary: CodeModeLLMEvalSummary
     var results: [CodeModeLLMEvalResult]
+    var failureSummaries: [CodeModeLLMFailureSummary]? = nil
 }
 
 struct CodeModeLLMEvalResult: Codable, Sendable {
@@ -424,6 +506,14 @@ struct CodeModeLLMScenarioSummary: Codable, Sendable {
 struct CodeModeLLMFailureCategoryCount: Codable, Sendable {
     var category: LLMEvalFailureCategory
     var count: Int
+}
+
+struct CodeModeLLMFailureSummary: Codable, Sendable {
+    var scenarioID: String
+    var title: String
+    var runIndex: Int
+    var failures: [String]
+    var failureCategories: [LLMEvalFailureCategory]
 }
 
 enum LLMEvalFailureCategory: String, CaseIterable, Codable, Sendable {
@@ -567,11 +657,15 @@ private struct WavelikeEvalEnvironment {
             throw ValidationError("Missing WAVELIKE_API_KEY.")
         }
 
+        let environmentName = values["WAVELIKE_ENV"].flatMap { value in
+            value.isEmpty ? nil : value
+        } ?? "production"
+
         return WavelikeEvalEnvironment(
             modelID: modelID,
             appID: appID,
             apiKey: apiKey,
-            environment: try environment(named: values["WAVELIKE_ENV"] ?? "production")
+            environment: try environment(named: environmentName)
         )
     }
 

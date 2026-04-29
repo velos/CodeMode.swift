@@ -61,17 +61,12 @@ struct Compare: ParsableCommand {
     }
 
     private func printComparison(_ comparison: CodeModeLLMEvalComparison) {
-        print("\(comparison.passed ? "PASS" : "FAIL") compare \(comparison.baselinePath) -> \(comparison.candidatePath)")
+        let status = TerminalUI.status(comparison.passed ? "PASS" : "FAIL", passed: comparison.passed)
+        print("\(status) compare \(comparison.baselinePath) -> \(comparison.candidatePath)")
         print("Baseline: \(comparison.baselineModelID) \(comparison.baselineSuite) repeat \(comparison.baselineRepeatCount)")
         print("Candidate: \(comparison.candidateModelID) \(comparison.candidateSuite) repeat \(comparison.candidateRepeatCount)")
 
-        print("Overall:")
-        for metric in comparison.overallMetrics {
-            guard metric.applicable else {
-                continue
-            }
-            print("  \(metric.metric.rawValue): \(formatMetric(metric.baseline, metric: metric.metric)) -> \(formatMetric(metric.candidate, metric: metric.metric)) (\(signed(metric.delta, metric: metric.metric)))")
-        }
+        print(TerminalUI.table(title: "Comparison Overall", rows: metricRows(comparison.overallMetrics)))
 
         if comparison.scenarioMetrics.isEmpty == false {
             print("By scenario:")
@@ -98,6 +93,19 @@ struct Compare: ParsableCommand {
             for regression in comparison.regressions {
                 print("  - \(regression.scope) \(regression.metric.rawValue): \(regression.message)")
             }
+        }
+    }
+
+    private func metricRows(_ metrics: [CodeModeLLMEvalMetricComparison]) -> [(String, String)] {
+        metrics.compactMap { metric in
+            guard metric.applicable else {
+                return nil
+            }
+
+            return (
+                metric.metric.rawValue,
+                "\(formatMetric(metric.baseline, metric: metric.metric)) -> \(formatMetric(metric.candidate, metric: metric.metric)) (\(signed(metric.delta, metric: metric.metric)))"
+            )
         }
     }
 
