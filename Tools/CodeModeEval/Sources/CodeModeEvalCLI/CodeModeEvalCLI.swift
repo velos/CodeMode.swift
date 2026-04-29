@@ -11,6 +11,7 @@ struct CodeModeEvalCLI: AsyncParsableCommand {
             List.self,
             Run.self,
             LLM.self,
+            Compare.self,
         ],
         defaultSubcommand: Run.self
     )
@@ -101,8 +102,22 @@ func selectedScenarios(from scenarioIDs: [String]) throws -> [CodeModeEvalScenar
 }
 
 func printJSON<T: Encodable>(_ value: T) throws {
+    let data = try encodedJSON(value)
+    print(String(decoding: data, as: UTF8.self))
+}
+
+func writeJSON<T: Encodable>(_ value: T, to path: String) throws {
+    let data = try encodedJSON(value)
+    let url = URL(fileURLWithPath: path)
+    let directory = url.deletingLastPathComponent()
+    if directory.path != "." {
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+    }
+    try data.write(to: url)
+}
+
+func encodedJSON<T: Encodable>(_ value: T) throws -> Data {
     let encoder = JSONEncoder()
     encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-    let data = try encoder.encode(value)
-    print(String(decoding: data, as: UTF8.self))
+    return try encoder.encode(value)
 }

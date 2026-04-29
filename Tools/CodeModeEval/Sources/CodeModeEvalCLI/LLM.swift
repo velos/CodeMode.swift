@@ -29,6 +29,15 @@ struct LLM: AsyncParsableCommand {
     @Option(name: .long, help: "Maximum model/tool turns per scenario.")
     var maxTurns = 6
 
+    @Option(name: .long, help: "Maximum retries for transient model transport errors.")
+    var modelRetries = 3
+
+    @Option(name: .long, help: "Base delay in milliseconds for transient model transport retries.")
+    var retryDelayMs = 2_000
+
+    @Option(name: .long, help: "Delay in milliseconds before each model request.")
+    var requestDelayMs = 0
+
     @Option(name: .long, help: "Maximum output tokens for each model call.")
     var maxOutputTokens: Int?
 
@@ -37,6 +46,9 @@ struct LLM: AsyncParsableCommand {
 
     @Flag(name: .long, help: "Emit machine-readable JSON.")
     var json = false
+
+    @Option(name: .long, help: "Write the JSON report to a file path.")
+    var output: String?
 
     @Flag(name: .long, help: "Print captured tool code in text output.")
     var showCode = false
@@ -50,6 +62,18 @@ struct LLM: AsyncParsableCommand {
             throw ValidationError("--repeat must be greater than 0.")
         }
 
+        guard modelRetries >= 0 else {
+            throw ValidationError("--model-retries must be greater than or equal to 0.")
+        }
+
+        guard retryDelayMs >= 0 else {
+            throw ValidationError("--retry-delay-ms must be greater than or equal to 0.")
+        }
+
+        guard requestDelayMs >= 0 else {
+            throw ValidationError("--request-delay-ms must be greater than or equal to 0.")
+        }
+
         let scenarios = try selectedLLMScenarios()
         let environment = try WavelikeEvalEnvironment.load(envFile: envFile, modelOverride: model)
         environment.configureWavelike()
@@ -60,14 +84,28 @@ struct LLM: AsyncParsableCommand {
             model: modelClient,
             modelID: environment.modelID,
             configuration: configuration,
-            maxTurns: maxTurns
+            maxTurns: maxTurns,
+            modelRetries: modelRetries,
+            retryDelayMs: retryDelayMs,
+            requestDelayMs: requestDelayMs
         )
 
         var results: [CodeModeLLMEvalResult] = []
         results.reserveCapacity(scenarios.count * repeatCount)
         for runIndex in 1...repeatCount {
             for scenario in scenarios {
-                results.append(try await runner.run(scenario, runIndex: runIndex))
+                do {
+                    results.append(try await runner.run(scenario, runIndex: runIndex))
+                } catch {
+                    results.append(
+                        failedLLMResult(
+                            modelID: environment.modelID,
+                            runIndex: runIndex,
+                            scenario: scenario,
+                            error: error
+                        )
+                    )
+                }
             }
         }
 
@@ -81,10 +119,17 @@ struct LLM: AsyncParsableCommand {
             results: results
         )
 
+        if let output {
+            try writeJSON(report, to: output)
+        }
+
         if json {
             try printJSON(report)
         } else {
             printLLMReport(report)
+            if let output {
+                print("Wrote JSON report: \(output)")
+            }
         }
 
         if results.contains(where: { $0.passed == false }) {
@@ -199,6 +244,37 @@ struct LLM: AsyncParsableCommand {
     private func decimal(_ value: Double) -> String {
         String(format: "%.1f", value)
     }
+
+    private func failedLLMResult(
+        modelID: String,
+        runIndex: Int,
+        scenario: CodeModeEvalScenario,
+        error: any Error
+    ) -> CodeModeLLMEvalResult {
+        let failure = "LLM runner failed: \(error.localizedDescription)"
+        let evalResult = CodeModeEvalResult(
+            scenarioID: scenario.id,
+            title: scenario.title,
+            passed: false,
+            failures: [failure],
+            toolCalls: []
+        )
+
+        return CodeModeLLMEvalResult(
+            modelID: modelID,
+            runIndex: runIndex,
+            scenarioID: scenario.id,
+            title: scenario.title,
+            passed: false,
+            failures: [failure],
+            failureCategories: [.failedRecovery],
+            turns: 0,
+            retryCount: 0,
+            exactCapabilityMatched: nil,
+            assistantMessage: nil,
+            evalResult: evalResult
+        )
+    }
 }
 
 enum LLMEvalSuite: String, CaseIterable, Codable, ExpressibleByArgument, Sendable {
@@ -244,7 +320,7 @@ enum LLMEvalSuite: String, CaseIterable, Codable, ExpressibleByArgument, Sendabl
     }
 }
 
-private struct CodeModeLLMEvalReport: Codable, Sendable {
+struct CodeModeLLMEvalReport: Codable, Sendable {
     var modelID: String
     var suite: String
     var scenarioIDs: [String]
@@ -254,7 +330,7 @@ private struct CodeModeLLMEvalReport: Codable, Sendable {
     var results: [CodeModeLLMEvalResult]
 }
 
-private struct CodeModeLLMEvalResult: Codable, Sendable {
+struct CodeModeLLMEvalResult: Codable, Sendable {
     var modelID: String
     var runIndex: Int
     var scenarioID: String
@@ -269,7 +345,7 @@ private struct CodeModeLLMEvalResult: Codable, Sendable {
     var evalResult: CodeModeEvalResult
 }
 
-private struct CodeModeLLMEvalSummary: Codable, Sendable {
+struct CodeModeLLMEvalSummary: Codable, Sendable {
     var totalRuns: Int
     var passedRuns: Int
     var failedRuns: Int
@@ -309,7 +385,7 @@ private struct CodeModeLLMEvalSummary: Codable, Sendable {
     }
 }
 
-private struct CodeModeLLMScenarioSummary: Codable, Sendable {
+struct CodeModeLLMScenarioSummary: Codable, Sendable {
     var scenarioID: String
     var title: String
     var totalRuns: Int
@@ -345,12 +421,12 @@ private struct CodeModeLLMScenarioSummary: Codable, Sendable {
     }
 }
 
-private struct CodeModeLLMFailureCategoryCount: Codable, Sendable {
+struct CodeModeLLMFailureCategoryCount: Codable, Sendable {
     var category: LLMEvalFailureCategory
     var count: Int
 }
 
-private enum LLMEvalFailureCategory: String, CaseIterable, Codable, Sendable {
+enum LLMEvalFailureCategory: String, CaseIterable, Codable, Sendable {
     case wrongTool = "wrong_tool"
     case wrongJavaScript = "wrong_js"
     case overbroadCapability = "overbroad_capability"
@@ -548,17 +624,26 @@ private final class WavelikeLLMEvalRunner: Sendable {
     private let modelID: String
     private let configuration: ModelConfiguration
     private let maxTurns: Int
+    private let modelRetries: Int
+    private let retryDelayMs: Int
+    private let requestDelayMs: Int
 
     init(
         model: ModelClient,
         modelID: String,
         configuration: ModelConfiguration,
-        maxTurns: Int
+        maxTurns: Int,
+        modelRetries: Int,
+        retryDelayMs: Int,
+        requestDelayMs: Int
     ) {
         self.model = model
         self.modelID = modelID
         self.configuration = configuration
         self.maxTurns = maxTurns
+        self.modelRetries = modelRetries
+        self.retryDelayMs = retryDelayMs
+        self.requestDelayMs = requestDelayMs
     }
 
     func run(_ scenario: CodeModeEvalScenario, runIndex: Int) async throws -> CodeModeLLMEvalResult {
@@ -581,12 +666,21 @@ private final class WavelikeLLMEvalRunner: Sendable {
 
         for turn in 1...maxTurns {
             turns = turn
-            let response = try await model.send(
-                input: input,
-                configuration: configuration,
-                tools: searchFunction,
-                executeFunction
-            )
+            if requestDelayMs > 0 {
+                try await sleep(milliseconds: requestDelayMs)
+            }
+
+            let response = try await retryingModelCall(
+                maxRetries: modelRetries,
+                baseDelayMs: retryDelayMs
+            ) {
+                try await model.send(
+                    input: input,
+                    configuration: configuration,
+                    tools: searchFunction,
+                    executeFunction
+                )
+            }
 
             let toolCalls = response.output.filter { $0.type == .functionCall }
             if toolCalls.isEmpty {
@@ -680,6 +774,46 @@ private final class WavelikeLLMEvalRunner: Sendable {
                 content: [.init(type: .inputText, text: scenario.task)]
             ),
         ]
+    }
+
+    private func retryingModelCall<Response>(
+        maxRetries: Int,
+        baseDelayMs: Int,
+        operation: () async throws -> Response
+    ) async throws -> Response {
+        var attempt = 0
+        while true {
+            do {
+                return try await operation()
+            } catch {
+                guard attempt < maxRetries, isTransientModelError(error) else {
+                    throw error
+                }
+
+                let multiplier = 1 << min(attempt, 5)
+                try await sleep(milliseconds: baseDelayMs * multiplier)
+                attempt += 1
+            }
+        }
+    }
+
+    private func sleep(milliseconds: Int) async throws {
+        guard milliseconds > 0 else {
+            return
+        }
+        try await Task.sleep(nanoseconds: UInt64(milliseconds) * 1_000_000)
+    }
+
+    private func isTransientModelError(_ error: any Error) -> Bool {
+        let text = "\(error.localizedDescription) \(String(describing: error))".lowercased()
+        return text.contains("429") ||
+            text.contains("too many requests") ||
+            text.contains("rate limit") ||
+            text.contains("502") ||
+            text.contains("503") ||
+            text.contains("504") ||
+            text.contains("timed out") ||
+            text.contains("temporarily")
     }
 
     private func gradedToolCalls(
