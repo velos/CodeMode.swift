@@ -26,8 +26,6 @@ enum CapabilityPlatformSupport {
             return common.union(macOSCapabilities)
         case .visionOS:
             return common.union(visionOSCapabilities)
-        case .watchOS:
-            return common.union(watchOSCapabilities)
         }
     }
 
@@ -78,23 +76,4 @@ enum CapabilityPlatformSupport {
 
     private static let visionOSCapabilities = crossAppleCapabilities
 
-    private static let watchOSCapabilities: Set<CapabilityID> = [
-        .locationRead,
-        .weatherRead,
-        .calendarRead,
-        .calendarWrite,
-        .remindersRead,
-        .remindersWrite,
-        .contactsRead,
-        .contactsSearch,
-        .notificationsPermissionRequest,
-        .notificationsSchedule,
-        .notificationsPendingRead,
-        .notificationsPendingDelete,
-        .healthPermissionRequest,
-        .healthRead,
-        .healthWrite,
-        .homeRead,
-        .homeWrite,
-    ]
 }

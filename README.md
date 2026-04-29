@@ -9,7 +9,7 @@ GitHub: [velos/CodeMode.swift](https://github.com/velos/CodeMode.swift)
 
 ## Highlights
 
-- Platforms: `iOS 18+`, `macOS 15+`, `visionOS 2+`, `watchOS 11+`
+- Platforms: `iOS 18+`, `macOS 15+`, `visionOS 2+`
 - Typed Swift host API through `CodeModeAgentTools`
 - Streaming execution via `JavaScriptExecutionCall`
 - Structured failures via `CodeModeToolError`

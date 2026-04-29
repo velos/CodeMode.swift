@@ -1,7 +1,7 @@
 import Foundation
 
 #if canImport(CoreLocation)
-import CoreLocation
+@preconcurrency import CoreLocation
 #endif
 
 #if canImport(Contacts)
@@ -108,7 +108,7 @@ public final class SystemPermissionBroker: PermissionBroker, @unchecked Sendable
     private func contactsStatus() -> PermissionStatus {
         #if canImport(Contacts)
         switch CNContactStore.authorizationStatus(for: .contacts) {
-        case .authorized:
+        case .authorized, .limited:
             return .granted
         case .denied:
             return .denied
@@ -298,18 +298,17 @@ public final class SystemPermissionBroker: PermissionBroker, @unchecked Sendable
 
     private func homeKitStatus() -> PermissionStatus {
         #if canImport(HomeKit)
-        switch HMHomeManager.authorizationStatus() {
-        case .authorized:
+        let status = HMHomeManager().authorizationStatus
+        if status.contains(.authorized) {
             return .granted
-        case .denied:
-            return .denied
-        case .restricted:
-            return .restricted
-        case .notDetermined:
-            return .notDetermined
-        @unknown default:
-            return .unavailable
         }
+        if status.contains(.restricted) {
+            return .restricted
+        }
+        if status.contains(.determined) {
+            return .notDetermined
+        }
+        return .unavailable
         #else
         return .unavailable
         #endif
@@ -343,8 +342,13 @@ public final class SystemPermissionBroker: PermissionBroker, @unchecked Sendable
         let delegate = LocationPermissionDelegate()
         manager.delegate = delegate
 
-        DispatchQueue.main.sync {
+        if Thread.isMainThread {
             manager.requestWhenInUseAuthorization()
+            return locationStatus()
+        } else {
+            DispatchQueue.main.sync {
+                manager.requestWhenInUseAuthorization()
+            }
         }
 
         _ = delegate.wait(timeout: 10)
