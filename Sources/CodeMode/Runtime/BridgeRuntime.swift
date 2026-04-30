@@ -372,7 +372,11 @@ final class BridgeRuntime: @unchecked Sendable {
             let state = context.evaluateScript("globalThis.__codemode.state")?.toString() ?? "unknown"
             switch state {
             case "fulfilled":
-                return try decodeOutput(from: context)
+                let output = try decodeOutput(from: context)
+                if output == nil {
+                    invocationContext.recordDiagnostic(Self.noReturnValueDiagnostic(for: code))
+                }
+                return output
             case "rejected":
                 let payload = rejectionPayload(from: context)
                 throw classifyRejectedError(payload, invocationContext: invocationContext)
@@ -385,6 +389,27 @@ final class BridgeRuntime: @unchecked Sendable {
             code: "EXECUTION_TIMEOUT",
             message: "Execution timed out after \(timeoutMs)ms",
             transcript: invocationContext
+        )
+    }
+
+    private static func noReturnValueDiagnostic(for code: String) -> ToolDiagnostic {
+        let mentionsAsyncIIFE = code.contains("(async") && (code.contains("})()") || code.contains("})();"))
+        let message: String
+        if mentionsAsyncIIFE {
+            message = "Script completed without a top-level return value. The runtime already wraps executeJavaScript code in an async function; do not use an async IIFE as a bare final expression. Use top-level await and a top-level return statement instead."
+        } else {
+            message = "Script completed without a top-level return value. executeJavaScript only returns values from explicit top-level return statements."
+        }
+
+        return ToolDiagnostic(
+            severity: .warning,
+            code: "NO_RETURN_VALUE",
+            message: message,
+            category: "execution",
+            suggestions: [
+                "Return the graded value with a top-level return statement.",
+                "Use top-level await directly; avoid wrapping the script in an unreturned async IIFE.",
+            ]
         )
     }
 

@@ -1,0 +1,165 @@
+name: CodeMode Evals
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      repeat_count:
+        description: "LLM eval repetitions per scenario"
+        required: false
+        default: "5"
+      request_delay_ms:
+        description: "Delay before each model request"
+        required: false
+        default: "1000"
+  schedule:
+    - cron: "17 10 * * *"
+
+concurrency:
+  group: codemode-evals-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  deterministic:
+    name: Deterministic evals
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Toolchain
+        run: swift --version
+
+      - name: Test package
+        run: swift test
+
+      - name: Build deterministic eval CLI
+        run: swift build --package-path Tools/CodeModeDeterministicEval
+
+      - name: Run deterministic evals
+        run: swift run --package-path Tools/CodeModeDeterministicEval codemode-deterministic-eval run
+
+  live-llm:
+    name: Live Wavelike LLM evals
+    runs-on: macos-latest
+    needs: deterministic
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
+    timeout-minutes: 90
+    env:
+      WAVELIKE_MODEL_ID: ${{ secrets.WAVELIKE_MODEL_ID }}
+      WAVELIKE_APP_ID: ${{ secrets.WAVELIKE_APP_ID }}
+      WAVELIKE_API_KEY: ${{ secrets.WAVELIKE_API_KEY }}
+      WAVELIKE_ENV: ${{ secrets.WAVELIKE_ENV }}
+      INPUT_REPEAT_COUNT: ${{ github.event.inputs.repeat_count }}
+      INPUT_REQUEST_DELAY_MS: ${{ github.event.inputs.request_delay_ms }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Toolchain
+        run: swift --version
+
+      - name: Check Wavelike secrets
+        id: wavelike
+        run: |
+          if [ -n "$WAVELIKE_MODEL_ID" ] && [ -n "$WAVELIKE_APP_ID" ] && [ -n "$WAVELIKE_API_KEY" ]; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+            echo "Wavelike secrets are not configured; skipping live LLM evals."
+          fi
+
+      - name: Build eval CLI
+        if: steps.wavelike.outputs.available == 'true'
+        run: swift build --package-path Tools/CodeModeEval
+
+      - name: Run live LLM eval suites
+        if: steps.wavelike.outputs.available == 'true'
+        run: |
+          set +e
+
+          repeat_count="${INPUT_REPEAT_COUNT:-5}"
+          request_delay_ms="${INPUT_REQUEST_DELAY_MS:-1000}"
+          reports_dir="Tools/CodeModeEval/.build/reports"
+          mkdir -p "$reports_dir"
+
+          status=0
+
+          swift run --package-path Tools/CodeModeEval codemode-eval llm \
+            --suite core \
+            --repeat "$repeat_count" \
+            --max-output-tokens 1600 \
+            --request-delay-ms "$request_delay_ms" \
+            --model-retries 5 \
+            --retry-delay-ms 5000 \
+            --output "$reports_dir/core-r${repeat_count}.json" || status=$?
+
+          swift run --package-path Tools/CodeModeEval codemode-eval summarize \
+            "$reports_dir/core-r${repeat_count}.json" \
+            --output "$reports_dir/core-r${repeat_count}-summary.json" || status=$?
+
+          if [ "$repeat_count" = "5" ]; then
+            swift run --package-path Tools/CodeModeEval codemode-eval report \
+              "$reports_dir/core-r${repeat_count}.json" \
+              --baseline Tools/CodeModeEval/Baselines/core-r5-summary.json \
+              --output "$reports_dir/core-r${repeat_count}.md" || status=$?
+          else
+            swift run --package-path Tools/CodeModeEval codemode-eval report \
+              "$reports_dir/core-r${repeat_count}.json" \
+              --output "$reports_dir/core-r${repeat_count}.md" || status=$?
+          fi
+
+          swift run --package-path Tools/CodeModeEval codemode-eval llm \
+            --suite failures \
+            --repeat "$repeat_count" \
+            --max-output-tokens 1200 \
+            --request-delay-ms "$request_delay_ms" \
+            --model-retries 5 \
+            --retry-delay-ms 5000 \
+            --output "$reports_dir/failures-r${repeat_count}.json" || status=$?
+
+          swift run --package-path Tools/CodeModeEval codemode-eval summarize \
+            "$reports_dir/failures-r${repeat_count}.json" \
+            --output "$reports_dir/failures-r${repeat_count}-summary.json" || status=$?
+
+          if [ "$repeat_count" = "5" ]; then
+            swift run --package-path Tools/CodeModeEval codemode-eval report \
+              "$reports_dir/failures-r${repeat_count}.json" \
+              --baseline Tools/CodeModeEval/Baselines/failures-r5-summary.json \
+              --output "$reports_dir/failures-r${repeat_count}.md" || status=$?
+          else
+            swift run --package-path Tools/CodeModeEval codemode-eval report \
+              "$reports_dir/failures-r${repeat_count}.json" \
+              --output "$reports_dir/failures-r${repeat_count}.md" || status=$?
+          fi
+
+          if [ "$repeat_count" = "5" ]; then
+            swift run --package-path Tools/CodeModeEval codemode-eval compare \
+              Tools/CodeModeEval/Baselines/core-r5-summary.json \
+              "$reports_dir/core-r5.json" \
+              --retry-tolerance 0.5 \
+              --turn-tolerance 0.5 || status=$?
+
+            swift run --package-path Tools/CodeModeEval codemode-eval compare \
+              Tools/CodeModeEval/Baselines/failures-r5-summary.json \
+              "$reports_dir/failures-r5.json" \
+              --retry-tolerance 0.25 \
+              --turn-tolerance 0.25 || status=$?
+          else
+            echo "Skipping baseline compare because repeat_count=$repeat_count does not match committed r5 baselines."
+          fi
+
+          exit "$status"
+
+      - name: Upload LLM eval reports
+        if: always() && steps.wavelike.outputs.available == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: codemode-llm-eval-reports
+          path: |
+            Tools/CodeModeEval/.build/reports/*.json
+            Tools/CodeModeEval/.build/reports/*.md
+          if-no-files-found: warn

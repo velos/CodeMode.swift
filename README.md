@@ -9,7 +9,7 @@ GitHub: [velos/CodeMode.swift](https://github.com/velos/CodeMode.swift)
 
 ## Highlights
 
-- Platforms: `iOS 18+`, `macOS 15+`, `visionOS 2+`, `watchOS 11+`
+- Platforms: `iOS 18+`, `macOS 15+`, `visionOS 2+`
 - Typed Swift host API through `CodeModeAgentTools`
 - Streaming execution via `JavaScriptExecutionCall`
 - Structured failures via `CodeModeToolError`
@@ -25,7 +25,7 @@ GitHub: [velos/CodeMode.swift](https://github.com/velos/CodeMode.swift)
 
 ## Installation
 
-Once `0.1.0` is tagged, add `CodeMode.swift` with Swift Package Manager:
+Add `CodeMode.swift` with Swift Package Manager:
 
 ```swift
 .package(name: "CodeMode", url: "https://github.com/velos/CodeMode.swift", from: "0.1.0")
@@ -257,6 +257,62 @@ for issue in issues {
 ```
 
 ## Development
+
+- Run the deterministic CodeMode eval harness:
+
+```sh
+swift run --package-path Tools/CodeModeEval codemode-eval
+swift run --package-path Tools/CodeModeEval codemode-eval list
+swift run --package-path Tools/CodeModeEval codemode-eval run fs.round-trip --show-code
+swift run --package-path Tools/CodeModeEval codemode-eval run --json
+```
+
+The eval harness runs 21 built-in user-style scenarios through the same
+`searchJavaScriptAPI` and `executeJavaScript` APIs that host apps expose to
+agents. It validates tool order, discovered catalog output, generated JavaScript
+fragments, exact `allowedCapabilities`, structured errors, repair suggestions,
+console logs, diagnostics, and final output. The scenarios cover filesystem
+workflows, capability minimization, path policy failures, permission failures,
+catalog search behavior, helper suggestions, API argument-shape confusion,
+recovery after structured tool errors, and execution timeouts.
+
+- Run Wavelike-backed LLM evals:
+
+```sh
+swift run --package-path Tools/CodeModeEval codemode-eval llm fs.round-trip --show-code
+swift run --package-path Tools/CodeModeEval codemode-eval plan --suite core --repeat 5 --request-delay-ms 1000
+swift run --package-path Tools/CodeModeEval codemode-eval llm --suite smoke --repeat 3
+swift run --package-path Tools/CodeModeEval codemode-eval llm --suite core --repeat 5 --request-delay-ms 1000 --output Tools/CodeModeEval/.build/reports/core-baseline.json
+swift run --package-path Tools/CodeModeEval codemode-eval summarize Tools/CodeModeEval/.build/reports/core-baseline.json --output Tools/CodeModeEval/.build/reports/core-summary.json
+swift run --package-path Tools/CodeModeEval codemode-eval report Tools/CodeModeEval/.build/reports/core-baseline.json --output Tools/CodeModeEval/.build/reports/core-baseline.md
+swift run --package-path Tools/CodeModeEval codemode-eval compare Tools/CodeModeEval/.build/reports/core-baseline.json Tools/CodeModeEval/.build/reports/core-candidate.json
+```
+
+The LLM runner reads `WAVELIKE_MODEL_ID`, `WAVELIKE_APP_ID`,
+`WAVELIKE_API_KEY`, and optional `WAVELIKE_ENV` from the process environment or
+`.env`. It gives the model the real CodeMode tool descriptions, captures actual
+model tool calls, executes those calls against the local CodeMode runtime, and
+grades the final repaired transcript with the same deterministic expectations.
+When no scenario IDs are supplied, `llm` defaults to `--suite smoke`; available
+suites are `smoke`, `core`, `failures`, and `all`. The JSON output is an eval
+report envelope with raw run results plus aggregate pass rate, average turns,
+retry count, exact/minimal capability success, per-scenario metrics, and failure
+categories such as `wrong_tool`, `wrong_js`, `overbroad_capability`,
+`failed_recovery`, and `no_final_answer`.
+Interactive live runs show an in-place progress bar with colored pass/fail
+states; CI output falls back to line-oriented progress. Use `plan` to preview
+request budgets, `--output` to save a JSON report, `summarize` to strip raw
+transcripts before committing baselines, `report` to generate Markdown
+diagnostics with tool-attempt retry traces, then `compare` to fail on pass-rate,
+exact-capability, retry, or turn-count regressions. Tolerances are configurable
+with `--pass-rate-tolerance`, `--capability-rate-tolerance`, `--retry-tolerance`,
+and `--turn-tolerance`. Live LLM evals retry transient transport errors by
+default; use `--request-delay-ms`, `--model-retries`, and `--retry-delay-ms` to
+pace larger repeated runs against provider rate limits.
+See [EVALS.md](EVALS.md) for CI/nightly policy, baseline handling, and
+recommended commands.
+The CLI lives in `Tools/CodeModeEval` so library consumers do not resolve
+ArgumentParser or Wavelike dependencies when they use the `CodeMode` product.
 
 - License: MIT. See [LICENSE](LICENSE)
 

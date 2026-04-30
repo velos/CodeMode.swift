@@ -1,0 +1,129 @@
+{
+  "maxTurns" : 6,
+  "modelID" : "codemode-eval",
+  "repeatCount" : 5,
+  "results" : [
+
+  ],
+  "scenarioIDs" : [
+    "fs.path-policy-escape",
+    "fs.delete-directory-recursive",
+    "fs.capability-denied",
+    "execution.timeout",
+    "catalog.rejects-non-function",
+    "contacts.permission-denied"
+  ],
+  "suite" : "failures",
+  "summary" : {
+    "averageRetries" : 0,
+    "averageTurns" : 2.6666666666666665,
+    "byScenario" : [
+      {
+        "averageRetries" : 0,
+        "averageTurns" : 3,
+        "exactCapabilityPassRate" : 1,
+        "exactCapabilityPassedRuns" : 5,
+        "exactCapabilityRuns" : 5,
+        "failedRuns" : 0,
+        "failureCategories" : [
+
+        ],
+        "passRate" : 1,
+        "passedRuns" : 5,
+        "scenarioID" : "fs.path-policy-escape",
+        "title" : "Filesystem path policy blocks traversal",
+        "totalRuns" : 5
+      },
+      {
+        "averageRetries" : 0,
+        "averageTurns" : 3,
+        "exactCapabilityPassRate" : 1,
+        "exactCapabilityPassedRuns" : 5,
+        "exactCapabilityRuns" : 5,
+        "failedRuns" : 0,
+        "failureCategories" : [
+
+        ],
+        "passRate" : 1,
+        "passedRuns" : 5,
+        "scenarioID" : "fs.delete-directory-recursive",
+        "title" : "Directory delete requires recursive flag",
+        "totalRuns" : 5
+      },
+      {
+        "averageRetries" : 0,
+        "averageTurns" : 3,
+        "exactCapabilityPassRate" : 1,
+        "exactCapabilityPassedRuns" : 5,
+        "exactCapabilityRuns" : 5,
+        "failedRuns" : 0,
+        "failureCategories" : [
+
+        ],
+        "passRate" : 1,
+        "passedRuns" : 5,
+        "scenarioID" : "fs.capability-denied",
+        "title" : "Capability allowlist denies undeclared reads",
+        "totalRuns" : 5
+      },
+      {
+        "averageRetries" : 0,
+        "averageTurns" : 2,
+        "exactCapabilityPassRate" : 1,
+        "exactCapabilityPassedRuns" : 5,
+        "exactCapabilityRuns" : 5,
+        "failedRuns" : 0,
+        "failureCategories" : [
+
+        ],
+        "passRate" : 1,
+        "passedRuns" : 5,
+        "scenarioID" : "execution.timeout",
+        "title" : "Unresolved promises time out",
+        "totalRuns" : 5
+      },
+      {
+        "averageRetries" : 0,
+        "averageTurns" : 2,
+        "exactCapabilityPassRate" : 0,
+        "exactCapabilityPassedRuns" : 0,
+        "exactCapabilityRuns" : 0,
+        "failedRuns" : 0,
+        "failureCategories" : [
+
+        ],
+        "passRate" : 1,
+        "passedRuns" : 5,
+        "scenarioID" : "catalog.rejects-non-function",
+        "title" : "Catalog search rejects non-function programs",
+        "totalRuns" : 5
+      },
+      {
+        "averageRetries" : 0,
+        "averageTurns" : 3,
+        "exactCapabilityPassRate" : 1,
+        "exactCapabilityPassedRuns" : 5,
+        "exactCapabilityRuns" : 5,
+        "failedRuns" : 0,
+        "failureCategories" : [
+
+        ],
+        "passRate" : 1,
+        "passedRuns" : 5,
+        "scenarioID" : "contacts.permission-denied",
+        "title" : "Permission denial stays structured",
+        "totalRuns" : 5
+      }
+    ],
+    "exactCapabilityPassRate" : 1,
+    "exactCapabilityPassedRuns" : 25,
+    "exactCapabilityRuns" : 25,
+    "failedRuns" : 0,
+    "failureCategories" : [
+
+    ],
+    "passRate" : 1,
+    "passedRuns" : 30,
+    "totalRuns" : 30
+  }
+}

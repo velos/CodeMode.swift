@@ -84,7 +84,11 @@ import Testing
     #expect(CodeModeAgentToolDescriptions.searchJavaScriptAPI.description.contains("byJSName"))
     #expect(CodeModeAgentToolDescriptions.searchJavaScriptAPI.description.contains("current host platform"))
     #expect(CodeModeAgentToolDescriptions.searchJavaScriptAPI.description.contains("apple.fs.read"))
+    #expect(CodeModeAgentToolDescriptions.searchJavaScriptAPI.description.contains("result shapes"))
+    #expect(CodeModeAgentToolDescriptions.searchJavaScriptAPI.description.contains("resultSummary: ref.resultSummary"))
     #expect(CodeModeAgentToolDescriptions.executeJavaScript.description.contains("allowedCapabilities"))
     #expect(CodeModeAgentToolDescriptions.executeJavaScript.description.contains("apple.*"))
     #expect(CodeModeAgentToolDescriptions.executeJavaScript.description.contains("ios.alarm.*"))
+    #expect(CodeModeAgentToolDescriptions.executeJavaScript.description.contains("top-level return"))
+    #expect(CodeModeAgentToolDescriptions.executeJavaScript.description.contains("async IIFE"))
 }

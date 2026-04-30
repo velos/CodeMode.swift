@@ -4,7 +4,6 @@ enum HostPlatform: String, Sendable {
     case iOS
     case macOS
     case visionOS
-    case watchOS
 
     static let current: HostPlatform = {
         #if os(iOS)
@@ -13,8 +12,6 @@ enum HostPlatform: String, Sendable {
         return .macOS
         #elseif os(visionOS)
         return .visionOS
-        #elseif os(watchOS)
-        return .watchOS
         #else
         #error("Unsupported platform")
         #endif

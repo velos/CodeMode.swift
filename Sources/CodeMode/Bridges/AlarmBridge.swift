@@ -156,7 +156,11 @@ public final class AlarmBridge: @unchecked Sendable {
 
         Task {
             do {
-                let stopButton = AlarmButton(text: "Stop")
+                let stopButton = AlarmButton(
+                    text: "Stop",
+                    textColor: .white,
+                    systemImageName: "stop.fill"
+                )
                 let alert = AlarmPresentation.Alert(
                     title: LocalizedStringResource(stringLiteral: title),
                     stopButton: stopButton
@@ -170,7 +174,7 @@ public final class AlarmBridge: @unchecked Sendable {
 
                 let duration = Alarm.CountdownDuration(
                     preAlert: 0,
-                    postAlert: max(1, Int(secondsFromNow.rounded()))
+                    postAlert: max(1, secondsFromNow.rounded())
                 )
 
                 let configuration = AlarmManager.AlarmConfiguration<BridgeAlarmMetadata>(
@@ -203,7 +207,7 @@ public final class AlarmBridge: @unchecked Sendable {
         Task {
             do {
                 for alarmID in alarmIDs {
-                    try await AlarmManager.shared.stop(id: alarmID)
+                    try AlarmManager.shared.stop(id: alarmID)
                 }
             } catch {
                 errorBox.set(error)
