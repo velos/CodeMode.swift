@@ -36,11 +36,11 @@ jobs:
       - name: Test package
         run: swift test
 
-      - name: Build eval CLI
-        run: swift build --package-path Tools/CodeModeEval
+      - name: Build deterministic eval CLI
+        run: swift build --package-path Tools/CodeModeDeterministicEval
 
       - name: Run deterministic evals
-        run: swift run --package-path Tools/CodeModeEval codemode-eval run
+        run: swift run --package-path Tools/CodeModeDeterministicEval codemode-deterministic-eval run
 
   live-llm:
     name: Live Wavelike LLM evals
