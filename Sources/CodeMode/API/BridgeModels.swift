@@ -2,17 +2,20 @@ import Foundation
 
 public struct CodeModeConfiguration: Sendable {
     public var pathPolicy: any PathPolicy
+    public var fileSystem: any CodeModeFileSystem
     public var artifactStore: any ArtifactStore
     public var permissionBroker: any PermissionBroker
     public var auditLogger: any AuditLogger
 
     public init(
         pathPolicy: any PathPolicy = DefaultPathPolicy(),
+        fileSystem: any CodeModeFileSystem = LocalCodeModeFileSystem(),
         artifactStore: any ArtifactStore = InMemoryArtifactStore(),
         permissionBroker: any PermissionBroker = SystemPermissionBroker(),
         auditLogger: any AuditLogger = SyncAuditLogger()
     ) {
         self.pathPolicy = pathPolicy
+        self.fileSystem = fileSystem
         self.artifactStore = artifactStore
         self.permissionBroker = permissionBroker
         self.auditLogger = auditLogger

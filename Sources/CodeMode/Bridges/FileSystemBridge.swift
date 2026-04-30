@@ -1,10 +1,14 @@
 import Foundation
 
 public final class FileSystemBridge: @unchecked Sendable {
-    private let fileManager: FileManager
+    private let fileSystem: any CodeModeFileSystem
 
-    public init(fileManager: FileManager = .default) {
-        self.fileManager = fileManager
+    public init(fileSystem: any CodeModeFileSystem = LocalCodeModeFileSystem()) {
+        self.fileSystem = fileSystem
+    }
+
+    public convenience init(fileManager: FileManager) {
+        self.init(fileSystem: LocalCodeModeFileSystem(fileManager: fileManager))
     }
 
     public func list(arguments: [String: JSONValue], context: BridgeInvocationContext) throws -> JSONValue {
@@ -13,14 +17,12 @@ public final class FileSystemBridge: @unchecked Sendable {
         }
 
         let url = try context.pathPolicy.resolve(path: path)
-        let values = try fileManager.contentsOfDirectory(at: url, includingPropertiesForKeys: [.isDirectoryKey, .fileSizeKey], options: [.skipsHiddenFiles])
-        let entries: [JSONValue] = try values.map { item in
-            let resourceValues = try item.resourceValues(forKeys: [.isDirectoryKey, .fileSizeKey])
+        let entries: [JSONValue] = try fileSystem.listDirectory(at: url).map { item in
             return .object([
-                "name": .string(item.lastPathComponent),
+                "name": .string(item.name),
                 "path": .string(item.path),
-                "isDirectory": .bool(resourceValues.isDirectory ?? false),
-                "size": .number(Double(resourceValues.fileSize ?? 0)),
+                "isDirectory": .bool(item.isDirectory),
+                "size": .number(Double(item.size)),
             ])
         }
 
@@ -34,7 +36,7 @@ public final class FileSystemBridge: @unchecked Sendable {
 
         let encoding = arguments.string("encoding") ?? "utf8"
         let url = try context.pathPolicy.resolve(path: path)
-        let data = try Data(contentsOf: url)
+        let data = try fileSystem.readData(at: url)
 
         switch encoding.lowercased() {
         case "utf8", "utf-8":
@@ -62,7 +64,7 @@ public final class FileSystemBridge: @unchecked Sendable {
         let url = try context.pathPolicy.resolve(path: path)
 
         let parent = url.deletingLastPathComponent()
-        try fileManager.createDirectory(at: parent, withIntermediateDirectories: true)
+        try fileSystem.createDirectory(at: parent, recursive: true)
 
         let data: Data
         switch encoding.lowercased() {
@@ -78,7 +80,7 @@ public final class FileSystemBridge: @unchecked Sendable {
             throw BridgeError.invalidArguments("Unsupported encoding: \(encoding)")
         }
 
-        try data.write(to: url, options: .atomic)
+        try fileSystem.writeData(data, to: url)
         return .object([
             "path": .string(url.path),
             "bytesWritten": .number(Double(data.count)),
@@ -93,11 +95,11 @@ public final class FileSystemBridge: @unchecked Sendable {
         let fromURL = try context.pathPolicy.resolve(path: from)
         let toURL = try context.pathPolicy.resolve(path: to)
 
-        if fileManager.fileExists(atPath: toURL.path) {
-            try fileManager.removeItem(at: toURL)
+        if fileSystem.itemExists(at: toURL) {
+            try fileSystem.removeItem(at: toURL)
         }
 
-        try fileManager.moveItem(at: fromURL, to: toURL)
+        try fileSystem.moveItem(at: fromURL, to: toURL)
         return .object([
             "from": .string(fromURL.path),
             "to": .string(toURL.path),
@@ -112,11 +114,11 @@ public final class FileSystemBridge: @unchecked Sendable {
         let fromURL = try context.pathPolicy.resolve(path: from)
         let toURL = try context.pathPolicy.resolve(path: to)
 
-        if fileManager.fileExists(atPath: toURL.path) {
-            try fileManager.removeItem(at: toURL)
+        if fileSystem.itemExists(at: toURL) {
+            try fileSystem.removeItem(at: toURL)
         }
 
-        try fileManager.copyItem(at: fromURL, to: toURL)
+        try fileSystem.copyItem(at: fromURL, to: toURL)
         return .object([
             "from": .string(fromURL.path),
             "to": .string(toURL.path),
@@ -130,17 +132,17 @@ public final class FileSystemBridge: @unchecked Sendable {
 
         let recursive = arguments.bool("recursive") ?? false
         let url = try context.pathPolicy.resolve(path: path)
-        var isDirectory: ObjCBool = false
 
-        guard fileManager.fileExists(atPath: url.path, isDirectory: &isDirectory) else {
+        guard fileSystem.itemExists(at: url) else {
             return .object(["deleted": .bool(false), "path": .string(url.path)])
         }
 
-        if isDirectory.boolValue, recursive == false {
+        let attrs = try fileSystem.attributesOfItem(at: url)
+        if attrs.isDirectory, recursive == false {
             throw BridgeError.invalidArguments("fs.delete requires recursive=true for directories")
         }
 
-        try fileManager.removeItem(at: url)
+        try fileSystem.removeItem(at: url)
         return .object(["deleted": .bool(true), "path": .string(url.path)])
     }
 
@@ -150,16 +152,14 @@ public final class FileSystemBridge: @unchecked Sendable {
         }
 
         let url = try context.pathPolicy.resolve(path: path)
-        let attrs = try fileManager.attributesOfItem(atPath: url.path)
-        let type = attrs[.type] as? FileAttributeType
-        let isDirectory = type == .typeDirectory
+        let attrs = try fileSystem.attributesOfItem(at: url)
 
         return .object([
             "path": .string(url.path),
-            "isDirectory": .bool(isDirectory),
-            "size": .number(Double((attrs[.size] as? NSNumber)?.intValue ?? 0)),
-            "createdAt": .string((attrs[.creationDate] as? Date)?.ISO8601Format() ?? ""),
-            "modifiedAt": .string((attrs[.modificationDate] as? Date)?.ISO8601Format() ?? ""),
+            "isDirectory": .bool(attrs.isDirectory),
+            "size": .number(Double(attrs.size)),
+            "createdAt": .string(attrs.creationDate?.ISO8601Format() ?? ""),
+            "modifiedAt": .string(attrs.modificationDate?.ISO8601Format() ?? ""),
         ])
     }
 
@@ -170,7 +170,7 @@ public final class FileSystemBridge: @unchecked Sendable {
 
         let recursive = arguments.bool("recursive") ?? true
         let url = try context.pathPolicy.resolve(path: path)
-        try fileManager.createDirectory(at: url, withIntermediateDirectories: recursive)
+        try fileSystem.createDirectory(at: url, recursive: recursive)
 
         return .object(["created": .bool(true), "path": .string(url.path)])
     }
@@ -181,7 +181,7 @@ public final class FileSystemBridge: @unchecked Sendable {
         }
 
         let url = try context.pathPolicy.resolve(path: path)
-        return .bool(fileManager.fileExists(atPath: url.path))
+        return .bool(fileSystem.itemExists(at: url))
     }
 
     public func access(arguments: [String: JSONValue], context: BridgeInvocationContext) throws -> JSONValue {
@@ -190,11 +190,10 @@ public final class FileSystemBridge: @unchecked Sendable {
         }
 
         let url = try context.pathPolicy.resolve(path: path)
-        let readable = fileManager.isReadableFile(atPath: url.path)
-        let writable = fileManager.isWritableFile(atPath: url.path)
+        let access = fileSystem.access(at: url)
         return .object([
-            "readable": .bool(readable),
-            "writable": .bool(writable),
+            "readable": .bool(access.readable),
+            "writable": .bool(access.writable),
             "path": .string(url.path),
         ])
     }

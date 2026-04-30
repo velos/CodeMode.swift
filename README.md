@@ -46,6 +46,9 @@ Then add the product to your target:
 - `JavaScriptExecutionCall.result`
 - `JavaScriptExecutionCall.cancel()`
 - `CodeModeToolError`
+- `CodeModeConfiguration`
+- `CodeModeFileSystem`
+- `LocalCodeModeFileSystem`
 - `CodeModeAgentToolDescriptions`
 
 ## Quick Start
@@ -102,6 +105,20 @@ for await event in call.events {
 let result = try await call.result
 print(result.output ?? .null)
 ```
+
+## Filesystem Integration
+
+CodeMode keeps its JavaScript filesystem API stable while allowing hosts to provide the underlying operations:
+
+```swift
+let tools = CodeModeAgentTools(
+    config: CodeModeConfiguration(
+        fileSystem: MyCodeModeFileSystem()
+    )
+)
+```
+
+`CodeModeFileSystem` receives paths after `PathPolicy` resolution, so sandbox root enforcement stays in CodeMode while the host can route reads, writes, listings, moves, copies, deletes, and stats through another backing implementation. `LocalCodeModeFileSystem` preserves the default `FileManager` behavior.
 
 ## Search
 
