@@ -24,6 +24,8 @@ enum CapabilityPlatformSupport {
             return common.union(iOSCapabilities)
         case .macOS:
             return common.union(macOSCapabilities)
+        case .watchOS:
+            return []
         case .visionOS:
             return common.union(visionOSCapabilities)
         }
@@ -65,6 +67,30 @@ enum CapabilityPlatformSupport {
     ]
 
     private static let iOSCapabilities = crossAppleCapabilities.union([
+        .calendarUIPickCalendar,
+        .calendarUIPresentEvent,
+        .calendarUIPresentNewEvent,
+        .contactsUIPick,
+        .contactsUIPresentContact,
+        .contactsUIPresentNewContact,
+        .photosUIPick,
+        .photosUIPresentLimitedLibraryPicker,
+        .documentsUIPick,
+        .documentsUIExport,
+        .documentsUIOpenIn,
+        .documentsUIScan,
+        .shareUIPresent,
+        .quickLookUIPreview,
+        .cameraUICapture,
+        .cameraUIScanData,
+        .mailUICompose,
+        .messagesUICompose,
+        .printUIPresent,
+        .webUIPresent,
+        .authUIWebAuthenticate,
+        .uiAlertPresent,
+        .uiPromptPresent,
+        .settingsUIOpen,
         .locationPermissionRequest,
         .alarmPermissionRequest,
         .alarmRead,
@@ -74,6 +100,27 @@ enum CapabilityPlatformSupport {
 
     private static let macOSCapabilities = crossAppleCapabilities
 
-    private static let visionOSCapabilities = crossAppleCapabilities
+    private static let visionOSCapabilities = crossAppleCapabilities.union([
+        .calendarUIPickCalendar,
+        .calendarUIPresentEvent,
+        .calendarUIPresentNewEvent,
+        .contactsUIPick,
+        .contactsUIPresentContact,
+        .contactsUIPresentNewContact,
+        .photosUIPick,
+        .photosUIPresentLimitedLibraryPicker,
+        .documentsUIPick,
+        .documentsUIExport,
+        .documentsUIOpenIn,
+        .shareUIPresent,
+        .quickLookUIPreview,
+        .cameraUIScanData,
+        .printUIPresent,
+        .webUIPresent,
+        .authUIWebAuthenticate,
+        .uiAlertPresent,
+        .uiPromptPresent,
+        .settingsUIOpen,
+    ])
 
 }

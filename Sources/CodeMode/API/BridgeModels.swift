@@ -6,19 +6,25 @@ public struct CodeModeConfiguration: Sendable {
     public var artifactStore: any ArtifactStore
     public var permissionBroker: any PermissionBroker
     public var auditLogger: any AuditLogger
+    public var systemUIPresenter: any SystemUIPresenter
+    public var hostPlatform: HostPlatform
 
     public init(
         pathPolicy: any PathPolicy = DefaultPathPolicy(),
         fileSystem: any CodeModeFileSystem = LocalCodeModeFileSystem(),
         artifactStore: any ArtifactStore = InMemoryArtifactStore(),
         permissionBroker: any PermissionBroker = SystemPermissionBroker(),
-        auditLogger: any AuditLogger = SyncAuditLogger()
+        auditLogger: any AuditLogger = SyncAuditLogger(),
+        systemUIPresenter: any SystemUIPresenter = UnavailableSystemUIPresenter(),
+        hostPlatform: HostPlatform = .current
     ) {
         self.pathPolicy = pathPolicy
         self.fileSystem = fileSystem
         self.artifactStore = artifactStore
         self.permissionBroker = permissionBroker
         self.auditLogger = auditLogger
+        self.systemUIPresenter = systemUIPresenter
+        self.hostPlatform = hostPlatform
     }
 }
 
@@ -318,15 +324,19 @@ public enum CapabilityID: String, Sendable, Codable, CaseIterable, Hashable {
 
     case calendarRead = "calendar.read"
     case calendarWrite = "calendar.write"
+    case calendarUIPresentNewEvent = "calendar.ui.presentNewEvent"
 
     case remindersRead = "reminders.read"
     case remindersWrite = "reminders.write"
 
     case contactsRead = "contacts.read"
     case contactsSearch = "contacts.search"
+    case contactsUIPick = "contacts.ui.pick"
 
     case photosRead = "photos.read"
     case photosExport = "photos.export"
+    case photosUIPick = "photos.ui.pick"
+    case photosUIPresentLimitedLibraryPicker = "photos.ui.presentLimitedLibraryPicker"
 
     case visionImageAnalyze = "vision.image.analyze"
 
@@ -361,4 +371,25 @@ public enum CapabilityID: String, Sendable, Codable, CaseIterable, Hashable {
     case fsMkdir = "fs.mkdir"
     case fsExists = "fs.exists"
     case fsAccess = "fs.access"
+
+    case calendarUIPickCalendar = "calendar.ui.pickCalendar"
+    case calendarUIPresentEvent = "calendar.ui.presentEvent"
+    case contactsUIPresentContact = "contacts.ui.presentContact"
+    case contactsUIPresentNewContact = "contacts.ui.presentNewContact"
+    case documentsUIPick = "documents.ui.pick"
+    case documentsUIExport = "documents.ui.export"
+    case documentsUIOpenIn = "documents.ui.openIn"
+    case documentsUIScan = "documents.ui.scan"
+    case shareUIPresent = "share.ui.present"
+    case quickLookUIPreview = "quicklook.ui.preview"
+    case cameraUICapture = "camera.ui.capture"
+    case cameraUIScanData = "camera.ui.scanData"
+    case mailUICompose = "mail.ui.compose"
+    case messagesUICompose = "messages.ui.compose"
+    case printUIPresent = "print.ui.present"
+    case webUIPresent = "web.ui.present"
+    case authUIWebAuthenticate = "auth.ui.webAuthenticate"
+    case uiAlertPresent = "ui.alert.present"
+    case uiPromptPresent = "ui.prompt.present"
+    case settingsUIOpen = "settings.ui.open"
 }

@@ -18,6 +18,7 @@ public enum DefaultCapabilityLoader {
         let health = HealthBridge()
         let home = HomeBridge()
         let media = MediaBridge()
+        let systemUI = SystemUIBridge()
 
         return [
             CapabilityRegistration(
@@ -187,6 +188,88 @@ public enum DefaultCapabilityLoader {
             ),
             CapabilityRegistration(
                 descriptor: .init(
+                    id: .calendarUIPickCalendar,
+                    title: "Pick calendar with system UI",
+                    summary: "Present EventKit calendar chooser UI and return the user-selected writable calendars.",
+                    tags: ["calendar", "eventkit", "system-ui", "picker"],
+                    example: "await apple.calendar.pickCalendar({ selectionStyle: 'single' })",
+                    requiredPermissions: [.calendarWriteOnly],
+                    optionalArguments: ["selectionStyle", "displayStyle", "timeoutMs"],
+                    argumentTypes: [
+                        "selectionStyle": .string,
+                        "displayStyle": .string,
+                        "timeoutMs": .number,
+                    ],
+                    argumentHints: [
+                        "selectionStyle": "single (default) or multiple.",
+                        "displayStyle": "writable (default) or all.",
+                        "timeoutMs": "Optional timeout for waiting on user selection.",
+                    ],
+                    resultSummary: "Array of selected calendars with identifier/title/type/allowsContentModifications."
+                ),
+                handler: { args, context in
+                    try systemUI.pickCalendar(arguments: args, context: context)
+                }
+            ),
+            CapabilityRegistration(
+                descriptor: .init(
+                    id: .calendarUIPresentEvent,
+                    title: "Present calendar event details",
+                    summary: "Present system UI for an existing calendar event identifier.",
+                    tags: ["calendar", "eventkit", "system-ui", "details"],
+                    example: "await apple.calendar.presentEvent({ identifier: 'EVENT_ID', allowsEditing: false })",
+                    requiredPermissions: [.calendar],
+                    requiredArguments: ["identifier"],
+                    optionalArguments: ["allowsEditing", "allowsCalendarPreview", "timeoutMs"],
+                    argumentTypes: [
+                        "identifier": .string,
+                        "allowsEditing": .bool,
+                        "allowsCalendarPreview": .bool,
+                        "timeoutMs": .number,
+                    ],
+                    argumentHints: [
+                        "identifier": "EventKit eventIdentifier from apple.calendar.listEvents.",
+                        "allowsEditing": "Whether the user can edit from the detail UI; default false.",
+                        "allowsCalendarPreview": "Whether the UI may show calendar day previews; default true.",
+                        "timeoutMs": "Optional timeout for waiting on dismissal.",
+                    ],
+                    resultSummary: "Object with action dismissed."
+                ),
+                handler: { args, context in
+                    try systemUI.presentCalendarEvent(arguments: args, context: context)
+                }
+            ),
+            CapabilityRegistration(
+                descriptor: .init(
+                    id: .calendarUIPresentNewEvent,
+                    title: "Present calendar event editor",
+                    summary: "Present system UI to let the user create or edit a new calendar event draft.",
+                    tags: ["calendar", "eventkit", "system-ui", "picker"],
+                    example: "await apple.calendar.presentNewEvent({ title: 'Standup', start: '2026-02-22T16:00:00Z', end: '2026-02-22T16:15:00Z' })",
+                    requiredPermissions: [.calendarWriteOnly],
+                    optionalArguments: ["title", "start", "end", "notes", "location"],
+                    argumentTypes: [
+                        "title": .string,
+                        "start": .string,
+                        "end": .string,
+                        "notes": .string,
+                        "location": .string,
+                    ],
+                    argumentHints: [
+                        "title": "Optional event title shown in the editor.",
+                        "start": "Optional ISO8601 start timestamp.",
+                        "end": "Optional ISO8601 end timestamp.",
+                        "notes": "Optional event notes/body text.",
+                        "location": "Optional location string.",
+                    ],
+                    resultSummary: "Object with action plus identifier/title when the user saves."
+                ),
+                handler: { args, context in
+                    try systemUI.presentNewCalendarEvent(arguments: args, context: context)
+                }
+            ),
+            CapabilityRegistration(
+                descriptor: .init(
                     id: .remindersRead,
                     title: "Read reminders",
                     summary: "Read incomplete reminders from EventKit.",
@@ -264,6 +347,91 @@ public enum DefaultCapabilityLoader {
             ),
             CapabilityRegistration(
                 descriptor: .init(
+                    id: .contactsUIPick,
+                    title: "Pick contacts with system UI",
+                    summary: "Present system contact picker UI and return selected contacts without requiring full Contacts permission.",
+                    tags: ["contacts", "people", "system-ui", "picker"],
+                    example: "await apple.contacts.pick({ mode: 'single', displayedPropertyKeys: ['phoneNumbers', 'emailAddresses'] })",
+                    optionalArguments: ["mode", "displayedPropertyKeys", "timeoutMs"],
+                    argumentTypes: [
+                        "mode": .string,
+                        "displayedPropertyKeys": .array,
+                        "timeoutMs": .number,
+                    ],
+                    argumentHints: [
+                        "mode": "single (default) or multiple.",
+                        "displayedPropertyKeys": "Optional array of CNContact property key strings to display.",
+                        "timeoutMs": "Optional timeout for waiting on user selection.",
+                    ],
+                    resultSummary: "Array of selected contacts with identifier/name/organization/phones/emails."
+                ),
+                handler: { args, context in
+                    try systemUI.pickContacts(arguments: args, context: context)
+                }
+            ),
+            CapabilityRegistration(
+                descriptor: .init(
+                    id: .contactsUIPresentContact,
+                    title: "Present contact card",
+                    summary: "Present system contact card UI for a contact identifier.",
+                    tags: ["contacts", "people", "system-ui", "details"],
+                    example: "await apple.contacts.presentContact({ identifier: 'CONTACT_ID', allowsEditing: false })",
+                    requiredPermissions: [.contacts],
+                    requiredArguments: ["identifier"],
+                    optionalArguments: ["allowsEditing", "allowsActions", "displayedPropertyKeys", "timeoutMs"],
+                    argumentTypes: [
+                        "identifier": .string,
+                        "allowsEditing": .bool,
+                        "allowsActions": .bool,
+                        "displayedPropertyKeys": .array,
+                        "timeoutMs": .number,
+                    ],
+                    argumentHints: [
+                        "identifier": "Contact identifier from apple.contacts.list/search/pick.",
+                        "allowsEditing": "Whether the user can edit the contact; default false.",
+                        "allowsActions": "Whether built-in actions like call/message are shown; default true.",
+                        "displayedPropertyKeys": "Optional array of CNContact property key strings to display.",
+                        "timeoutMs": "Optional timeout for waiting on dismissal.",
+                    ],
+                    resultSummary: "Object with action and contact when available."
+                ),
+                handler: { args, context in
+                    try systemUI.presentContact(arguments: args, context: context)
+                }
+            ),
+            CapabilityRegistration(
+                descriptor: .init(
+                    id: .contactsUIPresentNewContact,
+                    title: "Present new contact editor",
+                    summary: "Present system UI for creating a new contact draft.",
+                    tags: ["contacts", "people", "system-ui", "create"],
+                    example: "await apple.contacts.presentNewContact({ givenName: 'Alex', familyName: 'Lee', emailAddresses: ['alex@example.com'] })",
+                    requiredPermissions: [.contacts],
+                    optionalArguments: ["givenName", "familyName", "organization", "phoneNumbers", "emailAddresses", "timeoutMs"],
+                    argumentTypes: [
+                        "givenName": .string,
+                        "familyName": .string,
+                        "organization": .string,
+                        "phoneNumbers": .array,
+                        "emailAddresses": .array,
+                        "timeoutMs": .number,
+                    ],
+                    argumentHints: [
+                        "givenName": "Optional given name to prefill.",
+                        "familyName": "Optional family name to prefill.",
+                        "organization": "Optional organization to prefill.",
+                        "phoneNumbers": "Optional array of phone number strings.",
+                        "emailAddresses": "Optional array of email address strings.",
+                        "timeoutMs": "Optional timeout for waiting on user completion.",
+                    ],
+                    resultSummary: "Object with action and contact when the user saves."
+                ),
+                handler: { args, context in
+                    try systemUI.presentNewContact(arguments: args, context: context)
+                }
+            ),
+            CapabilityRegistration(
+                descriptor: .init(
                     id: .photosRead,
                     title: "List photo library assets",
                     summary: "List photos/videos from the user photo library.",
@@ -299,6 +467,485 @@ public enum DefaultCapabilityLoader {
                 ),
                 handler: { args, context in
                     try photos.export(arguments: args, context: context)
+                }
+            ),
+            CapabilityRegistration(
+                descriptor: .init(
+                    id: .photosUIPick,
+                    title: "Pick photos with system UI",
+                    summary: "Present system photo picker UI and export selected assets into the sandbox artifact store.",
+                    tags: ["photos", "photo-library", "system-ui", "picker", "artifact"],
+                    example: "await apple.photos.pick({ mediaType: 'image', limit: 3, outputDirectory: 'tmp:picks' })",
+                    optionalArguments: ["mediaType", "limit", "outputDirectory", "timeoutMs"],
+                    argumentTypes: [
+                        "mediaType": .string,
+                        "limit": .number,
+                        "outputDirectory": .string,
+                        "timeoutMs": .number,
+                    ],
+                    argumentHints: [
+                        "mediaType": "any (default), image/photo, or video.",
+                        "limit": "Maximum number of selectable items; default 1.",
+                        "outputDirectory": "Optional sandbox directory for exported picker files; defaults to tmp:.",
+                        "timeoutMs": "Optional timeout for waiting on user selection/export.",
+                    ],
+                    resultSummary: "Array of selected assets with path/artifactID/mediaType/uniformTypeIdentifier/bytes."
+                ),
+                handler: { args, context in
+                    try systemUI.pickPhotos(arguments: args, context: context)
+                }
+            ),
+            CapabilityRegistration(
+                descriptor: .init(
+                    id: .photosUIPresentLimitedLibraryPicker,
+                    title: "Present limited Photos picker",
+                    summary: "Present the Photos limited-library management UI so the user can update the app's selected photo set.",
+                    tags: ["photos", "photo-library", "system-ui", "permission", "picker"],
+                    example: "await apple.photos.presentLimitedLibraryPicker()",
+                    optionalArguments: ["timeoutMs"],
+                    argumentTypes: [
+                        "timeoutMs": .number,
+                    ],
+                    argumentHints: [
+                        "timeoutMs": "Optional timeout for waiting on the limited-library picker completion.",
+                    ],
+                    resultSummary: "Object with action/status and selectedIdentifiers when the limited selection changes."
+                ),
+                handler: { args, context in
+                    try systemUI.presentLimitedPhotoLibraryPicker(arguments: args, context: context)
+                }
+            ),
+            CapabilityRegistration(
+                descriptor: .init(
+                    id: .documentsUIPick,
+                    title: "Pick documents with system UI",
+                    summary: "Present Files document picker UI and copy selected documents into the sandbox artifact store.",
+                    tags: ["documents", "files", "system-ui", "picker", "artifact"],
+                    example: "await apple.documents.pick({ contentTypes: ['public.item'], allowMultiple: true, outputDirectory: 'tmp:imports' })",
+                    optionalArguments: ["contentTypes", "allowMultiple", "outputDirectory", "timeoutMs"],
+                    argumentTypes: [
+                        "contentTypes": .array,
+                        "allowMultiple": .bool,
+                        "outputDirectory": .string,
+                        "timeoutMs": .number,
+                    ],
+                    argumentHints: [
+                        "contentTypes": "Optional array of UTType identifiers; defaults to public.item.",
+                        "allowMultiple": "Whether multiple files may be selected; default false.",
+                        "outputDirectory": "Optional sandbox directory for copied files; defaults to tmp:.",
+                        "timeoutMs": "Optional timeout for waiting on user selection/copy.",
+                    ],
+                    resultSummary: "Array of selected documents with path/artifactID/filename/uniformTypeIdentifier/bytes."
+                ),
+                handler: { args, context in
+                    try systemUI.pickDocuments(arguments: args, context: context)
+                }
+            ),
+            CapabilityRegistration(
+                descriptor: .init(
+                    id: .documentsUIExport,
+                    title: "Export documents with system UI",
+                    summary: "Present Files export UI to save one or more sandbox files to a user-selected destination.",
+                    tags: ["documents", "files", "system-ui", "export", "save"],
+                    example: "await apple.documents.export({ path: 'tmp:report.pdf' })",
+                    optionalArguments: ["path", "paths", "asCopy", "timeoutMs"],
+                    argumentTypes: [
+                        "path": .string,
+                        "paths": .array,
+                        "asCopy": .bool,
+                        "timeoutMs": .number,
+                    ],
+                    argumentHints: [
+                        "path": "Single sandbox file path to export.",
+                        "paths": "Optional array of sandbox file paths to export.",
+                        "asCopy": "Whether to export as a copy; default true.",
+                        "timeoutMs": "Optional timeout for waiting on export completion.",
+                    ],
+                    resultSummary: "Object with action/count and destination URLs when the provider returns them."
+                ),
+                handler: { args, context in
+                    try systemUI.exportDocuments(arguments: args, context: context)
+                }
+            ),
+            CapabilityRegistration(
+                descriptor: .init(
+                    id: .documentsUIOpenIn,
+                    title: "Open document in another app",
+                    summary: "Present the system Open In menu for a sandbox file.",
+                    tags: ["documents", "files", "system-ui", "open-in", "handoff"],
+                    example: "await apple.documents.openIn({ path: 'tmp:report.pdf' })",
+                    requiredArguments: ["path"],
+                    optionalArguments: ["name", "uti", "timeoutMs"],
+                    argumentTypes: [
+                        "path": .string,
+                        "name": .string,
+                        "uti": .string,
+                        "timeoutMs": .number,
+                    ],
+                    argumentHints: [
+                        "path": "Sandbox file path to hand off.",
+                        "name": "Optional display name for the document interaction controller.",
+                        "uti": "Optional uniform type identifier override.",
+                        "timeoutMs": "Optional timeout for waiting on the Open In menu dismissal.",
+                    ],
+                    resultSummary: "Object with action and application bundle identifier when the user hands off the file."
+                ),
+                handler: { args, context in
+                    try systemUI.openDocument(arguments: args, context: context)
+                }
+            ),
+            CapabilityRegistration(
+                descriptor: .init(
+                    id: .documentsUIScan,
+                    title: "Scan documents with system UI",
+                    summary: "Present VisionKit document scanner UI and export scanned pages into the sandbox artifact store.",
+                    tags: ["documents", "scan", "camera", "system-ui", "artifact"],
+                    example: "await apple.documents.scan({ outputDirectory: 'tmp:scans' })",
+                    optionalArguments: ["outputDirectory", "timeoutMs"],
+                    argumentTypes: [
+                        "outputDirectory": .string,
+                        "timeoutMs": .number,
+                    ],
+                    argumentHints: [
+                        "outputDirectory": "Optional sandbox directory for scanned page images; defaults to tmp:.",
+                        "timeoutMs": "Optional timeout for waiting on user scanning/export.",
+                    ],
+                    resultSummary: "Array of scanned page artifacts with path/artifactID/pageIndex/mediaType/bytes."
+                ),
+                handler: { args, context in
+                    try systemUI.scanDocuments(arguments: args, context: context)
+                }
+            ),
+            CapabilityRegistration(
+                descriptor: .init(
+                    id: .shareUIPresent,
+                    title: "Present share sheet",
+                    summary: "Present system share sheet for text, URLs, and sandbox file artifacts.",
+                    tags: ["share", "export", "system-ui"],
+                    example: "await apple.share.present({ text: 'Report ready', paths: ['tmp:report.pdf'] })",
+                    optionalArguments: ["text", "url", "path", "paths", "subject", "excludedActivityTypes", "timeoutMs"],
+                    argumentTypes: [
+                        "text": .string,
+                        "url": .string,
+                        "path": .string,
+                        "paths": .array,
+                        "subject": .string,
+                        "excludedActivityTypes": .array,
+                        "timeoutMs": .number,
+                    ],
+                    argumentHints: [
+                        "text": "Optional text item to share.",
+                        "url": "Optional absolute HTTP(S) URL to share.",
+                        "path": "Optional single sandbox file path to share.",
+                        "paths": "Optional array of sandbox file paths to share.",
+                        "subject": "Optional subject for services that support it.",
+                        "excludedActivityTypes": "Optional array of UIActivity.ActivityType raw value strings to hide.",
+                        "timeoutMs": "Optional timeout for waiting on share completion.",
+                    ],
+                    resultSummary: "Object with completed/activityType/action."
+                ),
+                handler: { args, context in
+                    try systemUI.presentShareSheet(arguments: args, context: context)
+                }
+            ),
+            CapabilityRegistration(
+                descriptor: .init(
+                    id: .quickLookUIPreview,
+                    title: "Preview files with Quick Look",
+                    summary: "Present Quick Look preview UI for one or more sandbox file artifacts.",
+                    tags: ["quicklook", "preview", "documents", "system-ui"],
+                    example: "await apple.quicklook.preview({ path: 'tmp:report.pdf' })",
+                    optionalArguments: ["path", "paths", "timeoutMs"],
+                    argumentTypes: [
+                        "path": .string,
+                        "paths": .array,
+                        "timeoutMs": .number,
+                    ],
+                    argumentHints: [
+                        "path": "Single sandbox file path to preview.",
+                        "paths": "Optional array of sandbox file paths to preview.",
+                        "timeoutMs": "Optional timeout for waiting on dismissal.",
+                    ],
+                    resultSummary: "Object with action dismissed and count."
+                ),
+                handler: { args, context in
+                    try systemUI.previewQuickLook(arguments: args, context: context)
+                }
+            ),
+            CapabilityRegistration(
+                descriptor: .init(
+                    id: .cameraUICapture,
+                    title: "Capture photo or video with camera UI",
+                    summary: "Present system camera UI and export captured media into the sandbox artifact store.",
+                    tags: ["camera", "capture", "photos", "system-ui", "artifact"],
+                    example: "await apple.camera.capture({ mediaType: 'image', outputDirectory: 'tmp:camera' })",
+                    optionalArguments: ["mediaType", "outputDirectory", "timeoutMs"],
+                    argumentTypes: [
+                        "mediaType": .string,
+                        "outputDirectory": .string,
+                        "timeoutMs": .number,
+                    ],
+                    argumentHints: [
+                        "mediaType": "any (default), image/photo, or video.",
+                        "outputDirectory": "Optional sandbox directory for captured media; defaults to tmp:.",
+                        "timeoutMs": "Optional timeout for waiting on capture/export.",
+                    ],
+                    resultSummary: "Object with path/artifactID/mediaType/uniformTypeIdentifier/bytes."
+                ),
+                handler: { args, context in
+                    try systemUI.captureCamera(arguments: args, context: context)
+                }
+            ),
+            CapabilityRegistration(
+                descriptor: .init(
+                    id: .cameraUIScanData,
+                    title: "Scan text or barcodes with camera UI",
+                    summary: "Present VisionKit live data scanner UI and return recognized text or barcode payloads.",
+                    tags: ["camera", "scan", "barcode", "text", "visionkit", "system-ui"],
+                    example: "await apple.camera.scanData({ mode: 'barcode', returnsOnFirstResult: true })",
+                    optionalArguments: ["mode", "recognizedDataTypes", "languages", "qualityLevel", "recognizesMultipleItems", "returnsOnFirstResult", "timeoutMs"],
+                    argumentTypes: [
+                        "mode": .string,
+                        "recognizedDataTypes": .array,
+                        "languages": .array,
+                        "qualityLevel": .string,
+                        "recognizesMultipleItems": .bool,
+                        "returnsOnFirstResult": .bool,
+                        "timeoutMs": .number,
+                    ],
+                    argumentHints: [
+                        "mode": "any (default), text, or barcode.",
+                        "recognizedDataTypes": "Optional array containing text and/or barcode; overrides mode.",
+                        "languages": "Optional text recognition language identifiers.",
+                        "qualityLevel": "balanced (default), fast, or accurate.",
+                        "recognizesMultipleItems": "Whether the scanner tracks multiple items at once; default false.",
+                        "returnsOnFirstResult": "Whether to dismiss as soon as data is recognized; default true.",
+                        "timeoutMs": "Optional timeout for waiting on a scan result or cancellation.",
+                    ],
+                    resultSummary: "Object with action and items containing text transcripts or barcode payloads."
+                ),
+                handler: { args, context in
+                    try systemUI.scanData(arguments: args, context: context)
+                }
+            ),
+            CapabilityRegistration(
+                descriptor: .init(
+                    id: .mailUICompose,
+                    title: "Compose mail with system UI",
+                    summary: "Present system mail compose UI with optional recipients, body, and sandbox file attachments.",
+                    tags: ["mail", "compose", "system-ui", "share"],
+                    example: "await apple.mail.compose({ to: ['alex@example.com'], subject: 'Report', body: 'Attached.', attachments: [{ path: 'tmp:report.pdf' }] })",
+                    optionalArguments: ["to", "cc", "bcc", "subject", "body", "isHTML", "attachments", "timeoutMs"],
+                    argumentTypes: [
+                        "to": .array,
+                        "cc": .array,
+                        "bcc": .array,
+                        "subject": .string,
+                        "body": .string,
+                        "isHTML": .bool,
+                        "attachments": .array,
+                        "timeoutMs": .number,
+                    ],
+                    argumentHints: [
+                        "to": "Optional array of recipient email strings.",
+                        "cc": "Optional array of CC email strings.",
+                        "bcc": "Optional array of BCC email strings.",
+                        "subject": "Optional subject.",
+                        "body": "Optional message body.",
+                        "isHTML": "Whether body should be treated as HTML; default false.",
+                        "attachments": "Optional array of { path, mimeType?, filename? } sandbox file attachments.",
+                        "timeoutMs": "Optional timeout for waiting on user completion.",
+                    ],
+                    resultSummary: "Object with action sent/saved/cancelled/failed."
+                ),
+                handler: { args, context in
+                    try systemUI.composeMail(arguments: args, context: context)
+                }
+            ),
+            CapabilityRegistration(
+                descriptor: .init(
+                    id: .messagesUICompose,
+                    title: "Compose message with system UI",
+                    summary: "Present system Messages compose UI with optional recipients, body, and sandbox file attachments.",
+                    tags: ["messages", "sms", "compose", "system-ui", "share"],
+                    example: "await apple.messages.compose({ recipients: ['4085551212'], body: 'Report ready' })",
+                    optionalArguments: ["recipients", "subject", "body", "attachments", "timeoutMs"],
+                    argumentTypes: [
+                        "recipients": .array,
+                        "subject": .string,
+                        "body": .string,
+                        "attachments": .array,
+                        "timeoutMs": .number,
+                    ],
+                    argumentHints: [
+                        "recipients": "Optional array of phone number or address strings.",
+                        "subject": "Optional subject on devices/accounts that support it.",
+                        "body": "Optional message body.",
+                        "attachments": "Optional array of { path, filename? } sandbox file attachments.",
+                        "timeoutMs": "Optional timeout for waiting on user completion.",
+                    ],
+                    resultSummary: "Object with action sent/cancelled/failed."
+                ),
+                handler: { args, context in
+                    try systemUI.composeMessage(arguments: args, context: context)
+                }
+            ),
+            CapabilityRegistration(
+                descriptor: .init(
+                    id: .printUIPresent,
+                    title: "Present print UI",
+                    summary: "Present the system print sheet for one or more sandbox files.",
+                    tags: ["print", "documents", "system-ui", "export"],
+                    example: "await apple.print.present({ path: 'tmp:report.pdf', jobName: 'Report' })",
+                    optionalArguments: ["path", "paths", "jobName", "outputType", "showsNumberOfCopies", "timeoutMs"],
+                    argumentTypes: [
+                        "path": .string,
+                        "paths": .array,
+                        "jobName": .string,
+                        "outputType": .string,
+                        "showsNumberOfCopies": .bool,
+                        "timeoutMs": .number,
+                    ],
+                    argumentHints: [
+                        "path": "Single sandbox file path to print.",
+                        "paths": "Optional array of sandbox file paths to print.",
+                        "jobName": "Optional print job name.",
+                        "outputType": "general (default), photo, or grayscale.",
+                        "showsNumberOfCopies": "Whether copy count controls are shown; default true.",
+                        "timeoutMs": "Optional timeout for waiting on print completion/cancellation.",
+                    ],
+                    resultSummary: "Object with action/completed for the print interaction."
+                ),
+                handler: { args, context in
+                    try systemUI.presentPrint(arguments: args, context: context)
+                }
+            ),
+            CapabilityRegistration(
+                descriptor: .init(
+                    id: .webUIPresent,
+                    title: "Present web page with system UI",
+                    summary: "Present an HTTP(S) URL with the system Safari view controller.",
+                    tags: ["web", "safari", "browser", "system-ui"],
+                    example: "await apple.web.present({ url: 'https://example.com' })",
+                    requiredArguments: ["url"],
+                    optionalArguments: ["entersReaderIfAvailable", "timeoutMs"],
+                    argumentTypes: [
+                        "url": .string,
+                        "entersReaderIfAvailable": .bool,
+                        "timeoutMs": .number,
+                    ],
+                    argumentHints: [
+                        "url": "Absolute HTTP(S) URL to present.",
+                        "entersReaderIfAvailable": "Whether Safari may enter Reader automatically; default false.",
+                        "timeoutMs": "Optional timeout for waiting on dismissal.",
+                    ],
+                    resultSummary: "Object with action dismissed."
+                ),
+                handler: { args, context in
+                    try systemUI.presentWeb(arguments: args, context: context)
+                }
+            ),
+            CapabilityRegistration(
+                descriptor: .init(
+                    id: .authUIWebAuthenticate,
+                    title: "Authenticate with system web UI",
+                    summary: "Start an ASWebAuthenticationSession for OAuth-style browser authentication.",
+                    tags: ["auth", "oauth", "web", "browser", "system-ui"],
+                    example: "await apple.auth.webAuthenticate({ url: 'https://example.com/oauth', callbackURLScheme: 'myapp' })",
+                    requiredArguments: ["url"],
+                    optionalArguments: ["callbackURLScheme", "prefersEphemeralSession", "timeoutMs"],
+                    argumentTypes: [
+                        "url": .string,
+                        "callbackURLScheme": .string,
+                        "prefersEphemeralSession": .bool,
+                        "timeoutMs": .number,
+                    ],
+                    argumentHints: [
+                        "url": "Absolute HTTP(S) authentication URL.",
+                        "callbackURLScheme": "Optional custom URL scheme that completes the session.",
+                        "prefersEphemeralSession": "Whether to prefer a private browser session; default false.",
+                        "timeoutMs": "Optional timeout for waiting on callback/cancellation.",
+                    ],
+                    resultSummary: "Object with action callback/cancelled and callbackURL when available."
+                ),
+                handler: { args, context in
+                    try systemUI.authenticateWeb(arguments: args, context: context)
+                }
+            ),
+            CapabilityRegistration(
+                descriptor: .init(
+                    id: .uiAlertPresent,
+                    title: "Present alert with custom buttons",
+                    summary: "Present a system alert or action sheet and return the button the user selects.",
+                    tags: ["ui", "alert", "dialog", "system-ui"],
+                    example: "await apple.ui.presentAlert({ title: 'Delete draft?', message: 'This cannot be undone.', buttons: [{ id: 'cancel', title: 'Cancel', style: 'cancel' }, { id: 'delete', title: 'Delete', style: 'destructive' }] })",
+                    requiredArguments: ["buttons"],
+                    optionalArguments: ["title", "message", "preferredStyle", "timeoutMs"],
+                    argumentTypes: [
+                        "title": .string,
+                        "message": .string,
+                        "preferredStyle": .string,
+                        "buttons": .array,
+                        "timeoutMs": .number,
+                    ],
+                    argumentHints: [
+                        "title": "Optional alert title.",
+                        "message": "Optional alert message.",
+                        "preferredStyle": "alert (default) or actionSheet.",
+                        "buttons": "Array of { id?, title, style? }; style is default, cancel, or destructive. At most one cancel button.",
+                        "timeoutMs": "Optional timeout for waiting on user selection.",
+                    ],
+                    resultSummary: "Object with action/buttonID/buttonTitle/buttonIndex/style for the selected button."
+                ),
+                handler: { args, context in
+                    try systemUI.presentAlert(arguments: args, context: context)
+                }
+            ),
+            CapabilityRegistration(
+                descriptor: .init(
+                    id: .uiPromptPresent,
+                    title: "Present prompt with text fields",
+                    summary: "Present a system alert with one or more text fields and custom buttons.",
+                    tags: ["ui", "alert", "prompt", "input", "system-ui"],
+                    example: "await apple.ui.presentPrompt({ title: 'Name', fields: [{ id: 'name', placeholder: 'Name' }], buttons: [{ id: 'cancel', title: 'Cancel', style: 'cancel' }, { id: 'ok', title: 'OK' }] })",
+                    requiredArguments: ["fields", "buttons"],
+                    optionalArguments: ["title", "message", "timeoutMs"],
+                    argumentTypes: [
+                        "title": .string,
+                        "message": .string,
+                        "fields": .array,
+                        "buttons": .array,
+                        "timeoutMs": .number,
+                    ],
+                    argumentHints: [
+                        "fields": "Array of { id?, placeholder?, text?/defaultValue?, secure?, keyboardType? }. keyboardType is default, email, number, phone, or url.",
+                        "buttons": "Array of { id?, title, style? }; style is default, cancel, or destructive. At most one cancel button.",
+                        "timeoutMs": "Optional timeout for waiting on user selection.",
+                    ],
+                    resultSummary: "Object with selected button metadata and values keyed by field id."
+                ),
+                handler: { args, context in
+                    try systemUI.presentPrompt(arguments: args, context: context)
+                }
+            ),
+            CapabilityRegistration(
+                descriptor: .init(
+                    id: .settingsUIOpen,
+                    title: "Open app settings",
+                    summary: "Open the host app's Settings page so the user can recover denied permissions.",
+                    tags: ["settings", "permissions", "system-ui"],
+                    example: "await apple.settings.open()",
+                    optionalArguments: ["timeoutMs"],
+                    argumentTypes: [
+                        "timeoutMs": .number,
+                    ],
+                    argumentHints: [
+                        "timeoutMs": "Optional timeout for waiting on UIApplication.open completion.",
+                    ],
+                    resultSummary: "Object with action opened/failed and opened boolean."
+                ),
+                handler: { args, context in
+                    try systemUI.openSettings(arguments: args, context: context)
                 }
             ),
             CapabilityRegistration(

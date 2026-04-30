@@ -98,6 +98,79 @@ import Testing
     }
 }
 
+@Test func searchHidesSystemUICapabilitiesOnUnsupportedHostPlatform() async throws {
+    let (tools, sandbox) = try makeTools()
+    defer { cleanup(sandbox) }
+
+    let response = try await tools.searchJavaScriptAPI(
+        JavaScriptAPISearchRequest(
+            code: """
+            async () => {
+                const names = [
+                    "apple.calendar.pickCalendar",
+                    "apple.calendar.presentEvent",
+                    "apple.calendar.presentNewEvent",
+                    "apple.contacts.pick",
+                    "apple.contacts.presentContact",
+                    "apple.contacts.presentNewContact",
+                    "apple.photos.pick",
+                    "apple.photos.presentLimitedLibraryPicker",
+                    "apple.documents.pick",
+                    "apple.documents.export",
+                    "apple.documents.save",
+                    "apple.documents.openIn",
+                    "apple.documents.scan",
+                    "apple.share.present",
+                    "apple.quicklook.preview",
+                    "apple.camera.capture",
+                    "apple.camera.scanData",
+                    "apple.mail.compose",
+                    "apple.messages.compose",
+                    "apple.print.present",
+                    "apple.web.present",
+                    "apple.auth.webAuthenticate",
+                    "apple.ui.presentAlert",
+                    "apple.ui.presentPrompt",
+                    "apple.settings.open"
+                ];
+                return Object.fromEntries(names.map(name => [name, api.byJSName[name] ?? null]));
+            }
+            """
+        )
+    )
+
+    let result = try #require(response.result?.objectValue)
+    let namesByCapability: [CapabilityID: String] = [
+        .calendarUIPickCalendar: "apple.calendar.pickCalendar",
+        .calendarUIPresentEvent: "apple.calendar.presentEvent",
+        .calendarUIPresentNewEvent: "apple.calendar.presentNewEvent",
+        .contactsUIPick: "apple.contacts.pick",
+        .contactsUIPresentContact: "apple.contacts.presentContact",
+        .contactsUIPresentNewContact: "apple.contacts.presentNewContact",
+        .photosUIPick: "apple.photos.pick",
+        .photosUIPresentLimitedLibraryPicker: "apple.photos.presentLimitedLibraryPicker",
+        .documentsUIPick: "apple.documents.pick",
+        .documentsUIExport: "apple.documents.export",
+        .documentsUIOpenIn: "apple.documents.openIn",
+        .documentsUIScan: "apple.documents.scan",
+        .shareUIPresent: "apple.share.present",
+        .quickLookUIPreview: "apple.quicklook.preview",
+        .cameraUICapture: "apple.camera.capture",
+        .cameraUIScanData: "apple.camera.scanData",
+        .mailUICompose: "apple.mail.compose",
+        .messagesUICompose: "apple.messages.compose",
+        .printUIPresent: "apple.print.present",
+        .webUIPresent: "apple.web.present",
+        .authUIWebAuthenticate: "apple.auth.webAuthenticate",
+        .uiAlertPresent: "apple.ui.presentAlert",
+        .uiPromptPresent: "apple.ui.presentPrompt",
+        .settingsUIOpen: "apple.settings.open",
+    ]
+    for (capability, name) in namesByCapability {
+        #expect((result[name] != .null) == CapabilityPlatformSupport.isSupported(capability, for: .current))
+    }
+}
+
 @Test func searchSupportsDirectCapabilityLookup() async throws {
     let (tools, sandbox) = try makeTools()
     defer { cleanup(sandbox) }

@@ -8,7 +8,7 @@ public final class CodeModeAgentTools: @unchecked Sendable {
     public init(config: CodeModeConfiguration = .init()) {
         let registrations = CapabilityPlatformSupport.filter(
             DefaultCapabilityLoader.loadAllRegistrations(fileSystem: config.fileSystem),
-            for: .current
+            for: config.hostPlatform
         )
         let registry = CapabilityRegistry(registrations: registrations)
         self.registry = registry

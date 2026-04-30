@@ -7,6 +7,7 @@ public final class BridgeInvocationContext: @unchecked Sendable {
     public let artifactStore: any ArtifactStore
     public let permissionBroker: any PermissionBroker
     public let auditLogger: any AuditLogger
+    public let systemUIPresenter: any SystemUIPresenter
 
     private let lock = NSLock()
     private var validatedPermissions: Set<PermissionKind> = []
@@ -20,6 +21,7 @@ public final class BridgeInvocationContext: @unchecked Sendable {
         artifactStore: any ArtifactStore,
         permissionBroker: any PermissionBroker,
         auditLogger: any AuditLogger,
+        systemUIPresenter: any SystemUIPresenter = UnavailableSystemUIPresenter(),
         transcript: ExecutionTranscript,
         cancellationController: ExecutionCancellationController
     ) {
@@ -29,6 +31,7 @@ public final class BridgeInvocationContext: @unchecked Sendable {
         self.artifactStore = artifactStore
         self.permissionBroker = permissionBroker
         self.auditLogger = auditLogger
+        self.systemUIPresenter = systemUIPresenter
         self.transcript = transcript
         self.cancellationController = cancellationController
     }

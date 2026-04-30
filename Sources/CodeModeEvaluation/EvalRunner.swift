@@ -44,7 +44,8 @@ public final class CodeModeEvalRunner: Sendable {
                     pathPolicy: pathPolicy,
                     artifactStore: InMemoryArtifactStore(),
                     permissionBroker: CodeModeEvalPermissionBroker(configuration: scenario.permissions),
-                    auditLogger: SyncAuditLogger()
+                    auditLogger: SyncAuditLogger(),
+                    hostPlatform: scenario.catalogPlatform ?? .current
                 )
             )
 

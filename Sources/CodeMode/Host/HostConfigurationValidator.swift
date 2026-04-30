@@ -25,15 +25,22 @@ public enum HostConfigurationValidator {
             keys.insert("NSLocationWhenInUseUsageDescription")
         }
 
-        if capabilities.contains(.contactsRead) || capabilities.contains(.contactsSearch) {
+        if capabilities.contains(.contactsRead) ||
+            capabilities.contains(.contactsSearch) ||
+            capabilities.contains(.contactsUIPresentContact) ||
+            capabilities.contains(.contactsUIPresentNewContact)
+        {
             keys.insert("NSContactsUsageDescription")
         }
 
-        if capabilities.contains(.calendarWrite) {
+        if capabilities.contains(.calendarWrite) ||
+            capabilities.contains(.calendarUIPresentNewEvent) ||
+            capabilities.contains(.calendarUIPickCalendar)
+        {
             keys.insert("NSCalendarsWriteOnlyAccessUsageDescription")
         }
 
-        if capabilities.contains(.calendarRead) {
+        if capabilities.contains(.calendarRead) || capabilities.contains(.calendarUIPresentEvent) {
             keys.insert("NSCalendarsFullAccessUsageDescription")
         }
 
@@ -41,8 +48,22 @@ public enum HostConfigurationValidator {
             keys.insert("NSRemindersFullAccessUsageDescription")
         }
 
-        if capabilities.contains(.photosRead) || capabilities.contains(.photosExport) {
+        if capabilities.contains(.photosRead) ||
+            capabilities.contains(.photosExport) ||
+            capabilities.contains(.photosUIPresentLimitedLibraryPicker)
+        {
             keys.insert("NSPhotoLibraryUsageDescription")
+        }
+
+        if capabilities.contains(.cameraUICapture) ||
+            capabilities.contains(.documentsUIScan) ||
+            capabilities.contains(.cameraUIScanData)
+        {
+            keys.insert("NSCameraUsageDescription")
+        }
+
+        if capabilities.contains(.cameraUICapture) {
+            keys.insert("NSMicrophoneUsageDescription")
         }
 
         if capabilities.contains(.homeRead) || capabilities.contains(.homeWrite) {

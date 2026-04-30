@@ -7,6 +7,7 @@ enum BridgeError: Error, Sendable {
     case capabilityNotFound(String)
     case permissionDenied(PermissionKind)
     case unsupportedPlatform(String)
+    case uiPresenterUnavailable
     case timeout(milliseconds: Int)
     case cancelled
     case pathViolation(String)
@@ -29,6 +30,8 @@ extension BridgeError: LocalizedError {
             return "Permission denied: \(permission.rawValue)"
         case let .unsupportedPlatform(feature):
             return "Unsupported platform for \(feature)"
+        case .uiPresenterUnavailable:
+            return "System UI presenter is unavailable. Configure CodeModeConfiguration.systemUIPresenter before using UI-presenting helpers."
         case let .timeout(milliseconds):
             return "Execution timed out after \(milliseconds)ms"
         case .cancelled:
@@ -56,6 +59,8 @@ extension BridgeError: LocalizedError {
             return "PERMISSION_DENIED"
         case .unsupportedPlatform:
             return "UNSUPPORTED_PLATFORM"
+        case .uiPresenterUnavailable:
+            return "UI_PRESENTER_UNAVAILABLE"
         case .timeout:
             return "EXECUTION_TIMEOUT"
         case .cancelled:

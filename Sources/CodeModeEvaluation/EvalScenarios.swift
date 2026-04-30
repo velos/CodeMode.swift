@@ -21,6 +21,11 @@ public enum CodeModeEvalScenarios {
         catalogConsoleDiagnostics,
         searchRejectsNonFunctionProgram,
         catalogAliasAndPlatformPruning,
+        catalogSystemUIPlatformPruning,
+        catalogDocumentSystemUIDiscovery,
+        catalogInteractionSystemUIDiscovery,
+        catalogPhotoCameraSystemUIDiscovery,
+        catalogIOSOnlySystemUIDiscovery,
         contactsPermissionDenied,
         weatherArgumentValidation,
         badFileSystemHelperSuggestion,
@@ -598,6 +603,264 @@ public enum CodeModeEvalScenarios {
                 "fs.promises.readFile",
                 "\"staleIOSAlias\":null",
                 "\"iOSAlarmSchedule\":null",
+            ]
+        )
+    )
+
+    public static let catalogSystemUIPlatformPruning = CodeModeEvalScenario(
+        id: "catalog.system-ui-platform-pruning",
+        title: "Catalog hides system UI helpers on unsupported hosts",
+        task: "Search for the system UI helper family. On this macOS host these iOS/visionOS helpers should be hidden, so return null for each missing helper.",
+        searchCode: """
+        async () => {
+            const names = [
+                "apple.calendar.pickCalendar",
+                "apple.calendar.presentEvent",
+                "apple.calendar.presentNewEvent",
+                "apple.contacts.pick",
+                "apple.contacts.presentContact",
+                "apple.contacts.presentNewContact",
+                "apple.photos.pick",
+                "apple.photos.presentLimitedLibraryPicker",
+                "apple.documents.pick",
+                "apple.documents.export",
+                "apple.documents.save",
+                "apple.documents.openIn",
+                "apple.documents.scan",
+                "apple.share.present",
+                "apple.quicklook.preview",
+                "apple.camera.capture",
+                "apple.camera.scanData",
+                "apple.mail.compose",
+                "apple.messages.compose",
+                "apple.print.present",
+                "apple.web.present",
+                "apple.auth.webAuthenticate",
+                "apple.ui.presentAlert",
+                "apple.ui.presentPrompt",
+                "apple.settings.open"
+            ];
+            return Object.fromEntries(names.map(name => [name, api.byJSName[name] ?? null]));
+        }
+        """,
+        expectation: CodeModeEvalExpectation(
+            toolOrder: [.searchJavaScriptAPI],
+            requiredSearchResultFragments: [
+                "\"apple.auth.webAuthenticate\":null",
+                "\"apple.calendar.pickCalendar\":null",
+                "\"apple.calendar.presentEvent\":null",
+                "\"apple.calendar.presentNewEvent\":null",
+                "\"apple.camera.capture\":null",
+                "\"apple.contacts.pick\":null",
+                "\"apple.contacts.presentContact\":null",
+                "\"apple.contacts.presentNewContact\":null",
+                "\"apple.documents.export\":null",
+                "\"apple.documents.openIn\":null",
+                "\"apple.documents.pick\":null",
+                "\"apple.documents.save\":null",
+                "\"apple.documents.scan\":null",
+                "\"apple.camera.scanData\":null",
+                "\"apple.mail.compose\":null",
+                "\"apple.messages.compose\":null",
+                "\"apple.photos.presentLimitedLibraryPicker\":null",
+                "\"apple.photos.pick\":null",
+                "\"apple.print.present\":null",
+                "\"apple.quicklook.preview\":null",
+                "\"apple.settings.open\":null",
+                "\"apple.share.present\":null",
+                "\"apple.ui.presentAlert\":null",
+                "\"apple.ui.presentPrompt\":null",
+                "\"apple.web.present\":null",
+            ]
+        )
+    )
+
+    public static let catalogDocumentSystemUIDiscovery = CodeModeEvalScenario(
+        id: "catalog.system-ui-documents-discovery",
+        title: "Catalog discovers document system UI helpers",
+        task: "Search the iOS catalog for Files document picking, document export/save, document open-in, Quick Look preview, and print helpers. Return each capability, JavaScript name, arguments, hints, and result summary.",
+        catalogPlatform: .iOS,
+        searchCode: """
+        async () => {
+            const names = [
+                "apple.documents.pick",
+                "apple.documents.export",
+                "apple.documents.openIn",
+                "apple.quicklook.preview",
+                "apple.print.present"
+            ];
+            return Object.fromEntries(names.map(name => {
+                const ref = api.byJSName[name];
+                return [name, ref ? {
+                    capability: ref.capability,
+                    jsNames: ref.jsNames,
+                    requiredArguments: ref.requiredArguments,
+                    optionalArguments: ref.optionalArguments,
+                    argumentHints: ref.argumentHints,
+                    resultSummary: ref.resultSummary
+                } : null];
+            }));
+        }
+        """,
+        expectation: CodeModeEvalExpectation(
+            toolOrder: [.searchJavaScriptAPI],
+            requiredSearchResultFragments: [
+                "apple.documents.export",
+                "apple.documents.openIn",
+                "apple.documents.pick",
+                "apple.documents.save",
+                "apple.print.present",
+                "apple.quicklook.preview",
+                "completed",
+                "contentTypes",
+                "documents.ui.export",
+                "documents.ui.openIn",
+                "documents.ui.pick",
+                "jobName",
+                "print.ui.present",
+                "quicklook.ui.preview",
+            ]
+        )
+    )
+
+    public static let catalogInteractionSystemUIDiscovery = CodeModeEvalScenario(
+        id: "catalog.system-ui-interaction-discovery",
+        title: "Catalog discovers interaction system UI helpers",
+        task: "Search the iOS catalog for share sheet, Safari, web authentication, alert, prompt, and settings helpers. Return each capability, JavaScript name, arguments, hints, and result summary.",
+        catalogPlatform: .iOS,
+        searchCode: """
+        async () => {
+            const names = [
+                "apple.share.present",
+                "apple.web.present",
+                "apple.auth.webAuthenticate",
+                "apple.ui.presentAlert",
+                "apple.ui.presentPrompt",
+                "apple.settings.open"
+            ];
+            return Object.fromEntries(names.map(name => {
+                const ref = api.byJSName[name];
+                return [name, ref ? {
+                    capability: ref.capability,
+                    jsNames: ref.jsNames,
+                    requiredArguments: ref.requiredArguments,
+                    optionalArguments: ref.optionalArguments,
+                    argumentHints: ref.argumentHints,
+                    resultSummary: ref.resultSummary
+                } : null];
+            }));
+        }
+        """,
+        expectation: CodeModeEvalExpectation(
+            toolOrder: [.searchJavaScriptAPI],
+            requiredSearchResultFragments: [
+                "apple.auth.webAuthenticate",
+                "apple.settings.open",
+                "apple.share.present",
+                "apple.ui.presentAlert",
+                "apple.ui.presentPrompt",
+                "apple.web.present",
+                "auth.ui.webAuthenticate",
+                "buttonID",
+                "buttons",
+                "callbackURL",
+                "callbackURLScheme",
+                "excludedActivityTypes",
+                "fields",
+                "settings.ui.open",
+                "share.ui.present",
+                "ui.alert.present",
+                "ui.prompt.present",
+                "web.ui.present",
+            ]
+        )
+    )
+
+    public static let catalogPhotoCameraSystemUIDiscovery = CodeModeEvalScenario(
+        id: "catalog.system-ui-photo-camera-discovery",
+        title: "Catalog discovers photo and camera system UI helpers",
+        task: "Search the iOS catalog for photo picking, Photos limited-library management, and live camera data scanning helpers. Return each capability, JavaScript name, arguments, hints, and result summary.",
+        catalogPlatform: .iOS,
+        searchCode: """
+        async () => {
+            const names = [
+                "apple.photos.pick",
+                "apple.photos.presentLimitedLibraryPicker",
+                "apple.camera.scanData"
+            ];
+            return Object.fromEntries(names.map(name => {
+                const ref = api.byJSName[name];
+                return [name, ref ? {
+                    capability: ref.capability,
+                    jsNames: ref.jsNames,
+                    requiredArguments: ref.requiredArguments,
+                    optionalArguments: ref.optionalArguments,
+                    argumentHints: ref.argumentHints,
+                    resultSummary: ref.resultSummary
+                } : null];
+            }));
+        }
+        """,
+        expectation: CodeModeEvalExpectation(
+            toolOrder: [.searchJavaScriptAPI],
+            requiredSearchResultFragments: [
+                "apple.camera.scanData",
+                "apple.photos.pick",
+                "apple.photos.presentLimitedLibraryPicker",
+                "camera.ui.scanData",
+                "limit",
+                "mediaType",
+                "outputDirectory",
+                "photos.ui.pick",
+                "photos.ui.presentLimitedLibraryPicker",
+                "recognizedDataTypes",
+            ]
+        )
+    )
+
+    public static let catalogIOSOnlySystemUIDiscovery = CodeModeEvalScenario(
+        id: "catalog.system-ui-ios-only-discovery",
+        title: "Catalog discovers iOS-only system UI helpers",
+        task: "Search the iOS catalog for document scanning, camera capture, mail compose, and Messages compose helpers. Return each capability, JavaScript name, arguments, hints, and result summary.",
+        catalogPlatform: .iOS,
+        searchCode: """
+        async () => {
+            const names = [
+                "apple.documents.scan",
+                "apple.camera.capture",
+                "apple.mail.compose",
+                "apple.messages.compose"
+            ];
+            return Object.fromEntries(names.map(name => {
+                const ref = api.byJSName[name];
+                return [name, ref ? {
+                    capability: ref.capability,
+                    jsNames: ref.jsNames,
+                    requiredArguments: ref.requiredArguments,
+                    optionalArguments: ref.optionalArguments,
+                    argumentHints: ref.argumentHints,
+                    resultSummary: ref.resultSummary
+                } : null];
+            }));
+        }
+        """,
+        expectation: CodeModeEvalExpectation(
+            toolOrder: [.searchJavaScriptAPI],
+            requiredSearchResultFragments: [
+                "apple.camera.capture",
+                "apple.documents.scan",
+                "apple.mail.compose",
+                "apple.messages.compose",
+                "artifactID",
+                "attachments",
+                "camera.ui.capture",
+                "documents.ui.scan",
+                "mail.ui.compose",
+                "mediaType",
+                "messages.ui.compose",
+                "outputDirectory",
+                "recipients",
+                "sent",
             ]
         )
     )
