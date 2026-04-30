@@ -480,11 +480,7 @@ public final class HealthBridge: @unchecked Sendable {
         if spec.isWorkout, let workout = sample as? HKWorkout {
             payload["activityType"] = .number(Double(workout.workoutActivityType.rawValue))
             payload["durationSeconds"] = .number(workout.duration)
-            #if os(macOS)
-            payload["totalEnergyBurnedKCal"] = .number(0)
-            #else
-            payload["totalEnergyBurnedKCal"] = .number(workout.totalEnergyBurned?.doubleValue(for: .kilocalorie()) ?? 0)
-            #endif
+            payload["totalEnergyBurnedKCal"] = .number(workoutActiveEnergyBurnedKCal(workout))
             payload["totalDistanceMeters"] = .number(workout.totalDistance?.doubleValue(for: .meter()) ?? 0)
             return .object(payload)
         }
@@ -501,6 +497,15 @@ public final class HealthBridge: @unchecked Sendable {
         }
 
         return .object(payload)
+    }
+
+    private func workoutActiveEnergyBurnedKCal(_ workout: HKWorkout) -> Double {
+        guard let quantityType = HKObjectType.quantityType(forIdentifier: .activeEnergyBurned),
+              let quantity = workout.statistics(for: quantityType)?.sumQuantity()
+        else {
+            return 0
+        }
+        return quantity.doubleValue(for: .kilocalorie())
     }
 
     private func resolveUnit(override: String?, fallback: HKUnit) throws -> HKUnit {

@@ -22,7 +22,9 @@ public enum CodeModeEvalScenarios {
         searchRejectsNonFunctionProgram,
         catalogAliasAndPlatformPruning,
         catalogSystemUIPlatformPruning,
-        catalogSharedSystemUIDiscovery,
+        catalogDocumentSystemUIDiscovery,
+        catalogInteractionSystemUIDiscovery,
+        catalogPhotoCameraSystemUIDiscovery,
         catalogIOSOnlySystemUIDiscovery,
         contactsPermissionDenied,
         weatherArgumentValidation,
@@ -673,10 +675,10 @@ public enum CodeModeEvalScenarios {
         )
     )
 
-    public static let catalogSharedSystemUIDiscovery = CodeModeEvalScenario(
-        id: "catalog.system-ui-shared-discovery",
-        title: "Catalog discovers shared iOS and visionOS system UI helpers",
-        task: "Search the iOS catalog for Files document picking/export/open-in, share sheet, Quick Look, print, Safari, web authentication, Photos limited-library management, data scanning, settings, alert, and prompt helpers. Return each capability, JavaScript name, arguments, hints, and result summary.",
+    public static let catalogDocumentSystemUIDiscovery = CodeModeEvalScenario(
+        id: "catalog.system-ui-documents-discovery",
+        title: "Catalog discovers document system UI helpers",
+        task: "Search the iOS catalog for Files document picking, document export/save, document open-in, Quick Look preview, and print helpers. Return each capability, JavaScript name, arguments, hints, and result summary.",
         catalogPlatform: .iOS,
         searchCode: """
         async () => {
@@ -684,13 +686,54 @@ public enum CodeModeEvalScenarios {
                 "apple.documents.pick",
                 "apple.documents.export",
                 "apple.documents.openIn",
-                "apple.share.present",
                 "apple.quicklook.preview",
+                "apple.print.present"
+            ];
+            return Object.fromEntries(names.map(name => {
+                const ref = api.byJSName[name];
+                return [name, ref ? {
+                    capability: ref.capability,
+                    jsNames: ref.jsNames,
+                    requiredArguments: ref.requiredArguments,
+                    optionalArguments: ref.optionalArguments,
+                    argumentHints: ref.argumentHints,
+                    resultSummary: ref.resultSummary
+                } : null];
+            }));
+        }
+        """,
+        expectation: CodeModeEvalExpectation(
+            toolOrder: [.searchJavaScriptAPI],
+            requiredSearchResultFragments: [
+                "apple.documents.export",
+                "apple.documents.openIn",
+                "apple.documents.pick",
+                "apple.documents.save",
                 "apple.print.present",
+                "apple.quicklook.preview",
+                "completed",
+                "contentTypes",
+                "documents.ui.export",
+                "documents.ui.openIn",
+                "documents.ui.pick",
+                "jobName",
+                "print.ui.present",
+                "quicklook.ui.preview",
+            ]
+        )
+    )
+
+    public static let catalogInteractionSystemUIDiscovery = CodeModeEvalScenario(
+        id: "catalog.system-ui-interaction-discovery",
+        title: "Catalog discovers interaction system UI helpers",
+        task: "Search the iOS catalog for share sheet, Safari, web authentication, alert, prompt, and settings helpers. Return each capability, JavaScript name, arguments, hints, and result summary.",
+        catalogPlatform: .iOS,
+        searchCode: """
+        async () => {
+            const names = [
+                "apple.share.present",
                 "apple.web.present",
                 "apple.auth.webAuthenticate",
-                "apple.photos.presentLimitedLibraryPicker",
-                "apple.camera.scanData",
                 "apple.ui.presentAlert",
                 "apple.ui.presentPrompt",
                 "apple.settings.open"
@@ -712,14 +755,6 @@ public enum CodeModeEvalScenarios {
             toolOrder: [.searchJavaScriptAPI],
             requiredSearchResultFragments: [
                 "apple.auth.webAuthenticate",
-                "apple.camera.scanData",
-                "apple.documents.export",
-                "apple.documents.openIn",
-                "apple.documents.pick",
-                "apple.documents.save",
-                "apple.photos.presentLimitedLibraryPicker",
-                "apple.print.present",
-                "apple.quicklook.preview",
                 "apple.settings.open",
                 "apple.share.present",
                 "apple.ui.presentAlert",
@@ -730,25 +765,55 @@ public enum CodeModeEvalScenarios {
                 "buttons",
                 "callbackURL",
                 "callbackURLScheme",
-                "camera.ui.scanData",
-                "completed",
-                "contentTypes",
-                "documents.ui.export",
-                "documents.ui.openIn",
-                "documents.ui.pick",
                 "excludedActivityTypes",
                 "fields",
-                "jobName",
-                "outputDirectory",
-                "photos.ui.presentLimitedLibraryPicker",
-                "print.ui.present",
-                "quicklook.ui.preview",
-                "recognizedDataTypes",
                 "settings.ui.open",
                 "share.ui.present",
                 "ui.alert.present",
                 "ui.prompt.present",
                 "web.ui.present",
+            ]
+        )
+    )
+
+    public static let catalogPhotoCameraSystemUIDiscovery = CodeModeEvalScenario(
+        id: "catalog.system-ui-photo-camera-discovery",
+        title: "Catalog discovers photo and camera system UI helpers",
+        task: "Search the iOS catalog for photo picking, Photos limited-library management, and live camera data scanning helpers. Return each capability, JavaScript name, arguments, hints, and result summary.",
+        catalogPlatform: .iOS,
+        searchCode: """
+        async () => {
+            const names = [
+                "apple.photos.pick",
+                "apple.photos.presentLimitedLibraryPicker",
+                "apple.camera.scanData"
+            ];
+            return Object.fromEntries(names.map(name => {
+                const ref = api.byJSName[name];
+                return [name, ref ? {
+                    capability: ref.capability,
+                    jsNames: ref.jsNames,
+                    requiredArguments: ref.requiredArguments,
+                    optionalArguments: ref.optionalArguments,
+                    argumentHints: ref.argumentHints,
+                    resultSummary: ref.resultSummary
+                } : null];
+            }));
+        }
+        """,
+        expectation: CodeModeEvalExpectation(
+            toolOrder: [.searchJavaScriptAPI],
+            requiredSearchResultFragments: [
+                "apple.camera.scanData",
+                "apple.photos.pick",
+                "apple.photos.presentLimitedLibraryPicker",
+                "camera.ui.scanData",
+                "limit",
+                "mediaType",
+                "outputDirectory",
+                "photos.ui.pick",
+                "photos.ui.presentLimitedLibraryPicker",
+                "recognizedDataTypes",
             ]
         )
     )

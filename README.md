@@ -294,7 +294,7 @@ swift run --package-path Tools/CodeModeEval codemode-eval run fs.round-trip --sh
 swift run --package-path Tools/CodeModeEval codemode-eval run --json
 ```
 
-The eval harness runs 24 built-in user-style scenarios through the same
+The eval harness runs 26 built-in user-style scenarios through the same
 `searchJavaScriptAPI` and `executeJavaScript` APIs that host apps expose to
 agents. It validates tool order, discovered catalog output, generated JavaScript
 fragments, exact `allowedCapabilities`, structured errors, repair suggestions,
