@@ -111,7 +111,8 @@ enum RuntimeJavaScript {
 
     globalThis.apple.calendar = {
         listEvents: function(args) { return __invokeAsync('calendar.read', args || {}); },
-        createEvent: function(args) { return __invokeAsync('calendar.write', args || {}); }
+        createEvent: function(args) { return __invokeAsync('calendar.write', args || {}); },
+        presentNewEvent: function(args) { return __invokeAsync('calendar.ui.presentNewEvent', args || {}); }
     };
 
     globalThis.apple.reminders = {
@@ -121,12 +122,14 @@ enum RuntimeJavaScript {
 
     globalThis.apple.contacts = {
         list: function(args) { return __invokeAsync('contacts.read', args || {}); },
-        search: function(args) { return __invokeAsync('contacts.search', args || {}); }
+        search: function(args) { return __invokeAsync('contacts.search', args || {}); },
+        pick: function(args) { return __invokeAsync('contacts.ui.pick', args || {}); }
     };
 
     globalThis.apple.photos = {
         list: function(args) { return __invokeAsync('photos.read', args || {}); },
-        export: function(args) { return __invokeAsync('photos.export', args || {}); }
+        export: function(args) { return __invokeAsync('photos.export', args || {}); },
+        pick: function(args) { return __invokeAsync('photos.ui.pick', args || {}); }
     };
 
     globalThis.apple.vision = {

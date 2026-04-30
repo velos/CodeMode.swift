@@ -6,19 +6,22 @@ public struct CodeModeConfiguration: Sendable {
     public var artifactStore: any ArtifactStore
     public var permissionBroker: any PermissionBroker
     public var auditLogger: any AuditLogger
+    public var systemUIPresenter: any SystemUIPresenter
 
     public init(
         pathPolicy: any PathPolicy = DefaultPathPolicy(),
         fileSystem: any CodeModeFileSystem = LocalCodeModeFileSystem(),
         artifactStore: any ArtifactStore = InMemoryArtifactStore(),
         permissionBroker: any PermissionBroker = SystemPermissionBroker(),
-        auditLogger: any AuditLogger = SyncAuditLogger()
+        auditLogger: any AuditLogger = SyncAuditLogger(),
+        systemUIPresenter: any SystemUIPresenter = UnavailableSystemUIPresenter()
     ) {
         self.pathPolicy = pathPolicy
         self.fileSystem = fileSystem
         self.artifactStore = artifactStore
         self.permissionBroker = permissionBroker
         self.auditLogger = auditLogger
+        self.systemUIPresenter = systemUIPresenter
     }
 }
 
@@ -318,15 +321,18 @@ public enum CapabilityID: String, Sendable, Codable, CaseIterable, Hashable {
 
     case calendarRead = "calendar.read"
     case calendarWrite = "calendar.write"
+    case calendarUIPresentNewEvent = "calendar.ui.presentNewEvent"
 
     case remindersRead = "reminders.read"
     case remindersWrite = "reminders.write"
 
     case contactsRead = "contacts.read"
     case contactsSearch = "contacts.search"
+    case contactsUIPick = "contacts.ui.pick"
 
     case photosRead = "photos.read"
     case photosExport = "photos.export"
+    case photosUIPick = "photos.ui.pick"
 
     case visionImageAnalyze = "vision.image.analyze"
 

@@ -18,6 +18,7 @@ public enum DefaultCapabilityLoader {
         let health = HealthBridge()
         let home = HomeBridge()
         let media = MediaBridge()
+        let systemUI = SystemUIBridge()
 
         return [
             CapabilityRegistration(
@@ -187,6 +188,35 @@ public enum DefaultCapabilityLoader {
             ),
             CapabilityRegistration(
                 descriptor: .init(
+                    id: .calendarUIPresentNewEvent,
+                    title: "Present calendar event editor",
+                    summary: "Present system UI to let the user create or edit a new calendar event draft.",
+                    tags: ["calendar", "eventkit", "system-ui", "picker"],
+                    example: "await apple.calendar.presentNewEvent({ title: 'Standup', start: '2026-02-22T16:00:00Z', end: '2026-02-22T16:15:00Z' })",
+                    requiredPermissions: [.calendarWriteOnly],
+                    optionalArguments: ["title", "start", "end", "notes", "location"],
+                    argumentTypes: [
+                        "title": .string,
+                        "start": .string,
+                        "end": .string,
+                        "notes": .string,
+                        "location": .string,
+                    ],
+                    argumentHints: [
+                        "title": "Optional event title shown in the editor.",
+                        "start": "Optional ISO8601 start timestamp.",
+                        "end": "Optional ISO8601 end timestamp.",
+                        "notes": "Optional event notes/body text.",
+                        "location": "Optional location string.",
+                    ],
+                    resultSummary: "Object with action plus identifier/title when the user saves."
+                ),
+                handler: { args, context in
+                    try systemUI.presentNewCalendarEvent(arguments: args, context: context)
+                }
+            ),
+            CapabilityRegistration(
+                descriptor: .init(
                     id: .remindersRead,
                     title: "Read reminders",
                     summary: "Read incomplete reminders from EventKit.",
@@ -264,6 +294,30 @@ public enum DefaultCapabilityLoader {
             ),
             CapabilityRegistration(
                 descriptor: .init(
+                    id: .contactsUIPick,
+                    title: "Pick contacts with system UI",
+                    summary: "Present system contact picker UI and return selected contacts without requiring full Contacts permission.",
+                    tags: ["contacts", "people", "system-ui", "picker"],
+                    example: "await apple.contacts.pick({ mode: 'single', displayedPropertyKeys: ['phoneNumbers', 'emailAddresses'] })",
+                    optionalArguments: ["mode", "displayedPropertyKeys", "timeoutMs"],
+                    argumentTypes: [
+                        "mode": .string,
+                        "displayedPropertyKeys": .array,
+                        "timeoutMs": .number,
+                    ],
+                    argumentHints: [
+                        "mode": "single (default) or multiple.",
+                        "displayedPropertyKeys": "Optional array of CNContact property key strings to display.",
+                        "timeoutMs": "Optional timeout for waiting on user selection.",
+                    ],
+                    resultSummary: "Array of selected contacts with identifier/name/organization/phones/emails."
+                ),
+                handler: { args, context in
+                    try systemUI.pickContacts(arguments: args, context: context)
+                }
+            ),
+            CapabilityRegistration(
+                descriptor: .init(
                     id: .photosRead,
                     title: "List photo library assets",
                     summary: "List photos/videos from the user photo library.",
@@ -299,6 +353,32 @@ public enum DefaultCapabilityLoader {
                 ),
                 handler: { args, context in
                     try photos.export(arguments: args, context: context)
+                }
+            ),
+            CapabilityRegistration(
+                descriptor: .init(
+                    id: .photosUIPick,
+                    title: "Pick photos with system UI",
+                    summary: "Present system photo picker UI and export selected assets into the sandbox artifact store.",
+                    tags: ["photos", "photo-library", "system-ui", "picker", "artifact"],
+                    example: "await apple.photos.pick({ mediaType: 'image', limit: 3, outputDirectory: 'tmp:picks' })",
+                    optionalArguments: ["mediaType", "limit", "outputDirectory", "timeoutMs"],
+                    argumentTypes: [
+                        "mediaType": .string,
+                        "limit": .number,
+                        "outputDirectory": .string,
+                        "timeoutMs": .number,
+                    ],
+                    argumentHints: [
+                        "mediaType": "any (default), image/photo, or video.",
+                        "limit": "Maximum number of selectable items; default 1.",
+                        "outputDirectory": "Optional sandbox directory for exported picker files; defaults to tmp:.",
+                        "timeoutMs": "Optional timeout for waiting on user selection/export.",
+                    ],
+                    resultSummary: "Array of selected assets with path/artifactID/mediaType/uniformTypeIdentifier/bytes."
+                ),
+                handler: { args, context in
+                    try systemUI.pickPhotos(arguments: args, context: context)
                 }
             ),
             CapabilityRegistration(

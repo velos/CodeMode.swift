@@ -10,6 +10,7 @@ GitHub: [velos/CodeMode.swift](https://github.com/velos/CodeMode.swift)
 ## Highlights
 
 - Platforms: `iOS 18+`, `macOS 15+`, `visionOS 2+`
+- watchOS is audited but not a runtime target in this package because the current runtime depends on JavaScriptCore.
 - Typed Swift host API through `CodeModeAgentTools`
 - Streaming execution via `JavaScriptExecutionCall`
 - Structured failures via `CodeModeToolError`
@@ -17,6 +18,7 @@ GitHub: [velos/CodeMode.swift](https://github.com/velos/CodeMode.swift)
   - web-style globals: `fetch`, `URL`, `URLSearchParams`, `setTimeout`, `console`
   - cross-platform Apple namespaces: `apple.keychain`, `apple.location`, `apple.weather`, `apple.calendar`, `apple.reminders`, `apple.contacts`, `apple.photos`, `apple.vision`, `apple.notifications`, `apple.health`, `apple.home`, `apple.media`, `apple.fs`
   - platform-specific namespaces when needed: `ios.alarm`
+- iOS/visionOS system UI helpers through an injected presenter: `apple.calendar.presentNewEvent`, `apple.photos.pick`, `apple.contacts.pick`
 - Node-style aliases for file operations through `globalThis.fs.promises`
 - Sandboxed filesystem policy with allowed roots: `tmp`, `caches`, `documents`
 - Search and execution only expose helpers supported on the current host platform
@@ -50,6 +52,8 @@ Then add the product to your target:
 - `CodeModeFileSystem`
 - `LocalCodeModeFileSystem`
 - `CodeModeAgentToolDescriptions`
+- `SystemUIPresenter`
+- `UIKitSystemUIPresenter` on iOS/visionOS
 
 ## Quick Start
 
@@ -189,6 +193,8 @@ Cross-platform privileged helpers are installed under `apple.*`. Platform-specif
 
 `apple.location.requestPermission()` is currently exposed only on iOS hosts. Other Apple platforms can expose `apple.location.*` helpers when supported, but the explicit permission-request helper is intentionally hidden outside iOS for now.
 
+System UI helpers are installed only on iOS and visionOS. Host apps must provide a `SystemUIPresenter`; otherwise UI-presenting helpers fail with `UI_PRESENTER_UNAVAILABLE`.
+
 `call.events` is a non-throwing `AsyncStream` that can emit:
 
 - `.log(ExecutionLog)`
@@ -231,6 +237,7 @@ Required Info.plist keys by capability:
 - Contacts (`contacts.read`, `contacts.search`): `NSContactsUsageDescription`
 - Calendar read (`calendar.read`): `NSCalendarsFullAccessUsageDescription`
 - Calendar write-only (`calendar.write`): `NSCalendarsWriteOnlyAccessUsageDescription`
+- Calendar event editor UI (`calendar.ui.presentNewEvent`): `NSCalendarsWriteOnlyAccessUsageDescription`
 - Reminders (`reminders.read`, `reminders.write`): `NSRemindersFullAccessUsageDescription`
 - Photos (`photos.read`, `photos.export`): `NSPhotoLibraryUsageDescription`
 - AlarmKit (`alarm.permission.request`, `alarm.read`, `alarm.schedule`, `alarm.cancel`): `NSAlarmKitUsageDescription`

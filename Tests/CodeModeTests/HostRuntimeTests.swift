@@ -98,6 +98,31 @@ import Testing
     }
 }
 
+@Test func searchHidesSystemUICapabilitiesOnUnsupportedHostPlatform() async throws {
+    let (tools, sandbox) = try makeTools()
+    defer { cleanup(sandbox) }
+
+    let response = try await tools.searchJavaScriptAPI(
+        JavaScriptAPISearchRequest(
+            code: """
+            async () => {
+                return {
+                    calendarUI: api.byJSName["apple.calendar.presentNewEvent"] ?? null,
+                    contactsUI: api.byJSName["apple.contacts.pick"] ?? null,
+                    photosUI: api.byJSName["apple.photos.pick"] ?? null
+                };
+            }
+            """
+        )
+    )
+
+    let result = try #require(response.result?.objectValue)
+    let shouldExpose = CapabilityPlatformSupport.isSupported(.calendarUIPresentNewEvent, for: .current)
+    #expect((result["calendarUI"] != .null) == shouldExpose)
+    #expect((result["contactsUI"] != .null) == shouldExpose)
+    #expect((result["photosUI"] != .null) == shouldExpose)
+}
+
 @Test func searchSupportsDirectCapabilityLookup() async throws {
     let (tools, sandbox) = try makeTools()
     defer { cleanup(sandbox) }

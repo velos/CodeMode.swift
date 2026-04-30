@@ -3,6 +3,7 @@ import Foundation
 enum HostPlatform: String, Sendable {
     case iOS
     case macOS
+    case watchOS
     case visionOS
 
     static let current: HostPlatform = {
@@ -10,6 +11,8 @@ enum HostPlatform: String, Sendable {
         return .iOS
         #elseif os(macOS)
         return .macOS
+        #elseif os(watchOS)
+        return .watchOS
         #elseif os(visionOS)
         return .visionOS
         #else

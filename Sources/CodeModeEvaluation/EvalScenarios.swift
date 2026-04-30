@@ -21,6 +21,7 @@ public enum CodeModeEvalScenarios {
         catalogConsoleDiagnostics,
         searchRejectsNonFunctionProgram,
         catalogAliasAndPlatformPruning,
+        catalogSystemUIPlatformPruning,
         contactsPermissionDenied,
         weatherArgumentValidation,
         badFileSystemHelperSuggestion,
@@ -598,6 +599,29 @@ public enum CodeModeEvalScenarios {
                 "fs.promises.readFile",
                 "\"staleIOSAlias\":null",
                 "\"iOSAlarmSchedule\":null",
+            ]
+        )
+    )
+
+    public static let catalogSystemUIPlatformPruning = CodeModeEvalScenario(
+        id: "catalog.system-ui-platform-pruning",
+        title: "Catalog hides system UI helpers on unsupported hosts",
+        task: "Search for the system UI helpers apple.calendar.presentNewEvent, apple.photos.pick, and apple.contacts.pick. On this macOS host these iOS/visionOS helpers should be hidden, so return null for each missing helper.",
+        searchCode: """
+        async () => {
+            return {
+                calendarUI: api.byJSName["apple.calendar.presentNewEvent"] ?? null,
+                photosUI: api.byJSName["apple.photos.pick"] ?? null,
+                contactsUI: api.byJSName["apple.contacts.pick"] ?? null
+            };
+        }
+        """,
+        expectation: CodeModeEvalExpectation(
+            toolOrder: [.searchJavaScriptAPI],
+            requiredSearchResultFragments: [
+                "\"calendarUI\":null",
+                "\"contactsUI\":null",
+                "\"photosUI\":null",
             ]
         )
     )

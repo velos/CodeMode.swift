@@ -62,6 +62,23 @@ import Testing
     #expect(issues.contains(where: { $0.key == "NSCalendarsFullAccessUsageDescription" }) == false)
 }
 
+@Test func validatorRequiresWriteOnlyCalendarKeyForCalendarUIPresentationOnly() {
+    let issues = HostConfigurationValidator.validate(
+        requiredCapabilities: [.calendarUIPresentNewEvent],
+        infoPlist: [:]
+    )
+
+    #expect(issues.contains(where: { $0.key == "NSCalendarsWriteOnlyAccessUsageDescription" && $0.severity == .error }))
+    #expect(issues.contains(where: { $0.key == "NSCalendarsFullAccessUsageDescription" }) == false)
+}
+
+@Test func validatorDoesNotRequireFullLibraryKeysForSystemPickers() {
+    let keys = HostConfigurationValidator.requiredInfoPlistKeys(for: [.photosUIPick, .contactsUIPick])
+
+    #expect(keys.contains("NSPhotoLibraryUsageDescription") == false)
+    #expect(keys.contains("NSContactsUsageDescription") == false)
+}
+
 @Test func validatorReportsPhotosAndHomeKitMissingUsageDescriptions() {
     let issues = HostConfigurationValidator.validate(
         requiredCapabilities: [.photosRead, .homeRead],

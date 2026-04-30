@@ -35,7 +35,8 @@ func cleanup(_ sandbox: TestSandbox) {
 
 func makeTools(
     permissionBroker: any PermissionBroker = NoopPermissionBroker(),
-    fileSystem: any CodeModeFileSystem = LocalCodeModeFileSystem()
+    fileSystem: any CodeModeFileSystem = LocalCodeModeFileSystem(),
+    systemUIPresenter: any SystemUIPresenter = UnavailableSystemUIPresenter()
 ) throws -> (CodeModeAgentTools, TestSandbox) {
     let sandbox = try makeTestSandbox()
 
@@ -48,7 +49,8 @@ func makeTools(
         fileSystem: fileSystem,
         artifactStore: InMemoryArtifactStore(),
         permissionBroker: permissionBroker,
-        auditLogger: SyncAuditLogger()
+        auditLogger: SyncAuditLogger(),
+        systemUIPresenter: systemUIPresenter
     )
 
     let tools = CodeModeAgentTools(config: configuration)
@@ -57,7 +59,8 @@ func makeTools(
 
 func makeInvocationContext(
     permissionBroker: any PermissionBroker = NoopPermissionBroker(),
-    allowedCapabilities: Set<CapabilityID> = Set(CapabilityID.allCases)
+    allowedCapabilities: Set<CapabilityID> = Set(CapabilityID.allCases),
+    systemUIPresenter: any SystemUIPresenter = UnavailableSystemUIPresenter()
 ) throws -> (BridgeInvocationContext, TestSandbox) {
     let sandbox = try makeTestSandbox()
     let pathPolicy = DefaultPathPolicy(
@@ -71,6 +74,7 @@ func makeInvocationContext(
         artifactStore: InMemoryArtifactStore(),
         permissionBroker: permissionBroker,
         auditLogger: SyncAuditLogger(),
+        systemUIPresenter: systemUIPresenter,
         transcript: ExecutionTranscript(),
         cancellationController: ExecutionCancellationController()
     )

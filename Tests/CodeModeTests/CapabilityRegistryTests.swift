@@ -19,6 +19,37 @@ import Testing
     #expect(loaded == expected)
 }
 
+@Test func systemUICapabilitiesArePlatformScoped() {
+    let uiCapabilities: Set<CapabilityID> = [
+        .calendarUIPresentNewEvent,
+        .contactsUIPick,
+        .photosUIPick,
+    ]
+
+    #expect(uiCapabilities.isSubset(of: CapabilityPlatformSupport.supportedCapabilities(for: .iOS)))
+    #expect(uiCapabilities.isSubset(of: CapabilityPlatformSupport.supportedCapabilities(for: .visionOS)))
+    #expect(CapabilityPlatformSupport.supportedCapabilities(for: .macOS).isDisjoint(with: uiCapabilities))
+    #expect(CapabilityPlatformSupport.supportedCapabilities(for: .watchOS).isDisjoint(with: uiCapabilities))
+}
+
+@Test func systemUIDescriptorsExposeExpectedJavaScriptNames() throws {
+    let descriptors = Dictionary(
+        uniqueKeysWithValues: DefaultCapabilityLoader.loadAllRegistrations().map { ($0.descriptor.id, $0.descriptor) }
+    )
+
+    let calendar = try #require(descriptors[.calendarUIPresentNewEvent])
+    #expect(calendar.requiredPermissions == [.calendarWriteOnly])
+    #expect(JavaScriptBindingCatalog.names(for: .calendarUIPresentNewEvent) == ["apple.calendar.presentNewEvent"])
+
+    let contacts = try #require(descriptors[.contactsUIPick])
+    #expect(contacts.requiredPermissions.isEmpty)
+    #expect(JavaScriptBindingCatalog.names(for: .contactsUIPick) == ["apple.contacts.pick"])
+
+    let photos = try #require(descriptors[.photosUIPick])
+    #expect(photos.requiredPermissions.isEmpty)
+    #expect(JavaScriptBindingCatalog.names(for: .photosUIPick) == ["apple.photos.pick"])
+}
+
 @Test func filesystemListDescriptorDocumentsEntryObjects() throws {
     let descriptor = try #require(
         DefaultCapabilityLoader.loadAllRegistrations()

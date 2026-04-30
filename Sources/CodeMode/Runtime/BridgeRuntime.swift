@@ -44,6 +44,7 @@ final class BridgeRuntime: @unchecked Sendable {
             artifactStore: config.artifactStore,
             permissionBroker: config.permissionBroker,
             auditLogger: config.auditLogger,
+            systemUIPresenter: config.systemUIPresenter,
             transcript: transcript,
             cancellationController: cancellationController
         )
@@ -151,6 +152,7 @@ final class BridgeRuntime: @unchecked Sendable {
             artifactStore: config.artifactStore,
             permissionBroker: config.permissionBroker,
             auditLogger: config.auditLogger,
+            systemUIPresenter: config.systemUIPresenter,
             transcript: transcript,
             cancellationController: cancellationController
         )
@@ -720,6 +722,7 @@ final class BridgeRuntime: @unchecked Sendable {
             "CAPABILITY_NOT_FOUND",
             "PERMISSION_DENIED",
             "UNSUPPORTED_PLATFORM",
+            "UI_PRESENTER_UNAVAILABLE",
             "EXECUTION_TIMEOUT",
             "PATH_POLICY_VIOLATION",
             "JAVASCRIPT_ERROR",
