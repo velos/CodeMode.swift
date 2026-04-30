@@ -1332,7 +1332,8 @@ private final class CodeModeLLMRuntime: Sendable {
                 pathPolicy: pathPolicy,
                 artifactStore: InMemoryArtifactStore(),
                 permissionBroker: CodeModeLLMPermissionBroker(configuration: scenario.permissions),
-                auditLogger: SyncAuditLogger()
+                auditLogger: SyncAuditLogger(),
+                hostPlatform: scenario.catalogPlatform ?? .current
             )
         )
     }

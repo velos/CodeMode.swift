@@ -7,6 +7,7 @@ public struct CodeModeConfiguration: Sendable {
     public var permissionBroker: any PermissionBroker
     public var auditLogger: any AuditLogger
     public var systemUIPresenter: any SystemUIPresenter
+    public var hostPlatform: HostPlatform
 
     public init(
         pathPolicy: any PathPolicy = DefaultPathPolicy(),
@@ -14,7 +15,8 @@ public struct CodeModeConfiguration: Sendable {
         artifactStore: any ArtifactStore = InMemoryArtifactStore(),
         permissionBroker: any PermissionBroker = SystemPermissionBroker(),
         auditLogger: any AuditLogger = SyncAuditLogger(),
-        systemUIPresenter: any SystemUIPresenter = UnavailableSystemUIPresenter()
+        systemUIPresenter: any SystemUIPresenter = UnavailableSystemUIPresenter(),
+        hostPlatform: HostPlatform = .current
     ) {
         self.pathPolicy = pathPolicy
         self.fileSystem = fileSystem
@@ -22,6 +24,7 @@ public struct CodeModeConfiguration: Sendable {
         self.permissionBroker = permissionBroker
         self.auditLogger = auditLogger
         self.systemUIPresenter = systemUIPresenter
+        self.hostPlatform = hostPlatform
     }
 }
 

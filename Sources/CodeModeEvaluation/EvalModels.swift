@@ -117,12 +117,14 @@ public struct CodeModeEvalScenario: Codable, Identifiable, Sendable, Equatable {
     public var timeoutMs: Int
     public var seedFiles: [CodeModeEvalSeedFile]
     public var permissions: CodeModeEvalPermissions
+    public var catalogPlatform: HostPlatform?
     public var expectation: CodeModeEvalExpectation
 
     public init(
         id: String,
         title: String,
         task: String,
+        catalogPlatform: HostPlatform? = nil,
         searchCode: String? = nil,
         executeCode: String? = nil,
         executeSteps: [CodeModeEvalExecuteStep] = [],
@@ -142,6 +144,7 @@ public struct CodeModeEvalScenario: Codable, Identifiable, Sendable, Equatable {
         self.timeoutMs = timeoutMs
         self.seedFiles = seedFiles
         self.permissions = permissions
+        self.catalogPlatform = catalogPlatform
         self.expectation = expectation
     }
 }

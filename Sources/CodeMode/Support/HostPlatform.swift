@@ -1,12 +1,12 @@
 import Foundation
 
-enum HostPlatform: String, Sendable {
+public enum HostPlatform: String, Sendable, Codable {
     case iOS
     case macOS
     case watchOS
     case visionOS
 
-    static let current: HostPlatform = {
+    public static let current: HostPlatform = {
         #if os(iOS)
         return .iOS
         #elseif os(macOS)
