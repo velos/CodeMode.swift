@@ -1,8 +1,10 @@
 import Foundation
 
 public enum DefaultCapabilityLoader {
-    public static func loadAllRegistrations() -> [CapabilityRegistration] {
-        let fs = FileSystemBridge()
+    public static func loadAllRegistrations(
+        fileSystem: any CodeModeFileSystem = LocalCodeModeFileSystem()
+    ) -> [CapabilityRegistration] {
+        let fs = FileSystemBridge(fileSystem: fileSystem)
         let network = NetworkBridge()
         let keychain = KeychainBridge()
         let location = LocationBridge()

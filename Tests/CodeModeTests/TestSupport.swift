@@ -33,7 +33,10 @@ func cleanup(_ sandbox: TestSandbox) {
     try? FileManager.default.removeItem(at: sandbox.root)
 }
 
-func makeTools(permissionBroker: any PermissionBroker = NoopPermissionBroker()) throws -> (CodeModeAgentTools, TestSandbox) {
+func makeTools(
+    permissionBroker: any PermissionBroker = NoopPermissionBroker(),
+    fileSystem: any CodeModeFileSystem = LocalCodeModeFileSystem()
+) throws -> (CodeModeAgentTools, TestSandbox) {
     let sandbox = try makeTestSandbox()
 
     let pathPolicy = DefaultPathPolicy(
@@ -42,6 +45,7 @@ func makeTools(permissionBroker: any PermissionBroker = NoopPermissionBroker()) 
 
     let configuration = CodeModeConfiguration(
         pathPolicy: pathPolicy,
+        fileSystem: fileSystem,
         artifactStore: InMemoryArtifactStore(),
         permissionBroker: permissionBroker,
         auditLogger: SyncAuditLogger()

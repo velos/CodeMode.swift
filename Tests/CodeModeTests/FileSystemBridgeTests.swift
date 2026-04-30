@@ -2,6 +2,74 @@ import Foundation
 import Testing
 @testable import CodeMode
 
+private final class RecordingCodeModeFileSystem: CodeModeFileSystem, @unchecked Sendable {
+    private let base = LocalCodeModeFileSystem()
+    private let lock = NSLock()
+    private var recordedCalls: [String] = []
+
+    var calls: [String] {
+        lock.lock()
+        defer { lock.unlock() }
+        return recordedCalls
+    }
+
+    func listDirectory(at url: URL) throws -> [CodeModeFileSystemEntry] {
+        record("listDirectory")
+        return try base.listDirectory(at: url)
+    }
+
+    func readData(at url: URL) throws -> Data {
+        record("readData")
+        return try base.readData(at: url)
+    }
+
+    func writeData(_ data: Data, to url: URL) throws {
+        record("writeData")
+        try base.writeData(data, to: url)
+    }
+
+    func moveItem(at sourceURL: URL, to destinationURL: URL) throws {
+        record("moveItem")
+        try base.moveItem(at: sourceURL, to: destinationURL)
+    }
+
+    func copyItem(at sourceURL: URL, to destinationURL: URL) throws {
+        record("copyItem")
+        try base.copyItem(at: sourceURL, to: destinationURL)
+    }
+
+    func removeItem(at url: URL) throws {
+        record("removeItem")
+        try base.removeItem(at: url)
+    }
+
+    func attributesOfItem(at url: URL) throws -> CodeModeFileSystemAttributes {
+        record("attributesOfItem")
+        return try base.attributesOfItem(at: url)
+    }
+
+    func createDirectory(at url: URL, recursive: Bool) throws {
+        record("createDirectory")
+        try base.createDirectory(at: url, recursive: recursive)
+    }
+
+    func itemExists(at url: URL) -> Bool {
+        record("itemExists")
+        return base.itemExists(at: url)
+    }
+
+    func access(at url: URL) -> CodeModeFileSystemAccess {
+        record("access")
+        return base.access(at: url)
+    }
+
+    private func record(_ call: String) {
+        lock.lock()
+        recordedCalls.append(call)
+        lock.unlock()
+    }
+}
+
 @Test func fileSystemRoundTripOperations() throws {
     let fs = FileSystemBridge()
     let (context, sandbox) = try makeInvocationContext()
@@ -98,6 +166,34 @@ import Testing
     } catch {
         #expect(requireBridgeErrorCode(error) == "PATH_POLICY_VIOLATION")
     }
+}
+
+@Test func executeUsesConfiguredFileSystemOperations() async throws {
+    let fileSystem = RecordingCodeModeFileSystem()
+    let (tools, sandbox) = try makeTools(fileSystem: fileSystem)
+    defer { cleanup(sandbox) }
+
+    let observed = try await execute(
+        tools,
+        request: JavaScriptExecutionRequest(
+            code: """
+            await apple.fs.write({ path: 'tmp:custom-fs.txt', data: 'configured' });
+            const text = await fs.promises.readFile('tmp:custom-fs.txt', 'utf8');
+            const stat = await fs.promises.stat('tmp:custom-fs.txt');
+            const entries = await fs.promises.readdir('tmp:');
+            return { text, size: stat.size, count: entries.length };
+            """,
+            allowedCapabilities: [.fsWrite, .fsRead, .fsStat, .fsList]
+        )
+    )
+
+    let payload = try requireJSONObject(from: try #require(observed.result))
+    #expect(payload["text"] as? String == "configured")
+    #expect((payload["size"] as? Double ?? 0) > 0)
+    #expect((payload["count"] as? Int ?? 0) > 0)
+
+    let calls = Set(fileSystem.calls)
+    #expect(calls.isSuperset(of: ["createDirectory", "writeData", "readData", "attributesOfItem", "listDirectory"]))
 }
 
 @Test func executeUsesFileSystemBridge() async throws {
