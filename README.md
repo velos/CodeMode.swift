@@ -25,7 +25,7 @@ GitHub: [velos/CodeMode.swift](https://github.com/velos/CodeMode.swift)
 
 ## Installation
 
-Once `0.1.0` is tagged, add `CodeMode.swift` with Swift Package Manager:
+Add `CodeMode.swift` with Swift Package Manager:
 
 ```swift
 .package(name: "CodeMode", url: "https://github.com/velos/CodeMode.swift", from: "0.1.0")
