@@ -20,16 +20,34 @@ import Testing
 }
 
 @Test func systemUICapabilitiesArePlatformScoped() {
-    let uiCapabilities: Set<CapabilityID> = [
+    let sharedUICapabilities: Set<CapabilityID> = [
+        .calendarUIPickCalendar,
+        .calendarUIPresentEvent,
         .calendarUIPresentNewEvent,
         .contactsUIPick,
+        .contactsUIPresentContact,
+        .contactsUIPresentNewContact,
         .photosUIPick,
+        .documentsUIPick,
+        .shareUIPresent,
+        .quickLookUIPreview,
+        .webUIPresent,
+        .authUIWebAuthenticate,
+        .uiAlertPresent,
     ]
+    let iOSOnlyUICapabilities: Set<CapabilityID> = [
+        .documentsUIScan,
+        .cameraUICapture,
+        .mailUICompose,
+        .messagesUICompose,
+    ]
+    let allUICapabilities = sharedUICapabilities.union(iOSOnlyUICapabilities)
 
-    #expect(uiCapabilities.isSubset(of: CapabilityPlatformSupport.supportedCapabilities(for: .iOS)))
-    #expect(uiCapabilities.isSubset(of: CapabilityPlatformSupport.supportedCapabilities(for: .visionOS)))
-    #expect(CapabilityPlatformSupport.supportedCapabilities(for: .macOS).isDisjoint(with: uiCapabilities))
-    #expect(CapabilityPlatformSupport.supportedCapabilities(for: .watchOS).isDisjoint(with: uiCapabilities))
+    #expect(allUICapabilities.isSubset(of: CapabilityPlatformSupport.supportedCapabilities(for: .iOS)))
+    #expect(sharedUICapabilities.isSubset(of: CapabilityPlatformSupport.supportedCapabilities(for: .visionOS)))
+    #expect(CapabilityPlatformSupport.supportedCapabilities(for: .visionOS).isDisjoint(with: iOSOnlyUICapabilities))
+    #expect(CapabilityPlatformSupport.supportedCapabilities(for: .macOS).isDisjoint(with: allUICapabilities))
+    #expect(CapabilityPlatformSupport.supportedCapabilities(for: .watchOS).isDisjoint(with: allUICapabilities))
 }
 
 @Test func systemUIDescriptorsExposeExpectedJavaScriptNames() throws {
@@ -48,6 +66,28 @@ import Testing
     let photos = try #require(descriptors[.photosUIPick])
     #expect(photos.requiredPermissions.isEmpty)
     #expect(JavaScriptBindingCatalog.names(for: .photosUIPick) == ["apple.photos.pick"])
+
+    #expect(descriptors[.documentsUIPick]?.requiredPermissions.isEmpty == true)
+    #expect(JavaScriptBindingCatalog.names(for: .documentsUIPick) == ["apple.documents.pick"])
+    #expect(JavaScriptBindingCatalog.names(for: .documentsUIScan) == ["apple.documents.scan"])
+    #expect(JavaScriptBindingCatalog.names(for: .shareUIPresent) == ["apple.share.present"])
+    #expect(JavaScriptBindingCatalog.names(for: .quickLookUIPreview) == ["apple.quicklook.preview"])
+    #expect(JavaScriptBindingCatalog.names(for: .cameraUICapture) == ["apple.camera.capture"])
+    #expect(JavaScriptBindingCatalog.names(for: .mailUICompose) == ["apple.mail.compose"])
+    #expect(JavaScriptBindingCatalog.names(for: .messagesUICompose) == ["apple.messages.compose"])
+    #expect(JavaScriptBindingCatalog.names(for: .webUIPresent) == ["apple.web.present"])
+    #expect(JavaScriptBindingCatalog.names(for: .authUIWebAuthenticate) == ["apple.auth.webAuthenticate"])
+    #expect(JavaScriptBindingCatalog.names(for: .uiAlertPresent) == ["apple.ui.presentAlert"])
+
+    #expect(descriptors[.calendarUIPickCalendar]?.requiredPermissions == [.calendarWriteOnly])
+    #expect(descriptors[.calendarUIPresentEvent]?.requiredPermissions == [.calendar])
+    #expect(JavaScriptBindingCatalog.names(for: .calendarUIPickCalendar) == ["apple.calendar.pickCalendar"])
+    #expect(JavaScriptBindingCatalog.names(for: .calendarUIPresentEvent) == ["apple.calendar.presentEvent"])
+
+    #expect(descriptors[.contactsUIPresentContact]?.requiredPermissions == [.contacts])
+    #expect(descriptors[.contactsUIPresentNewContact]?.requiredPermissions == [.contacts])
+    #expect(JavaScriptBindingCatalog.names(for: .contactsUIPresentContact) == ["apple.contacts.presentContact"])
+    #expect(JavaScriptBindingCatalog.names(for: .contactsUIPresentNewContact) == ["apple.contacts.presentNewContact"])
 }
 
 @Test func filesystemListDescriptorDocumentsEntryObjects() throws {

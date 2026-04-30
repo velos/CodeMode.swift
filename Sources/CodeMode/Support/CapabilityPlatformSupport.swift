@@ -67,9 +67,23 @@ enum CapabilityPlatformSupport {
     ]
 
     private static let iOSCapabilities = crossAppleCapabilities.union([
+        .calendarUIPickCalendar,
+        .calendarUIPresentEvent,
         .calendarUIPresentNewEvent,
         .contactsUIPick,
+        .contactsUIPresentContact,
+        .contactsUIPresentNewContact,
         .photosUIPick,
+        .documentsUIPick,
+        .documentsUIScan,
+        .shareUIPresent,
+        .quickLookUIPreview,
+        .cameraUICapture,
+        .mailUICompose,
+        .messagesUICompose,
+        .webUIPresent,
+        .authUIWebAuthenticate,
+        .uiAlertPresent,
         .locationPermissionRequest,
         .alarmPermissionRequest,
         .alarmRead,
@@ -80,9 +94,19 @@ enum CapabilityPlatformSupport {
     private static let macOSCapabilities = crossAppleCapabilities
 
     private static let visionOSCapabilities = crossAppleCapabilities.union([
+        .calendarUIPickCalendar,
+        .calendarUIPresentEvent,
         .calendarUIPresentNewEvent,
         .contactsUIPick,
+        .contactsUIPresentContact,
+        .contactsUIPresentNewContact,
         .photosUIPick,
+        .documentsUIPick,
+        .shareUIPresent,
+        .quickLookUIPreview,
+        .webUIPresent,
+        .authUIWebAuthenticate,
+        .uiAlertPresent,
     ])
 
 }

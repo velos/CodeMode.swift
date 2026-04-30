@@ -18,7 +18,7 @@ GitHub: [velos/CodeMode.swift](https://github.com/velos/CodeMode.swift)
   - web-style globals: `fetch`, `URL`, `URLSearchParams`, `setTimeout`, `console`
   - cross-platform Apple namespaces: `apple.keychain`, `apple.location`, `apple.weather`, `apple.calendar`, `apple.reminders`, `apple.contacts`, `apple.photos`, `apple.vision`, `apple.notifications`, `apple.health`, `apple.home`, `apple.media`, `apple.fs`
   - platform-specific namespaces when needed: `ios.alarm`
-- iOS/visionOS system UI helpers through an injected presenter: `apple.calendar.presentNewEvent`, `apple.photos.pick`, `apple.contacts.pick`
+- iOS/visionOS system UI helpers through an injected presenter, including alerts, calendar editors, photo/contact/document pickers, share sheets, Quick Look previews, web authentication, and iOS-only camera/scan/mail/message compose flows
 - Node-style aliases for file operations through `globalThis.fs.promises`
 - Sandboxed filesystem policy with allowed roots: `tmp`, `caches`, `documents`
 - Search and execution only expose helpers supported on the current host platform
@@ -193,7 +193,7 @@ Cross-platform privileged helpers are installed under `apple.*`. Platform-specif
 
 `apple.location.requestPermission()` is currently exposed only on iOS hosts. Other Apple platforms can expose `apple.location.*` helpers when supported, but the explicit permission-request helper is intentionally hidden outside iOS for now.
 
-System UI helpers are installed only on iOS and visionOS. Host apps must provide a `SystemUIPresenter`; otherwise UI-presenting helpers fail with `UI_PRESENTER_UNAVAILABLE`.
+System UI helpers are installed only on supported UI platforms. Shared iOS/visionOS helpers include `apple.ui.presentAlert`, `apple.calendar.pickCalendar`, `apple.calendar.presentEvent`, `apple.calendar.presentNewEvent`, `apple.contacts.pick`, `apple.contacts.presentContact`, `apple.contacts.presentNewContact`, `apple.photos.pick`, `apple.documents.pick`, `apple.share.present`, `apple.quicklook.preview`, `apple.web.present`, and `apple.auth.webAuthenticate`. iOS-only helpers include `apple.camera.capture`, `apple.documents.scan`, `apple.mail.compose`, and `apple.messages.compose`. Host apps must provide a `SystemUIPresenter`; otherwise UI-presenting helpers fail with `UI_PRESENTER_UNAVAILABLE`.
 
 `call.events` is a non-throwing `AsyncStream` that can emit:
 
@@ -234,12 +234,15 @@ Required Info.plist keys by capability:
 
 - Location read (`location.read`): `NSLocationWhenInUseUsageDescription`
 - Location permission request (`location.permission.request`, iOS-only): `NSLocationWhenInUseUsageDescription`
-- Contacts (`contacts.read`, `contacts.search`): `NSContactsUsageDescription`
+- Contacts (`contacts.read`, `contacts.search`, `contacts.ui.presentContact`, `contacts.ui.presentNewContact`): `NSContactsUsageDescription`
 - Calendar read (`calendar.read`): `NSCalendarsFullAccessUsageDescription`
+- Calendar event detail UI (`calendar.ui.presentEvent`): `NSCalendarsFullAccessUsageDescription`
 - Calendar write-only (`calendar.write`): `NSCalendarsWriteOnlyAccessUsageDescription`
-- Calendar event editor UI (`calendar.ui.presentNewEvent`): `NSCalendarsWriteOnlyAccessUsageDescription`
+- Calendar event editor/chooser UI (`calendar.ui.presentNewEvent`, `calendar.ui.pickCalendar`): `NSCalendarsWriteOnlyAccessUsageDescription`
 - Reminders (`reminders.read`, `reminders.write`): `NSRemindersFullAccessUsageDescription`
 - Photos (`photos.read`, `photos.export`): `NSPhotoLibraryUsageDescription`
+- Camera UI (`camera.ui.capture`, `documents.ui.scan`): `NSCameraUsageDescription`
+- Camera video capture (`camera.ui.capture`): `NSMicrophoneUsageDescription`
 - AlarmKit (`alarm.permission.request`, `alarm.read`, `alarm.schedule`, `alarm.cancel`): `NSAlarmKitUsageDescription`
 - HealthKit read (`health.permission.request`, `health.read`): `NSHealthShareUsageDescription`
 - HealthKit write (`health.permission.request`, `health.write`): `NSHealthUpdateUsageDescription`
@@ -291,7 +294,7 @@ swift run --package-path Tools/CodeModeEval codemode-eval run fs.round-trip --sh
 swift run --package-path Tools/CodeModeEval codemode-eval run --json
 ```
 
-The eval harness runs 21 built-in user-style scenarios through the same
+The eval harness runs 22 built-in user-style scenarios through the same
 `searchJavaScriptAPI` and `executeJavaScript` APIs that host apps expose to
 agents. It validates tool order, discovered catalog output, generated JavaScript
 fragments, exact `allowedCapabilities`, structured errors, repair suggestions,

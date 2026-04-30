@@ -106,21 +106,54 @@ import Testing
         JavaScriptAPISearchRequest(
             code: """
             async () => {
-                return {
-                    calendarUI: api.byJSName["apple.calendar.presentNewEvent"] ?? null,
-                    contactsUI: api.byJSName["apple.contacts.pick"] ?? null,
-                    photosUI: api.byJSName["apple.photos.pick"] ?? null
-                };
+                const names = [
+                    "apple.calendar.pickCalendar",
+                    "apple.calendar.presentEvent",
+                    "apple.calendar.presentNewEvent",
+                    "apple.contacts.pick",
+                    "apple.contacts.presentContact",
+                    "apple.contacts.presentNewContact",
+                    "apple.photos.pick",
+                    "apple.documents.pick",
+                    "apple.documents.scan",
+                    "apple.share.present",
+                    "apple.quicklook.preview",
+                    "apple.camera.capture",
+                    "apple.mail.compose",
+                    "apple.messages.compose",
+                    "apple.web.present",
+                    "apple.auth.webAuthenticate",
+                    "apple.ui.presentAlert"
+                ];
+                return Object.fromEntries(names.map(name => [name, api.byJSName[name] ?? null]));
             }
             """
         )
     )
 
     let result = try #require(response.result?.objectValue)
-    let shouldExpose = CapabilityPlatformSupport.isSupported(.calendarUIPresentNewEvent, for: .current)
-    #expect((result["calendarUI"] != .null) == shouldExpose)
-    #expect((result["contactsUI"] != .null) == shouldExpose)
-    #expect((result["photosUI"] != .null) == shouldExpose)
+    let namesByCapability: [CapabilityID: String] = [
+        .calendarUIPickCalendar: "apple.calendar.pickCalendar",
+        .calendarUIPresentEvent: "apple.calendar.presentEvent",
+        .calendarUIPresentNewEvent: "apple.calendar.presentNewEvent",
+        .contactsUIPick: "apple.contacts.pick",
+        .contactsUIPresentContact: "apple.contacts.presentContact",
+        .contactsUIPresentNewContact: "apple.contacts.presentNewContact",
+        .photosUIPick: "apple.photos.pick",
+        .documentsUIPick: "apple.documents.pick",
+        .documentsUIScan: "apple.documents.scan",
+        .shareUIPresent: "apple.share.present",
+        .quickLookUIPreview: "apple.quicklook.preview",
+        .cameraUICapture: "apple.camera.capture",
+        .mailUICompose: "apple.mail.compose",
+        .messagesUICompose: "apple.messages.compose",
+        .webUIPresent: "apple.web.present",
+        .authUIWebAuthenticate: "apple.auth.webAuthenticate",
+        .uiAlertPresent: "apple.ui.presentAlert",
+    ]
+    for (capability, name) in namesByCapability {
+        #expect((result[name] != .null) == CapabilityPlatformSupport.isSupported(capability, for: .current))
+    }
 }
 
 @Test func searchSupportsDirectCapabilityLookup() async throws {

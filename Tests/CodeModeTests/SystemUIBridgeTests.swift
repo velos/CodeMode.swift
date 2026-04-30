@@ -28,7 +28,23 @@ import Testing
                 "phones": .array([]),
                 "emails": .array([.string("alex@example.com")]),
             ]),
-        ])
+        ]),
+        extraResults: [
+            .calendarUIPickCalendar: .array([.object(["identifier": .string("cal-1")])]),
+            .calendarUIPresentEvent: .object(["action": .string("dismissed")]),
+            .contactsUIPresentContact: .object(["action": .string("dismissed")]),
+            .contactsUIPresentNewContact: .object(["action": .string("saved")]),
+            .documentsUIPick: .array([.object(["artifactID": .string("document-1")])]),
+            .documentsUIScan: .array([.object(["artifactID": .string("scan-1")])]),
+            .shareUIPresent: .object(["completed": .bool(true)]),
+            .quickLookUIPreview: .object(["action": .string("dismissed")]),
+            .cameraUICapture: .object(["artifactID": .string("camera-1")]),
+            .mailUICompose: .object(["action": .string("sent")]),
+            .messagesUICompose: .object(["action": .string("sent")]),
+            .webUIPresent: .object(["action": .string("dismissed")]),
+            .authUIWebAuthenticate: .object(["action": .string("callback")]),
+            .uiAlertPresent: .object(["action": .string("selected"), "buttonID": .string("ok")]),
+        ]
     )
 
     let (context, sandbox) = try makeInvocationContext(systemUIPresenter: presenter)
@@ -53,6 +69,38 @@ import Testing
         bridge.pickContacts(arguments: ["mode": .string("single")], context: context)
     )
     #expect(contacts.first?.objectValue?.string("givenName") == "Alex")
+
+    let calendars = try requireArray(bridge.pickCalendar(arguments: [:], context: context))
+    #expect(calendars.first?.objectValue?.string("identifier") == "cal-1")
+    let eventView = try bridge.presentCalendarEvent(arguments: ["identifier": .string("event-1")], context: context)
+    #expect(eventView.objectValue?.string("action") == "dismissed")
+    let contactView = try bridge.presentContact(arguments: ["identifier": .string("contact-1")], context: context)
+    #expect(contactView.objectValue?.string("action") == "dismissed")
+    let newContact = try bridge.presentNewContact(arguments: [:], context: context)
+    #expect(newContact.objectValue?.string("action") == "saved")
+    let documents = try requireArray(bridge.pickDocuments(arguments: ["contentTypes": .array([.string("public.item")])], context: context))
+    #expect(documents.first?.objectValue?.string("artifactID") == "document-1")
+    let scans = try requireArray(bridge.scanDocuments(arguments: [:], context: context))
+    #expect(scans.first?.objectValue?.string("artifactID") == "scan-1")
+    let share = try bridge.presentShareSheet(arguments: ["text": .string("hello")], context: context)
+    #expect(share.objectValue?.bool("completed") == true)
+    let preview = try bridge.previewQuickLook(arguments: ["path": .string("tmp:report.pdf")], context: context)
+    #expect(preview.objectValue?.string("action") == "dismissed")
+    let camera = try bridge.captureCamera(arguments: ["mediaType": .string("image")], context: context)
+    #expect(camera.objectValue?.string("artifactID") == "camera-1")
+    let mail = try bridge.composeMail(arguments: ["to": .array([.string("alex@example.com")])], context: context)
+    #expect(mail.objectValue?.string("action") == "sent")
+    let message = try bridge.composeMessage(arguments: ["recipients": .array([.string("4085551212")])], context: context)
+    #expect(message.objectValue?.string("action") == "sent")
+    let web = try bridge.presentWeb(arguments: ["url": .string("https://example.com")], context: context)
+    #expect(web.objectValue?.string("action") == "dismissed")
+    let auth = try bridge.authenticateWeb(arguments: ["url": .string("https://example.com/oauth")], context: context)
+    #expect(auth.objectValue?.string("action") == "callback")
+    let alert = try bridge.presentAlert(
+        arguments: ["buttons": .array([.object(["id": .string("ok"), "title": .string("OK")])])],
+        context: context
+    )
+    #expect(alert.objectValue?.string("buttonID") == "ok")
 }
 
 @Test func systemUIBridgeDefaultPresenterIsStructuredFailure() throws {
@@ -108,6 +156,70 @@ import Testing
     do {
         _ = try bridge.pickContacts(arguments: ["displayedPropertyKeys": .array([.number(1)])], context: context)
         Issue.record("Expected invalid displayedPropertyKeys to fail")
+    } catch {
+        #expect(requireBridgeErrorCode(error) == "INVALID_ARGUMENTS")
+    }
+
+    do {
+        _ = try bridge.pickCalendar(arguments: ["selectionStyle": .string("both")], context: context)
+        Issue.record("Expected invalid calendar selectionStyle to fail")
+    } catch {
+        #expect(requireBridgeErrorCode(error) == "INVALID_ARGUMENTS")
+    }
+
+    do {
+        _ = try bridge.pickDocuments(arguments: ["contentTypes": .array([.number(1)])], context: context)
+        Issue.record("Expected invalid contentTypes to fail")
+    } catch {
+        #expect(requireBridgeErrorCode(error) == "INVALID_ARGUMENTS")
+    }
+
+    do {
+        _ = try bridge.presentShareSheet(arguments: [:], context: context)
+        Issue.record("Expected share sheet with no items to fail")
+    } catch {
+        #expect(requireBridgeErrorCode(error) == "INVALID_ARGUMENTS")
+    }
+
+    do {
+        _ = try bridge.previewQuickLook(arguments: [:], context: context)
+        Issue.record("Expected Quick Look with no path to fail")
+    } catch {
+        #expect(requireBridgeErrorCode(error) == "INVALID_ARGUMENTS")
+    }
+
+    do {
+        _ = try bridge.presentWeb(arguments: ["url": .string("file:///tmp/a.html")], context: context)
+        Issue.record("Expected non-HTTP web URL to fail")
+    } catch {
+        #expect(requireBridgeErrorCode(error) == "INVALID_ARGUMENTS")
+    }
+
+    do {
+        _ = try bridge.composeMail(arguments: ["attachments": .array([.string("tmp:file.txt")])], context: context)
+        Issue.record("Expected invalid attachment shape to fail")
+    } catch {
+        #expect(requireBridgeErrorCode(error) == "INVALID_ARGUMENTS")
+    }
+
+    do {
+        _ = try bridge.presentAlert(arguments: ["buttons": .array([])], context: context)
+        Issue.record("Expected empty alert buttons to fail")
+    } catch {
+        #expect(requireBridgeErrorCode(error) == "INVALID_ARGUMENTS")
+    }
+
+    do {
+        _ = try bridge.presentAlert(
+            arguments: [
+                "buttons": .array([
+                    .object(["title": .string("Cancel"), "style": .string("cancel")]),
+                    .object(["title": .string("Stop"), "style": .string("cancel")]),
+                ]),
+            ],
+            context: context
+        )
+        Issue.record("Expected duplicate cancel alert buttons to fail")
     } catch {
         #expect(requireBridgeErrorCode(error) == "INVALID_ARGUMENTS")
     }
@@ -181,21 +293,58 @@ import Testing
     }
 }
 
+@Test func expandedSystemUIPermissionsAreCheckedByRegistry() throws {
+    let registrations = DefaultCapabilityLoader.loadAllRegistrations().filter {
+        [.calendarUIPickCalendar, .calendarUIPresentEvent, .contactsUIPresentContact, .contactsUIPresentNewContact].contains($0.descriptor.id)
+    }
+    let registry = CapabilityRegistry(registrations: registrations)
+    let broker = FixedPermissionBroker(statuses: [
+        .calendarWriteOnly: .denied,
+        .calendar: .denied,
+        .contacts: .denied,
+    ])
+    let (context, sandbox) = try makeInvocationContext(
+        permissionBroker: broker,
+        allowedCapabilities: Set(registrations.map(\.descriptor.id)),
+        systemUIPresenter: FakeSystemUIPresenter()
+    )
+    defer { cleanup(sandbox) }
+
+    let argumentsByCapability: [CapabilityID: [String: JSONValue]] = [
+        .calendarUIPickCalendar: [:],
+        .calendarUIPresentEvent: ["identifier": .string("event-id")],
+        .contactsUIPresentContact: ["identifier": .string("contact-id")],
+        .contactsUIPresentNewContact: [:],
+    ]
+
+    for capability in registrations.map(\.descriptor.id) {
+        do {
+            _ = try registry.invoke(capability.rawValue, arguments: argumentsByCapability[capability] ?? [:], context: context)
+            Issue.record("Expected permission denial for \(capability.rawValue)")
+        } catch {
+            #expect(requireBridgeErrorCode(error) == "PERMISSION_DENIED")
+        }
+    }
+}
+
 private struct FakeSystemUIPresenter: SystemUIPresenter {
     var calendarResult: JSONValue
     var photosResult: JSONValue
     var contactsResult: JSONValue
+    var extraResults: [CapabilityID: JSONValue]
     var error: BridgeError?
 
     init(
         calendarResult: JSONValue = .object(["action": .string("cancelled")]),
         photosResult: JSONValue = .array([]),
         contactsResult: JSONValue = .array([]),
+        extraResults: [CapabilityID: JSONValue] = [:],
         error: BridgeError? = nil
     ) {
         self.calendarResult = calendarResult
         self.photosResult = photosResult
         self.contactsResult = contactsResult
+        self.extraResults = extraResults
         self.error = error
     }
 
@@ -218,5 +367,68 @@ private struct FakeSystemUIPresenter: SystemUIPresenter {
         _ = context
         if let error { throw error }
         return contactsResult
+    }
+
+    func pickCalendar(arguments: [String: JSONValue], context: BridgeInvocationContext) throws -> JSONValue {
+        try result(for: .calendarUIPickCalendar, arguments: arguments, context: context)
+    }
+
+    func presentCalendarEvent(arguments: [String: JSONValue], context: BridgeInvocationContext) throws -> JSONValue {
+        try result(for: .calendarUIPresentEvent, arguments: arguments, context: context)
+    }
+
+    func presentContact(arguments: [String: JSONValue], context: BridgeInvocationContext) throws -> JSONValue {
+        try result(for: .contactsUIPresentContact, arguments: arguments, context: context)
+    }
+
+    func presentNewContact(arguments: [String: JSONValue], context: BridgeInvocationContext) throws -> JSONValue {
+        try result(for: .contactsUIPresentNewContact, arguments: arguments, context: context)
+    }
+
+    func pickDocuments(arguments: [String: JSONValue], context: BridgeInvocationContext) throws -> JSONValue {
+        try result(for: .documentsUIPick, arguments: arguments, context: context)
+    }
+
+    func scanDocuments(arguments: [String: JSONValue], context: BridgeInvocationContext) throws -> JSONValue {
+        try result(for: .documentsUIScan, arguments: arguments, context: context)
+    }
+
+    func presentShareSheet(arguments: [String: JSONValue], context: BridgeInvocationContext) throws -> JSONValue {
+        try result(for: .shareUIPresent, arguments: arguments, context: context)
+    }
+
+    func previewQuickLook(arguments: [String: JSONValue], context: BridgeInvocationContext) throws -> JSONValue {
+        try result(for: .quickLookUIPreview, arguments: arguments, context: context)
+    }
+
+    func captureCamera(arguments: [String: JSONValue], context: BridgeInvocationContext) throws -> JSONValue {
+        try result(for: .cameraUICapture, arguments: arguments, context: context)
+    }
+
+    func composeMail(arguments: [String: JSONValue], context: BridgeInvocationContext) throws -> JSONValue {
+        try result(for: .mailUICompose, arguments: arguments, context: context)
+    }
+
+    func composeMessage(arguments: [String: JSONValue], context: BridgeInvocationContext) throws -> JSONValue {
+        try result(for: .messagesUICompose, arguments: arguments, context: context)
+    }
+
+    func presentWeb(arguments: [String: JSONValue], context: BridgeInvocationContext) throws -> JSONValue {
+        try result(for: .webUIPresent, arguments: arguments, context: context)
+    }
+
+    func authenticateWeb(arguments: [String: JSONValue], context: BridgeInvocationContext) throws -> JSONValue {
+        try result(for: .authUIWebAuthenticate, arguments: arguments, context: context)
+    }
+
+    func presentAlert(arguments: [String: JSONValue], context: BridgeInvocationContext) throws -> JSONValue {
+        try result(for: .uiAlertPresent, arguments: arguments, context: context)
+    }
+
+    private func result(for capability: CapabilityID, arguments: [String: JSONValue], context: BridgeInvocationContext) throws -> JSONValue {
+        _ = arguments
+        _ = context
+        if let error { throw error }
+        return extraResults[capability] ?? .object(["action": .string("cancelled")])
     }
 }

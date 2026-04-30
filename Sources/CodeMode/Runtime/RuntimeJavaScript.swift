@@ -112,6 +112,8 @@ enum RuntimeJavaScript {
     globalThis.apple.calendar = {
         listEvents: function(args) { return __invokeAsync('calendar.read', args || {}); },
         createEvent: function(args) { return __invokeAsync('calendar.write', args || {}); },
+        pickCalendar: function(args) { return __invokeAsync('calendar.ui.pickCalendar', args || {}); },
+        presentEvent: function(args) { return __invokeAsync('calendar.ui.presentEvent', args || {}); },
         presentNewEvent: function(args) { return __invokeAsync('calendar.ui.presentNewEvent', args || {}); }
     };
 
@@ -123,13 +125,52 @@ enum RuntimeJavaScript {
     globalThis.apple.contacts = {
         list: function(args) { return __invokeAsync('contacts.read', args || {}); },
         search: function(args) { return __invokeAsync('contacts.search', args || {}); },
-        pick: function(args) { return __invokeAsync('contacts.ui.pick', args || {}); }
+        pick: function(args) { return __invokeAsync('contacts.ui.pick', args || {}); },
+        presentContact: function(args) { return __invokeAsync('contacts.ui.presentContact', args || {}); },
+        presentNewContact: function(args) { return __invokeAsync('contacts.ui.presentNewContact', args || {}); }
     };
 
     globalThis.apple.photos = {
         list: function(args) { return __invokeAsync('photos.read', args || {}); },
         export: function(args) { return __invokeAsync('photos.export', args || {}); },
         pick: function(args) { return __invokeAsync('photos.ui.pick', args || {}); }
+    };
+
+    globalThis.apple.documents = {
+        pick: function(args) { return __invokeAsync('documents.ui.pick', args || {}); },
+        scan: function(args) { return __invokeAsync('documents.ui.scan', args || {}); }
+    };
+
+    globalThis.apple.share = {
+        present: function(args) { return __invokeAsync('share.ui.present', args || {}); }
+    };
+
+    globalThis.apple.quicklook = {
+        preview: function(args) { return __invokeAsync('quicklook.ui.preview', args || {}); }
+    };
+
+    globalThis.apple.camera = {
+        capture: function(args) { return __invokeAsync('camera.ui.capture', args || {}); }
+    };
+
+    globalThis.apple.mail = {
+        compose: function(args) { return __invokeAsync('mail.ui.compose', args || {}); }
+    };
+
+    globalThis.apple.messages = {
+        compose: function(args) { return __invokeAsync('messages.ui.compose', args || {}); }
+    };
+
+    globalThis.apple.web = {
+        present: function(args) { return __invokeAsync('web.ui.present', args || {}); }
+    };
+
+    globalThis.apple.auth = {
+        webAuthenticate: function(args) { return __invokeAsync('auth.ui.webAuthenticate', args || {}); }
+    };
+
+    globalThis.apple.ui = {
+        presentAlert: function(args) { return __invokeAsync('ui.alert.present', args || {}); }
     };
 
     globalThis.apple.vision = {

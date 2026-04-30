@@ -606,22 +606,51 @@ public enum CodeModeEvalScenarios {
     public static let catalogSystemUIPlatformPruning = CodeModeEvalScenario(
         id: "catalog.system-ui-platform-pruning",
         title: "Catalog hides system UI helpers on unsupported hosts",
-        task: "Search for the system UI helpers apple.calendar.presentNewEvent, apple.photos.pick, and apple.contacts.pick. On this macOS host these iOS/visionOS helpers should be hidden, so return null for each missing helper.",
+        task: "Search for the system UI helper family. On this macOS host these iOS/visionOS helpers should be hidden, so return null for each missing helper.",
         searchCode: """
         async () => {
-            return {
-                calendarUI: api.byJSName["apple.calendar.presentNewEvent"] ?? null,
-                photosUI: api.byJSName["apple.photos.pick"] ?? null,
-                contactsUI: api.byJSName["apple.contacts.pick"] ?? null
-            };
+            const names = [
+                "apple.calendar.pickCalendar",
+                "apple.calendar.presentEvent",
+                "apple.calendar.presentNewEvent",
+                "apple.contacts.pick",
+                "apple.contacts.presentContact",
+                "apple.contacts.presentNewContact",
+                "apple.photos.pick",
+                "apple.documents.pick",
+                "apple.documents.scan",
+                "apple.share.present",
+                "apple.quicklook.preview",
+                "apple.camera.capture",
+                "apple.mail.compose",
+                "apple.messages.compose",
+                "apple.web.present",
+                "apple.auth.webAuthenticate",
+                "apple.ui.presentAlert"
+            ];
+            return Object.fromEntries(names.map(name => [name, api.byJSName[name] ?? null]));
         }
         """,
         expectation: CodeModeEvalExpectation(
             toolOrder: [.searchJavaScriptAPI],
             requiredSearchResultFragments: [
-                "\"calendarUI\":null",
-                "\"contactsUI\":null",
-                "\"photosUI\":null",
+                "\"apple.auth.webAuthenticate\":null",
+                "\"apple.calendar.pickCalendar\":null",
+                "\"apple.calendar.presentEvent\":null",
+                "\"apple.calendar.presentNewEvent\":null",
+                "\"apple.camera.capture\":null",
+                "\"apple.contacts.pick\":null",
+                "\"apple.contacts.presentContact\":null",
+                "\"apple.contacts.presentNewContact\":null",
+                "\"apple.documents.pick\":null",
+                "\"apple.documents.scan\":null",
+                "\"apple.mail.compose\":null",
+                "\"apple.messages.compose\":null",
+                "\"apple.photos.pick\":null",
+                "\"apple.quicklook.preview\":null",
+                "\"apple.share.present\":null",
+                "\"apple.ui.presentAlert\":null",
+                "\"apple.web.present\":null",
             ]
         )
     )

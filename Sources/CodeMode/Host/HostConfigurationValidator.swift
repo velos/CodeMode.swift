@@ -25,15 +25,22 @@ public enum HostConfigurationValidator {
             keys.insert("NSLocationWhenInUseUsageDescription")
         }
 
-        if capabilities.contains(.contactsRead) || capabilities.contains(.contactsSearch) {
+        if capabilities.contains(.contactsRead) ||
+            capabilities.contains(.contactsSearch) ||
+            capabilities.contains(.contactsUIPresentContact) ||
+            capabilities.contains(.contactsUIPresentNewContact)
+        {
             keys.insert("NSContactsUsageDescription")
         }
 
-        if capabilities.contains(.calendarWrite) || capabilities.contains(.calendarUIPresentNewEvent) {
+        if capabilities.contains(.calendarWrite) ||
+            capabilities.contains(.calendarUIPresentNewEvent) ||
+            capabilities.contains(.calendarUIPickCalendar)
+        {
             keys.insert("NSCalendarsWriteOnlyAccessUsageDescription")
         }
 
-        if capabilities.contains(.calendarRead) {
+        if capabilities.contains(.calendarRead) || capabilities.contains(.calendarUIPresentEvent) {
             keys.insert("NSCalendarsFullAccessUsageDescription")
         }
 
@@ -43,6 +50,14 @@ public enum HostConfigurationValidator {
 
         if capabilities.contains(.photosRead) || capabilities.contains(.photosExport) {
             keys.insert("NSPhotoLibraryUsageDescription")
+        }
+
+        if capabilities.contains(.cameraUICapture) || capabilities.contains(.documentsUIScan) {
+            keys.insert("NSCameraUsageDescription")
+        }
+
+        if capabilities.contains(.cameraUICapture) {
+            keys.insert("NSMicrophoneUsageDescription")
         }
 
         if capabilities.contains(.homeRead) || capabilities.contains(.homeWrite) {
