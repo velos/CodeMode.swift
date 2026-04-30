@@ -168,21 +168,26 @@ struct CodeModeLLMEvalComparison: Codable, Sendable {
             warnings.append("Repeat count changed from \(baseline.repeatCount) to \(candidate.repeatCount).")
         }
 
+        let baselineScenarios = Dictionary(uniqueKeysWithValues: baseline.summary.byScenario.map { ($0.scenarioID, $0) })
+        let candidateScenarios = Dictionary(uniqueKeysWithValues: candidate.summary.byScenario.map { ($0.scenarioID, $0) })
+        let scenarioSetMatches = Set(baselineScenarios.keys) == Set(candidateScenarios.keys)
         let overallMetrics = metricComparisons(
             baseline: baseline.summary,
             candidate: candidate.summary
         )
-        regressions.append(
-            contentsOf: metricRegressions(
-                scope: "overall",
-                metrics: overallMetrics,
-                thresholds: thresholds,
-                compareCapabilities: baseline.summary.exactCapabilityRuns > 0 && candidate.summary.exactCapabilityRuns > 0
+        if scenarioSetMatches {
+            regressions.append(
+                contentsOf: metricRegressions(
+                    scope: "overall",
+                    metrics: overallMetrics,
+                    thresholds: thresholds,
+                    compareCapabilities: baseline.summary.exactCapabilityRuns > 0 && candidate.summary.exactCapabilityRuns > 0
+                )
             )
-        )
+        } else {
+            warnings.append("Scenario set changed; overall metrics are shown but not used for regression gating.")
+        }
 
-        let baselineScenarios = Dictionary(uniqueKeysWithValues: baseline.summary.byScenario.map { ($0.scenarioID, $0) })
-        let candidateScenarios = Dictionary(uniqueKeysWithValues: candidate.summary.byScenario.map { ($0.scenarioID, $0) })
         let scenarioIDs = Array(Set(baselineScenarios.keys).union(candidateScenarios.keys)).sorted()
         var scenarioMetrics: [CodeModeLLMScenarioMetricComparison] = []
 

@@ -28,6 +28,22 @@ public struct CodeModeEvalSeedFile: Codable, Sendable, Equatable {
     }
 }
 
+public struct CodeModeEvalExecuteStep: Codable, Sendable, Equatable {
+    public var code: String
+    public var allowedCapabilities: [CapabilityID]
+    public var timeoutMs: Int?
+
+    public init(
+        code: String,
+        allowedCapabilities: [CapabilityID] = [],
+        timeoutMs: Int? = nil
+    ) {
+        self.code = code
+        self.allowedCapabilities = allowedCapabilities
+        self.timeoutMs = timeoutMs
+    }
+}
+
 public struct CodeModeEvalPermissions: Codable, Sendable, Equatable {
     public var statuses: [PermissionKind: PermissionStatus]
     public var requestStatuses: [PermissionKind: PermissionStatus]
@@ -96,6 +112,7 @@ public struct CodeModeEvalScenario: Codable, Identifiable, Sendable, Equatable {
     public var task: String
     public var searchCode: String?
     public var executeCode: String?
+    public var executeSteps: [CodeModeEvalExecuteStep]?
     public var allowedCapabilities: [CapabilityID]
     public var timeoutMs: Int
     public var seedFiles: [CodeModeEvalSeedFile]
@@ -108,6 +125,7 @@ public struct CodeModeEvalScenario: Codable, Identifiable, Sendable, Equatable {
         task: String,
         searchCode: String? = nil,
         executeCode: String? = nil,
+        executeSteps: [CodeModeEvalExecuteStep] = [],
         allowedCapabilities: [CapabilityID] = [],
         timeoutMs: Int = 2_000,
         seedFiles: [CodeModeEvalSeedFile] = [],
@@ -119,6 +137,7 @@ public struct CodeModeEvalScenario: Codable, Identifiable, Sendable, Equatable {
         self.task = task
         self.searchCode = searchCode
         self.executeCode = executeCode
+        self.executeSteps = executeSteps
         self.allowedCapabilities = allowedCapabilities
         self.timeoutMs = timeoutMs
         self.seedFiles = seedFiles

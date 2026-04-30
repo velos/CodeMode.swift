@@ -52,6 +52,7 @@ swift run --package-path Tools/CodeModeEval codemode-eval compare \
 ```
 
 Default comparison policy allows no pass-rate regression and no exact-capability regression. Retry and turn tolerances should stay small because increases there usually mean the model is recovering from avoidable tool or JavaScript mistakes.
+When a suite adds or removes scenarios, `compare` still checks overlapping per-scenario metrics but treats overall aggregate metrics as informational until a new baseline is reviewed and committed.
 
 Create a human-readable Markdown diagnostics report:
 

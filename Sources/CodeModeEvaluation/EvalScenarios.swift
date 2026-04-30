@@ -7,12 +7,17 @@ public enum CodeModeEvalScenarios {
         filesystemReadOnlyMinimal,
         filesystemMultiFileSummary,
         filesystemCopyMoveStat,
+        filesystemNestedReportSummary,
+        filesystemReadAPIShapes,
+        filesystemRepairAfterInvalidArguments,
+        filesystemCopyReadStatMinimal,
         filesystemPathPolicyEscape,
         filesystemDeleteDirectoryRequiresRecursive,
         filesystemCapabilityDenied,
         executionConsoleLogs,
         executionTimeout,
         reminderCatalogDiscovery,
+        catalogFileSystemReadShape,
         catalogConsoleDiagnostics,
         searchRejectsNonFunctionProgram,
         catalogAliasAndPlatformPruning,
@@ -128,7 +133,7 @@ public enum CodeModeEvalScenarios {
     public static let filesystemCopyMoveStat = CodeModeEvalScenario(
         id: "fs.copy-move-stat",
         title: "Copy, move, stat, exists workflow",
-        task: "First search for the filesystem copy, move, stat, exists, and read helpers. Then copy seeded file tmp:source.txt to tmp:copy.txt, move the copy to tmp:moved.txt, stat and read tmp:moved.txt, and return booleans for originalExists, copyExists, movedExists plus isDirectory, size, and text.",
+        task: "First search for the filesystem copy, move, stat, exists, and read helpers. Then copy seeded file tmp:source.txt to tmp:copy.txt, move the copy to tmp:moved.txt, and only after the move check existence for tmp:source.txt, tmp:copy.txt, and tmp:moved.txt. copyExists must reflect the post-move tmp:copy.txt path, so it should be false. Stat and read tmp:moved.txt, then return exactly { originalExists, copyExists, movedExists, isDirectory, size, text }.",
         searchCode: """
         async () => {
             const capabilities = ["fs.copy", "fs.move", "fs.stat", "fs.exists", "fs.read"];
@@ -171,6 +176,190 @@ public enum CodeModeEvalScenarios {
                 "originalExists": .bool(true),
                 "size": .number(7),
                 "text": .string("copy me"),
+            ])
+        )
+    )
+
+    public static let filesystemNestedReportSummary = CodeModeEvalScenario(
+        id: "fs.nested-report-summary",
+        title: "Nested filesystem report summary",
+        task: "First search for filesystem mkdir, write, list, read, and stat helpers. Create tmp:reports/2026, write jan.txt with JAN, apr.txt with APR, and ignore.md with SKIP inside it. List the reports directory and the 2026 directory. For the result, directories must be an array of directory name strings only, so [\"2026\"], not full entry objects. names must include only .txt file names sorted alphabetically, combined must join only those .txt file contents with a | separator, and ignore.md must not appear in names or combined. Stat the 2026 directory and return exactly { directories, names, combined, reportDirIsDirectory }.",
+        searchCode: """
+        async () => {
+            const capabilities = ["fs.mkdir", "fs.write", "fs.list", "fs.read", "fs.stat"];
+            return api.references
+                .filter(ref => capabilities.includes(ref.capability))
+                .map(ref => ({ capability: ref.capability, jsNames: ref.jsNames, requiredArguments: ref.requiredArguments }));
+        }
+        """,
+        executeCode: """
+        await fs.promises.mkdir("tmp:reports/2026", { recursive: true });
+        await fs.promises.writeFile("tmp:reports/2026/jan.txt", "JAN", "utf8");
+        await fs.promises.writeFile("tmp:reports/2026/apr.txt", "APR", "utf8");
+        await fs.promises.writeFile("tmp:reports/2026/ignore.md", "SKIP", "utf8");
+
+        const rootEntries = await fs.promises.readdir("tmp:reports");
+        const yearEntries = await fs.promises.readdir("tmp:reports/2026");
+        const reportDir = await fs.promises.stat("tmp:reports/2026");
+        const names = yearEntries
+            .filter(entry => !entry.isDirectory && entry.name.endsWith(".txt"))
+            .map(entry => entry.name)
+            .sort();
+        const values = await Promise.all(names.map(name => fs.promises.readFile(`tmp:reports/2026/${name}`, "utf8")));
+
+        return {
+            directories: rootEntries.filter(entry => entry.isDirectory).map(entry => entry.name).sort(),
+            names,
+            combined: values.join("|"),
+            reportDirIsDirectory: reportDir.isDirectory
+        };
+        """,
+        allowedCapabilities: [.fsMkdir, .fsWrite, .fsList, .fsRead, .fsStat],
+        expectation: CodeModeEvalExpectation(
+            toolOrder: [.searchJavaScriptAPI, .executeJavaScript],
+            exactAllowedCapabilities: [.fsMkdir, .fsWrite, .fsList, .fsRead, .fsStat],
+            forbiddenCapabilities: [.fsDelete, .fsMove, .fsCopy],
+            requiredSearchResultFragments: ["fs.mkdir", "fs.write", "fs.list", "fs.read", "fs.stat"],
+            requiredExecuteCodeAlternativeFragments: [
+                ["fs.promises.mkdir", "apple.fs.mkdir"],
+                ["fs.promises.writeFile", "apple.fs.write"],
+                ["fs.promises.readdir", "apple.fs.list"],
+                ["fs.promises.readFile", "apple.fs.read"],
+                ["fs.promises.stat", "apple.fs.stat"],
+            ],
+            expectedOutput: .object([
+                "combined": .string("APR|JAN"),
+                "directories": .array([.string("2026")]),
+                "names": .array([.string("apr.txt"), .string("jan.txt")]),
+                "reportDirIsDirectory": .bool(true),
+            ])
+        )
+    )
+
+    public static let filesystemReadAPIShapes = CodeModeEvalScenario(
+        id: "fs.read-api-shapes",
+        title: "Filesystem read API shapes",
+        task: "First search for apple.fs.read and fs.promises.readFile. Then read tmp:apple-shape.txt with apple.fs.read using object arguments and read tmp:node-shape.txt with fs.promises.readFile using positional arguments. Return { appleText, appleHasPath, nodeText, nodeType }.",
+        searchCode: """
+        async () => {
+            return {
+                appleRead: api.byJSName["apple.fs.read"],
+                nodeRead: api.byJSName["fs.promises.readFile"]
+            };
+        }
+        """,
+        executeCode: """
+        const appleResult = await apple.fs.read({ path: "tmp:apple-shape.txt", encoding: "utf8" });
+        const nodeResult = await fs.promises.readFile("tmp:node-shape.txt", "utf8");
+        return {
+            appleText: appleResult.text,
+            appleHasPath: typeof appleResult.path === "string",
+            nodeText: nodeResult,
+            nodeType: typeof nodeResult
+        };
+        """,
+        allowedCapabilities: [.fsRead],
+        seedFiles: [
+            CodeModeEvalSeedFile(path: "tmp:apple-shape.txt", text: "apple object"),
+            CodeModeEvalSeedFile(path: "tmp:node-shape.txt", text: "node string"),
+        ],
+        expectation: CodeModeEvalExpectation(
+            toolOrder: [.searchJavaScriptAPI, .executeJavaScript],
+            exactAllowedCapabilities: [.fsRead],
+            forbiddenCapabilities: [.fsWrite],
+            requiredSearchResultFragments: ["apple.fs.read", "fs.promises.readFile", "requiredArguments"],
+            requiredExecuteCodeFragments: [
+                "apple.fs.read",
+                "fs.promises.readFile",
+                "tmp:node-shape.txt",
+            ],
+            expectedOutput: .object([
+                "appleHasPath": .bool(true),
+                "appleText": .string("apple object"),
+                "nodeText": .string("node string"),
+                "nodeType": .string("string"),
+            ])
+        )
+    )
+
+    public static let filesystemRepairAfterInvalidArguments = CodeModeEvalScenario(
+        id: "fs.repair-invalid-read-arguments",
+        title: "Repair invalid filesystem read arguments",
+        task: "First search for apple.fs.read. Then intentionally call apple.fs.read without a path and let executeJavaScript return the structured invalid-arguments error. Use that error to retry with path tmp:repair.txt and return the repaired file text.",
+        searchCode: """
+        async () => {
+            return api.byJSName["apple.fs.read"];
+        }
+        """,
+        executeCode: """
+        return await apple.fs.read({ encoding: "utf8" });
+        """,
+        executeSteps: [
+            CodeModeEvalExecuteStep(
+                code: """
+                const result = await apple.fs.read({ path: "tmp:repair.txt", encoding: "utf8" });
+                return result.text;
+                """,
+                allowedCapabilities: [.fsRead]
+            ),
+        ],
+        allowedCapabilities: [.fsRead],
+        seedFiles: [
+            CodeModeEvalSeedFile(path: "tmp:repair.txt", text: "repair target")
+        ],
+        expectation: CodeModeEvalExpectation(
+            toolOrder: [.searchJavaScriptAPI, .executeJavaScript, .executeJavaScript],
+            exactAllowedCapabilities: [.fsRead],
+            forbiddenCapabilities: [.fsWrite],
+            requiredSearchResultFragments: ["fs.read", "apple.fs.read", "path"],
+            requiredExecuteCodeFragments: ["tmp:repair.txt", "apple.fs.read"],
+            expectedOutput: .string("repair target")
+        )
+    )
+
+    public static let filesystemCopyReadStatMinimal = CodeModeEvalScenario(
+        id: "fs.copy-read-stat-minimal",
+        title: "Copy/read/stat capability minimization",
+        task: "First search for filesystem copy, read, stat, and exists helpers. Copy seeded tmp:min-source.txt to tmp:min-copy.txt, read and stat only the copied file, check that the source still exists, and return { sourceExists, copiedText, copiedSize, copiedIsDirectory } without requesting write, move, list, or delete capabilities.",
+        searchCode: """
+        async () => {
+            const capabilities = ["fs.copy", "fs.read", "fs.stat", "fs.exists"];
+            return api.references
+                .filter(ref => capabilities.includes(ref.capability))
+                .map(ref => ({ capability: ref.capability, jsNames: ref.jsNames }));
+        }
+        """,
+        executeCode: """
+        await fs.promises.copyFile("tmp:min-source.txt", "tmp:min-copy.txt");
+        const copiedText = await fs.promises.readFile("tmp:min-copy.txt", "utf8");
+        const copiedStat = await fs.promises.stat("tmp:min-copy.txt");
+        return {
+            sourceExists: await apple.fs.exists({ path: "tmp:min-source.txt" }),
+            copiedText,
+            copiedSize: copiedStat.size,
+            copiedIsDirectory: copiedStat.isDirectory
+        };
+        """,
+        allowedCapabilities: [.fsCopy, .fsRead, .fsStat, .fsExists],
+        seedFiles: [
+            CodeModeEvalSeedFile(path: "tmp:min-source.txt", text: "minimal")
+        ],
+        expectation: CodeModeEvalExpectation(
+            toolOrder: [.searchJavaScriptAPI, .executeJavaScript],
+            exactAllowedCapabilities: [.fsCopy, .fsRead, .fsStat, .fsExists],
+            forbiddenCapabilities: [.fsWrite, .fsMove, .fsList, .fsDelete],
+            requiredSearchResultFragments: ["fs.copy", "fs.read", "fs.stat", "fs.exists"],
+            requiredExecuteCodeAlternativeFragments: [
+                ["fs.promises.copyFile", "apple.fs.copy"],
+                ["fs.promises.readFile", "apple.fs.read"],
+                ["fs.promises.stat", "apple.fs.stat"],
+                ["apple.fs.exists"],
+            ],
+            expectedOutput: .object([
+                "copiedIsDirectory": .bool(false),
+                "copiedSize": .number(7),
+                "copiedText": .string("minimal"),
+                "sourceExists": .bool(true),
             ])
         )
     )
@@ -314,6 +503,47 @@ public enum CodeModeEvalScenarios {
         expectation: CodeModeEvalExpectation(
             toolOrder: [.searchJavaScriptAPI],
             requiredSearchResultFragments: ["reminders.write", "apple.reminders.createReminder", "title"]
+        )
+    )
+
+    public static let catalogFileSystemReadShape = CodeModeEvalScenario(
+        id: "catalog.fs-read-shape",
+        title: "Catalog exposes filesystem read argument shapes",
+        task: "Search the catalog by capability and direct JavaScript names for filesystem read. Return the fs.read capability reference, the apple.fs.read reference, and the fs.promises.readFile reference, including required arguments and result summary.",
+        searchCode: """
+        async () => {
+            const byCapability = api.byCapability["fs.read"];
+            const appleRead = api.byJSName["apple.fs.read"];
+            const nodeRead = api.byJSName["fs.promises.readFile"];
+            return {
+                byCapability: {
+                    capability: byCapability.capability,
+                    jsNames: byCapability.jsNames,
+                    requiredArguments: byCapability.requiredArguments,
+                    resultSummary: byCapability.resultSummary
+                },
+                appleRead: {
+                    capability: appleRead.capability,
+                    requiredArguments: appleRead.requiredArguments,
+                    example: appleRead.example
+                },
+                nodeRead: {
+                    capability: nodeRead.capability,
+                    requiredArguments: nodeRead.requiredArguments,
+                    resultSummary: nodeRead.resultSummary
+                }
+            };
+        }
+        """,
+        expectation: CodeModeEvalExpectation(
+            toolOrder: [.searchJavaScriptAPI],
+            requiredSearchResultFragments: [
+                "\"capability\":\"fs.read\"",
+                "apple.fs.read",
+                "fs.promises.readFile",
+                "\"requiredArguments\":[\"path\"]",
+                "text or base64",
+            ]
         )
     )
 

@@ -57,19 +57,19 @@ public final class CodeModeEvalRunner: Sendable {
                 searchDiagnostics = response.diagnostics
             }
 
-            if let executeCode = scenario.executeCode {
+            for executeStep in executeSteps(for: scenario) {
                 toolCalls.append(
                     CodeModeEvalToolCall(
                         tool: .executeJavaScript,
-                        code: executeCode,
-                        allowedCapabilities: scenario.allowedCapabilities
+                        code: executeStep.code,
+                        allowedCapabilities: executeStep.allowedCapabilities
                     )
                 )
                 let call = try await tools.executeJavaScript(
                     JavaScriptExecutionRequest(
-                        code: executeCode,
-                        allowedCapabilities: scenario.allowedCapabilities,
-                        timeoutMs: scenario.timeoutMs
+                        code: executeStep.code,
+                        allowedCapabilities: executeStep.allowedCapabilities,
+                        timeoutMs: executeStep.timeoutMs ?? scenario.timeoutMs
                     )
                 )
                 let observed = await observe(call)
@@ -112,6 +112,21 @@ public final class CodeModeEvalRunner: Sendable {
             executionDiagnostics: executionDiagnostics,
             error: observedError
         )
+    }
+
+    private func executeSteps(for scenario: CodeModeEvalScenario) -> [CodeModeEvalExecuteStep] {
+        var steps: [CodeModeEvalExecuteStep] = []
+        if let executeCode = scenario.executeCode {
+            steps.append(
+                CodeModeEvalExecuteStep(
+                    code: executeCode,
+                    allowedCapabilities: scenario.allowedCapabilities,
+                    timeoutMs: scenario.timeoutMs
+                )
+            )
+        }
+        steps.append(contentsOf: scenario.executeSteps ?? [])
+        return steps
     }
 
     public func validateTranscript(

@@ -652,14 +652,14 @@ public enum DefaultCapabilityLoader {
                 descriptor: .init(
                     id: .fsList,
                     title: "List directory",
-                    summary: "List files/directories within allowed sandbox roots.",
+                    summary: "List files/directories within allowed sandbox roots as entry objects.",
                     tags: ["filesystem", "io", "fs"],
                     example: "await apple.fs.list({ path: 'tmp:' })",
                     requiredArguments: ["path"],
                     argumentHints: [
                         "path": "Directory path using allowed root prefix (tmp:, caches:, documents:).",
                     ],
-                    resultSummary: "Array of entries with name/path/isDirectory/size."
+                    resultSummary: "Array of entry objects with name/path/isDirectory/size. Use entry.name for filenames; fs.promises.readdir returns the same entry objects, not strings."
                 ),
                 handler: { args, context in
                     try fs.list(arguments: args, context: context)

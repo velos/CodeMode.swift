@@ -19,6 +19,18 @@ import Testing
     #expect(loaded == expected)
 }
 
+@Test func filesystemListDescriptorDocumentsEntryObjects() throws {
+    let descriptor = try #require(
+        DefaultCapabilityLoader.loadAllRegistrations()
+            .map(\.descriptor)
+            .first { $0.id == .fsList }
+    )
+
+    #expect(descriptor.summary.contains("entry objects"))
+    #expect(descriptor.resultSummary.contains("entry.name"))
+    #expect(descriptor.resultSummary.contains("fs.promises.readdir"))
+}
+
 @Test func registryRequestsPermissionWhenNotDetermined() throws {
     let descriptor = CapabilityDescriptor(
         id: .contactsRead,

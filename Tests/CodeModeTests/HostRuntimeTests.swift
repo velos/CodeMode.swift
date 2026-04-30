@@ -426,7 +426,41 @@ import Testing
 
     let result = try #require(observed.result)
     #expect(result.output == nil)
+    #expect(result.diagnostics.contains(where: { diagnostic in
+        diagnostic.code == "NO_RETURN_VALUE" &&
+        diagnostic.message.contains("top-level return")
+    }))
+    #expect(observed.events.contains(where: { event in
+        if case .diagnostic(let diagnostic) = event {
+            return diagnostic.code == "NO_RETURN_VALUE"
+        }
+        return false
+    }))
     #expect(observed.events.last == .finished)
+}
+
+@Test func executeWarnsWhenAsyncIIFEIsNotReturned() async throws {
+    let (tools, sandbox) = try makeTools()
+    defer { cleanup(sandbox) }
+
+    let observed = try await execute(
+        tools,
+        request: JavaScriptExecutionRequest(
+            code: """
+            (async () => {
+              return { ok: true };
+            })()
+            """,
+            allowedCapabilities: []
+        )
+    )
+
+    let result = try #require(observed.result)
+    #expect(result.output == nil)
+    #expect(result.diagnostics.contains(where: { diagnostic in
+        diagnostic.code == "NO_RETURN_VALUE" &&
+        diagnostic.message.contains("async IIFE")
+    }))
 }
 
 @Test func executeTimesOutOnUnresolvedPromise() async throws {

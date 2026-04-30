@@ -1,11 +1,18 @@
 {
-  "modelID": "codemode-eval",
-  "suite": "core",
-  "scenarioIDs": [
+  "maxTurns" : 6,
+  "modelID" : "codemode-eval",
+  "repeatCount" : 5,
+  "results" : [
+
+  ],
+  "scenarioIDs" : [
     "fs.round-trip",
     "fs.read-only-minimal",
     "fs.multi-file-summary",
     "fs.copy-move-stat",
+    "fs.nested-report-summary",
+    "fs.read-api-shapes",
+    "fs.repair-invalid-read-arguments",
     "execution.console-logs",
     "catalog.reminder-create",
     "catalog.console-diagnostics",
@@ -13,161 +20,229 @@
     "weather.argument-validation",
     "fs.bad-helper-suggestion"
   ],
-  "repeatCount": 5,
-  "maxTurns": 6,
-  "summary": {
-    "totalRuns": 50,
-    "passedRuns": 50,
-    "failedRuns": 0,
-    "passRate": 1,
-    "averageTurns": 2.96,
-    "averageRetries": 0.36,
-    "exactCapabilityRuns": 35,
-    "exactCapabilityPassedRuns": 35,
-    "exactCapabilityPassRate": 1,
-    "byScenario": [
+  "suite" : "core",
+  "summary" : {
+    "averageRetries" : 0,
+    "averageTurns" : 2.769230769230769,
+    "byScenario" : [
       {
-        "scenarioID": "fs.round-trip",
-        "title": "Filesystem round trip",
-        "totalRuns": 5,
-        "passedRuns": 5,
-        "failedRuns": 0,
-        "passRate": 1,
-        "averageTurns": 3.4,
-        "averageRetries": 0.4,
-        "exactCapabilityRuns": 5,
-        "exactCapabilityPassedRuns": 5,
-        "exactCapabilityPassRate": 1,
-        "failureCategories": []
+        "averageRetries" : 0,
+        "averageTurns" : 3,
+        "exactCapabilityPassRate" : 1,
+        "exactCapabilityPassedRuns" : 5,
+        "exactCapabilityRuns" : 5,
+        "failedRuns" : 0,
+        "failureCategories" : [
+
+        ],
+        "passRate" : 1,
+        "passedRuns" : 5,
+        "scenarioID" : "fs.round-trip",
+        "title" : "Filesystem round trip",
+        "totalRuns" : 5
       },
       {
-        "scenarioID": "fs.read-only-minimal",
-        "title": "Read-only capability minimization",
-        "totalRuns": 5,
-        "passedRuns": 5,
-        "failedRuns": 0,
-        "passRate": 1,
-        "averageTurns": 3.4,
-        "averageRetries": 0.4,
-        "exactCapabilityRuns": 5,
-        "exactCapabilityPassedRuns": 5,
-        "exactCapabilityPassRate": 1,
-        "failureCategories": []
+        "averageRetries" : 0,
+        "averageTurns" : 3,
+        "exactCapabilityPassRate" : 1,
+        "exactCapabilityPassedRuns" : 5,
+        "exactCapabilityRuns" : 5,
+        "failedRuns" : 0,
+        "failureCategories" : [
+
+        ],
+        "passRate" : 1,
+        "passedRuns" : 5,
+        "scenarioID" : "fs.read-only-minimal",
+        "title" : "Read-only capability minimization",
+        "totalRuns" : 5
       },
       {
-        "scenarioID": "fs.multi-file-summary",
-        "title": "Multi-step filesystem workflow",
-        "totalRuns": 5,
-        "passedRuns": 5,
-        "failedRuns": 0,
-        "passRate": 1,
-        "averageTurns": 5.2,
-        "averageRetries": 2.2,
-        "exactCapabilityRuns": 5,
-        "exactCapabilityPassedRuns": 5,
-        "exactCapabilityPassRate": 1,
-        "failureCategories": []
+        "averageRetries" : 0,
+        "averageTurns" : 3,
+        "exactCapabilityPassRate" : 1,
+        "exactCapabilityPassedRuns" : 5,
+        "exactCapabilityRuns" : 5,
+        "failedRuns" : 0,
+        "failureCategories" : [
+
+        ],
+        "passRate" : 1,
+        "passedRuns" : 5,
+        "scenarioID" : "fs.multi-file-summary",
+        "title" : "Multi-step filesystem workflow",
+        "totalRuns" : 5
       },
       {
-        "scenarioID": "fs.copy-move-stat",
-        "title": "Copy, move, stat, exists workflow",
-        "totalRuns": 5,
-        "passedRuns": 5,
-        "failedRuns": 0,
-        "passRate": 1,
-        "averageTurns": 3.6,
-        "averageRetries": 0.6,
-        "exactCapabilityRuns": 5,
-        "exactCapabilityPassedRuns": 5,
-        "exactCapabilityPassRate": 1,
-        "failureCategories": []
+        "averageRetries" : 0,
+        "averageTurns" : 3,
+        "exactCapabilityPassRate" : 1,
+        "exactCapabilityPassedRuns" : 5,
+        "exactCapabilityRuns" : 5,
+        "failedRuns" : 0,
+        "failureCategories" : [
+
+        ],
+        "passRate" : 1,
+        "passedRuns" : 5,
+        "scenarioID" : "fs.copy-move-stat",
+        "title" : "Copy, move, stat, exists workflow",
+        "totalRuns" : 5
       },
       {
-        "scenarioID": "execution.console-logs",
-        "title": "Execution streams console logs",
-        "totalRuns": 5,
-        "passedRuns": 5,
-        "failedRuns": 0,
-        "passRate": 1,
-        "averageTurns": 2,
-        "averageRetries": 0,
-        "exactCapabilityRuns": 5,
-        "exactCapabilityPassedRuns": 5,
-        "exactCapabilityPassRate": 1,
-        "failureCategories": []
+        "averageRetries" : 0,
+        "averageTurns" : 3,
+        "exactCapabilityPassRate" : 1,
+        "exactCapabilityPassedRuns" : 5,
+        "exactCapabilityRuns" : 5,
+        "failedRuns" : 0,
+        "failureCategories" : [
+
+        ],
+        "passRate" : 1,
+        "passedRuns" : 5,
+        "scenarioID" : "fs.nested-report-summary",
+        "title" : "Nested filesystem report summary",
+        "totalRuns" : 5
       },
       {
-        "scenarioID": "catalog.reminder-create",
-        "title": "Reminder helper discovery",
-        "totalRuns": 5,
-        "passedRuns": 5,
-        "failedRuns": 0,
-        "passRate": 1,
-        "averageTurns": 2,
-        "averageRetries": 0,
-        "exactCapabilityRuns": 0,
-        "exactCapabilityPassedRuns": 0,
-        "exactCapabilityPassRate": 0,
-        "failureCategories": []
+        "averageRetries" : 0,
+        "averageTurns" : 3,
+        "exactCapabilityPassRate" : 1,
+        "exactCapabilityPassedRuns" : 5,
+        "exactCapabilityRuns" : 5,
+        "failedRuns" : 0,
+        "failureCategories" : [
+
+        ],
+        "passRate" : 1,
+        "passedRuns" : 5,
+        "scenarioID" : "fs.read-api-shapes",
+        "title" : "Filesystem read API shapes",
+        "totalRuns" : 5
       },
       {
-        "scenarioID": "catalog.console-diagnostics",
-        "title": "Catalog search captures console diagnostics",
-        "totalRuns": 5,
-        "passedRuns": 5,
-        "failedRuns": 0,
-        "passRate": 1,
-        "averageTurns": 2,
-        "averageRetries": 0,
-        "exactCapabilityRuns": 0,
-        "exactCapabilityPassedRuns": 0,
-        "exactCapabilityPassRate": 0,
-        "failureCategories": []
+        "averageRetries" : 0,
+        "averageTurns" : 4,
+        "exactCapabilityPassRate" : 1,
+        "exactCapabilityPassedRuns" : 5,
+        "exactCapabilityRuns" : 5,
+        "failedRuns" : 0,
+        "failureCategories" : [
+
+        ],
+        "passRate" : 1,
+        "passedRuns" : 5,
+        "scenarioID" : "fs.repair-invalid-read-arguments",
+        "title" : "Repair invalid filesystem read arguments",
+        "totalRuns" : 5
       },
       {
-        "scenarioID": "catalog.alias-platform-pruning",
-        "title": "Catalog keeps canonical aliases and hides unsupported helpers",
-        "totalRuns": 5,
-        "passedRuns": 5,
-        "failedRuns": 0,
-        "passRate": 1,
-        "averageTurns": 2,
-        "averageRetries": 0,
-        "exactCapabilityRuns": 0,
-        "exactCapabilityPassedRuns": 0,
-        "exactCapabilityPassRate": 0,
-        "failureCategories": []
+        "averageRetries" : 0,
+        "averageTurns" : 2,
+        "exactCapabilityPassRate" : 1,
+        "exactCapabilityPassedRuns" : 5,
+        "exactCapabilityRuns" : 5,
+        "failedRuns" : 0,
+        "failureCategories" : [
+
+        ],
+        "passRate" : 1,
+        "passedRuns" : 5,
+        "scenarioID" : "execution.console-logs",
+        "title" : "Execution streams console logs",
+        "totalRuns" : 5
       },
       {
-        "scenarioID": "weather.argument-validation",
-        "title": "Argument validation gives repair hints",
-        "totalRuns": 5,
-        "passedRuns": 5,
-        "failedRuns": 0,
-        "passRate": 1,
-        "averageTurns": 3,
-        "averageRetries": 0,
-        "exactCapabilityRuns": 5,
-        "exactCapabilityPassedRuns": 5,
-        "exactCapabilityPassRate": 1,
-        "failureCategories": []
+        "averageRetries" : 0,
+        "averageTurns" : 2,
+        "exactCapabilityPassRate" : 0,
+        "exactCapabilityPassedRuns" : 0,
+        "exactCapabilityRuns" : 0,
+        "failedRuns" : 0,
+        "failureCategories" : [
+
+        ],
+        "passRate" : 1,
+        "passedRuns" : 5,
+        "scenarioID" : "catalog.reminder-create",
+        "title" : "Reminder helper discovery",
+        "totalRuns" : 5
       },
       {
-        "scenarioID": "fs.bad-helper-suggestion",
-        "title": "Bad helper names get suggestions",
-        "totalRuns": 5,
-        "passedRuns": 5,
-        "failedRuns": 0,
-        "passRate": 1,
-        "averageTurns": 3,
-        "averageRetries": 0,
-        "exactCapabilityRuns": 5,
-        "exactCapabilityPassedRuns": 5,
-        "exactCapabilityPassRate": 1,
-        "failureCategories": []
+        "averageRetries" : 0,
+        "averageTurns" : 2,
+        "exactCapabilityPassRate" : 0,
+        "exactCapabilityPassedRuns" : 0,
+        "exactCapabilityRuns" : 0,
+        "failedRuns" : 0,
+        "failureCategories" : [
+
+        ],
+        "passRate" : 1,
+        "passedRuns" : 5,
+        "scenarioID" : "catalog.console-diagnostics",
+        "title" : "Catalog search captures console diagnostics",
+        "totalRuns" : 5
+      },
+      {
+        "averageRetries" : 0,
+        "averageTurns" : 2,
+        "exactCapabilityPassRate" : 0,
+        "exactCapabilityPassedRuns" : 0,
+        "exactCapabilityRuns" : 0,
+        "failedRuns" : 0,
+        "failureCategories" : [
+
+        ],
+        "passRate" : 1,
+        "passedRuns" : 5,
+        "scenarioID" : "catalog.alias-platform-pruning",
+        "title" : "Catalog keeps canonical aliases and hides unsupported helpers",
+        "totalRuns" : 5
+      },
+      {
+        "averageRetries" : 0,
+        "averageTurns" : 3,
+        "exactCapabilityPassRate" : 1,
+        "exactCapabilityPassedRuns" : 5,
+        "exactCapabilityRuns" : 5,
+        "failedRuns" : 0,
+        "failureCategories" : [
+
+        ],
+        "passRate" : 1,
+        "passedRuns" : 5,
+        "scenarioID" : "weather.argument-validation",
+        "title" : "Argument validation gives repair hints",
+        "totalRuns" : 5
+      },
+      {
+        "averageRetries" : 0,
+        "averageTurns" : 3,
+        "exactCapabilityPassRate" : 1,
+        "exactCapabilityPassedRuns" : 5,
+        "exactCapabilityRuns" : 5,
+        "failedRuns" : 0,
+        "failureCategories" : [
+
+        ],
+        "passRate" : 1,
+        "passedRuns" : 5,
+        "scenarioID" : "fs.bad-helper-suggestion",
+        "title" : "Bad helper names get suggestions",
+        "totalRuns" : 5
       }
     ],
-    "failureCategories": []
-  },
-  "results": []
+    "exactCapabilityPassRate" : 1,
+    "exactCapabilityPassedRuns" : 50,
+    "exactCapabilityRuns" : 50,
+    "failedRuns" : 0,
+    "failureCategories" : [
+
+    ],
+    "passRate" : 1,
+    "passedRuns" : 65,
+    "totalRuns" : 65
+  }
 }

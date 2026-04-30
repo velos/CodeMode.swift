@@ -19,7 +19,9 @@ import Testing
 }
 
 @Test func executableScenariosDeclareExactCapabilities() {
-    let executableScenarios = CodeModeEvalScenarios.all.filter { $0.executeCode != nil }
+    let executableScenarios = CodeModeEvalScenarios.all.filter {
+        $0.executeCode != nil || ($0.executeSteps?.isEmpty == false)
+    }
 
     #expect(executableScenarios.isEmpty == false)
     #expect(executableScenarios.allSatisfy { $0.expectation.exactAllowedCapabilities != nil })
