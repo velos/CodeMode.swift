@@ -48,11 +48,17 @@ public enum HostConfigurationValidator {
             keys.insert("NSRemindersFullAccessUsageDescription")
         }
 
-        if capabilities.contains(.photosRead) || capabilities.contains(.photosExport) {
+        if capabilities.contains(.photosRead) ||
+            capabilities.contains(.photosExport) ||
+            capabilities.contains(.photosUIPresentLimitedLibraryPicker)
+        {
             keys.insert("NSPhotoLibraryUsageDescription")
         }
 
-        if capabilities.contains(.cameraUICapture) || capabilities.contains(.documentsUIScan) {
+        if capabilities.contains(.cameraUICapture) ||
+            capabilities.contains(.documentsUIScan) ||
+            capabilities.contains(.cameraUIScanData)
+        {
             keys.insert("NSCameraUsageDescription")
         }
 

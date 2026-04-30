@@ -28,12 +28,19 @@ import Testing
         .contactsUIPresentContact,
         .contactsUIPresentNewContact,
         .photosUIPick,
+        .photosUIPresentLimitedLibraryPicker,
         .documentsUIPick,
+        .documentsUIExport,
+        .documentsUIOpenIn,
         .shareUIPresent,
         .quickLookUIPreview,
+        .cameraUIScanData,
+        .printUIPresent,
         .webUIPresent,
         .authUIWebAuthenticate,
         .uiAlertPresent,
+        .uiPromptPresent,
+        .settingsUIOpen,
     ]
     let iOSOnlyUICapabilities: Set<CapabilityID> = [
         .documentsUIScan,
@@ -69,15 +76,22 @@ import Testing
 
     #expect(descriptors[.documentsUIPick]?.requiredPermissions.isEmpty == true)
     #expect(JavaScriptBindingCatalog.names(for: .documentsUIPick) == ["apple.documents.pick"])
+    #expect(JavaScriptBindingCatalog.names(for: .documentsUIExport) == ["apple.documents.export", "apple.documents.save"])
+    #expect(JavaScriptBindingCatalog.names(for: .documentsUIOpenIn) == ["apple.documents.openIn"])
     #expect(JavaScriptBindingCatalog.names(for: .documentsUIScan) == ["apple.documents.scan"])
     #expect(JavaScriptBindingCatalog.names(for: .shareUIPresent) == ["apple.share.present"])
     #expect(JavaScriptBindingCatalog.names(for: .quickLookUIPreview) == ["apple.quicklook.preview"])
     #expect(JavaScriptBindingCatalog.names(for: .cameraUICapture) == ["apple.camera.capture"])
+    #expect(JavaScriptBindingCatalog.names(for: .cameraUIScanData) == ["apple.camera.scanData"])
     #expect(JavaScriptBindingCatalog.names(for: .mailUICompose) == ["apple.mail.compose"])
     #expect(JavaScriptBindingCatalog.names(for: .messagesUICompose) == ["apple.messages.compose"])
+    #expect(JavaScriptBindingCatalog.names(for: .printUIPresent) == ["apple.print.present"])
     #expect(JavaScriptBindingCatalog.names(for: .webUIPresent) == ["apple.web.present"])
     #expect(JavaScriptBindingCatalog.names(for: .authUIWebAuthenticate) == ["apple.auth.webAuthenticate"])
     #expect(JavaScriptBindingCatalog.names(for: .uiAlertPresent) == ["apple.ui.presentAlert"])
+    #expect(JavaScriptBindingCatalog.names(for: .uiPromptPresent) == ["apple.ui.presentPrompt"])
+    #expect(JavaScriptBindingCatalog.names(for: .photosUIPresentLimitedLibraryPicker) == ["apple.photos.presentLimitedLibraryPicker"])
+    #expect(JavaScriptBindingCatalog.names(for: .settingsUIOpen) == ["apple.settings.open"])
 
     #expect(descriptors[.calendarUIPickCalendar]?.requiredPermissions == [.calendarWriteOnly])
     #expect(descriptors[.calendarUIPresentEvent]?.requiredPermissions == [.calendar])

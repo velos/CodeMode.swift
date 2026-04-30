@@ -35,15 +35,22 @@ import Testing
             .contactsUIPresentContact: .object(["action": .string("dismissed")]),
             .contactsUIPresentNewContact: .object(["action": .string("saved")]),
             .documentsUIPick: .array([.object(["artifactID": .string("document-1")])]),
+            .documentsUIExport: .object(["action": .string("exported"), "count": .number(1)]),
+            .documentsUIOpenIn: .object(["action": .string("sent"), "application": .string("com.example.viewer")]),
             .documentsUIScan: .array([.object(["artifactID": .string("scan-1")])]),
             .shareUIPresent: .object(["completed": .bool(true)]),
             .quickLookUIPreview: .object(["action": .string("dismissed")]),
             .cameraUICapture: .object(["artifactID": .string("camera-1")]),
+            .cameraUIScanData: .object(["action": .string("recognized"), "items": .array([.object(["type": .string("barcode")])])]),
             .mailUICompose: .object(["action": .string("sent")]),
             .messagesUICompose: .object(["action": .string("sent")]),
+            .printUIPresent: .object(["action": .string("completed"), "completed": .bool(true)]),
             .webUIPresent: .object(["action": .string("dismissed")]),
             .authUIWebAuthenticate: .object(["action": .string("callback")]),
             .uiAlertPresent: .object(["action": .string("selected"), "buttonID": .string("ok")]),
+            .uiPromptPresent: .object(["action": .string("selected"), "values": .object(["name": .string("Alex")])]),
+            .photosUIPresentLimitedLibraryPicker: .object(["action": .string("completed")]),
+            .settingsUIOpen: .object(["action": .string("opened"), "opened": .bool(true)]),
         ]
     )
 
@@ -80,6 +87,10 @@ import Testing
     #expect(newContact.objectValue?.string("action") == "saved")
     let documents = try requireArray(bridge.pickDocuments(arguments: ["contentTypes": .array([.string("public.item")])], context: context))
     #expect(documents.first?.objectValue?.string("artifactID") == "document-1")
+    let export = try bridge.exportDocuments(arguments: ["path": .string("tmp:report.pdf")], context: context)
+    #expect(export.objectValue?.string("action") == "exported")
+    let openIn = try bridge.openDocument(arguments: ["path": .string("tmp:report.pdf")], context: context)
+    #expect(openIn.objectValue?.string("application") == "com.example.viewer")
     let scans = try requireArray(bridge.scanDocuments(arguments: [:], context: context))
     #expect(scans.first?.objectValue?.string("artifactID") == "scan-1")
     let share = try bridge.presentShareSheet(arguments: ["text": .string("hello")], context: context)
@@ -88,10 +99,14 @@ import Testing
     #expect(preview.objectValue?.string("action") == "dismissed")
     let camera = try bridge.captureCamera(arguments: ["mediaType": .string("image")], context: context)
     #expect(camera.objectValue?.string("artifactID") == "camera-1")
+    let scanData = try bridge.scanData(arguments: ["mode": .string("barcode")], context: context)
+    #expect(scanData.objectValue?.string("action") == "recognized")
     let mail = try bridge.composeMail(arguments: ["to": .array([.string("alex@example.com")])], context: context)
     #expect(mail.objectValue?.string("action") == "sent")
     let message = try bridge.composeMessage(arguments: ["recipients": .array([.string("4085551212")])], context: context)
     #expect(message.objectValue?.string("action") == "sent")
+    let print = try bridge.presentPrint(arguments: ["path": .string("tmp:report.pdf")], context: context)
+    #expect(print.objectValue?.bool("completed") == true)
     let web = try bridge.presentWeb(arguments: ["url": .string("https://example.com")], context: context)
     #expect(web.objectValue?.string("action") == "dismissed")
     let auth = try bridge.authenticateWeb(arguments: ["url": .string("https://example.com/oauth")], context: context)
@@ -101,6 +116,18 @@ import Testing
         context: context
     )
     #expect(alert.objectValue?.string("buttonID") == "ok")
+    let prompt = try bridge.presentPrompt(
+        arguments: [
+            "fields": .array([.object(["id": .string("name"), "placeholder": .string("Name")])]),
+            "buttons": .array([.object(["id": .string("ok"), "title": .string("OK")])]),
+        ],
+        context: context
+    )
+    #expect(prompt.objectValue?.object("values")?.string("name") == "Alex")
+    let limited = try bridge.presentLimitedPhotoLibraryPicker(arguments: [:], context: context)
+    #expect(limited.objectValue?.string("action") == "completed")
+    let settings = try bridge.openSettings(arguments: [:], context: context)
+    #expect(settings.objectValue?.bool("opened") == true)
 }
 
 @Test func systemUIBridgeDefaultPresenterIsStructuredFailure() throws {
@@ -175,6 +202,20 @@ import Testing
     }
 
     do {
+        _ = try bridge.exportDocuments(arguments: [:], context: context)
+        Issue.record("Expected document export with no path to fail")
+    } catch {
+        #expect(requireBridgeErrorCode(error) == "INVALID_ARGUMENTS")
+    }
+
+    do {
+        _ = try bridge.openDocument(arguments: [:], context: context)
+        Issue.record("Expected document openIn with no path to fail")
+    } catch {
+        #expect(requireBridgeErrorCode(error) == "INVALID_ARGUMENTS")
+    }
+
+    do {
         _ = try bridge.presentShareSheet(arguments: [:], context: context)
         Issue.record("Expected share sheet with no items to fail")
     } catch {
@@ -184,6 +225,20 @@ import Testing
     do {
         _ = try bridge.previewQuickLook(arguments: [:], context: context)
         Issue.record("Expected Quick Look with no path to fail")
+    } catch {
+        #expect(requireBridgeErrorCode(error) == "INVALID_ARGUMENTS")
+    }
+
+    do {
+        _ = try bridge.presentPrint(arguments: ["path": .string("tmp:report.pdf"), "outputType": .string("thermal")], context: context)
+        Issue.record("Expected invalid print outputType to fail")
+    } catch {
+        #expect(requireBridgeErrorCode(error) == "INVALID_ARGUMENTS")
+    }
+
+    do {
+        _ = try bridge.scanData(arguments: ["mode": .string("qr")], context: context)
+        Issue.record("Expected invalid scanData mode to fail")
     } catch {
         #expect(requireBridgeErrorCode(error) == "INVALID_ARGUMENTS")
     }
@@ -220,6 +275,19 @@ import Testing
             context: context
         )
         Issue.record("Expected duplicate cancel alert buttons to fail")
+    } catch {
+        #expect(requireBridgeErrorCode(error) == "INVALID_ARGUMENTS")
+    }
+
+    do {
+        _ = try bridge.presentPrompt(
+            arguments: [
+                "fields": .array([]),
+                "buttons": .array([.object(["title": .string("OK")])]),
+            ],
+            context: context
+        )
+        Issue.record("Expected prompt with no fields to fail")
     } catch {
         #expect(requireBridgeErrorCode(error) == "INVALID_ARGUMENTS")
     }
@@ -389,6 +457,14 @@ private struct FakeSystemUIPresenter: SystemUIPresenter {
         try result(for: .documentsUIPick, arguments: arguments, context: context)
     }
 
+    func exportDocuments(arguments: [String: JSONValue], context: BridgeInvocationContext) throws -> JSONValue {
+        try result(for: .documentsUIExport, arguments: arguments, context: context)
+    }
+
+    func openDocument(arguments: [String: JSONValue], context: BridgeInvocationContext) throws -> JSONValue {
+        try result(for: .documentsUIOpenIn, arguments: arguments, context: context)
+    }
+
     func scanDocuments(arguments: [String: JSONValue], context: BridgeInvocationContext) throws -> JSONValue {
         try result(for: .documentsUIScan, arguments: arguments, context: context)
     }
@@ -405,12 +481,20 @@ private struct FakeSystemUIPresenter: SystemUIPresenter {
         try result(for: .cameraUICapture, arguments: arguments, context: context)
     }
 
+    func scanData(arguments: [String: JSONValue], context: BridgeInvocationContext) throws -> JSONValue {
+        try result(for: .cameraUIScanData, arguments: arguments, context: context)
+    }
+
     func composeMail(arguments: [String: JSONValue], context: BridgeInvocationContext) throws -> JSONValue {
         try result(for: .mailUICompose, arguments: arguments, context: context)
     }
 
     func composeMessage(arguments: [String: JSONValue], context: BridgeInvocationContext) throws -> JSONValue {
         try result(for: .messagesUICompose, arguments: arguments, context: context)
+    }
+
+    func presentPrint(arguments: [String: JSONValue], context: BridgeInvocationContext) throws -> JSONValue {
+        try result(for: .printUIPresent, arguments: arguments, context: context)
     }
 
     func presentWeb(arguments: [String: JSONValue], context: BridgeInvocationContext) throws -> JSONValue {
@@ -423,6 +507,18 @@ private struct FakeSystemUIPresenter: SystemUIPresenter {
 
     func presentAlert(arguments: [String: JSONValue], context: BridgeInvocationContext) throws -> JSONValue {
         try result(for: .uiAlertPresent, arguments: arguments, context: context)
+    }
+
+    func presentPrompt(arguments: [String: JSONValue], context: BridgeInvocationContext) throws -> JSONValue {
+        try result(for: .uiPromptPresent, arguments: arguments, context: context)
+    }
+
+    func presentLimitedPhotoLibraryPicker(arguments: [String: JSONValue], context: BridgeInvocationContext) throws -> JSONValue {
+        try result(for: .photosUIPresentLimitedLibraryPicker, arguments: arguments, context: context)
+    }
+
+    func openSettings(arguments: [String: JSONValue], context: BridgeInvocationContext) throws -> JSONValue {
+        try result(for: .settingsUIOpen, arguments: arguments, context: context)
     }
 
     private func result(for capability: CapabilityID, arguments: [String: JSONValue], context: BridgeInvocationContext) throws -> JSONValue {

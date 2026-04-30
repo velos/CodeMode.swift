@@ -497,6 +497,26 @@ public enum DefaultCapabilityLoader {
             ),
             CapabilityRegistration(
                 descriptor: .init(
+                    id: .photosUIPresentLimitedLibraryPicker,
+                    title: "Present limited Photos picker",
+                    summary: "Present the Photos limited-library management UI so the user can update the app's selected photo set.",
+                    tags: ["photos", "photo-library", "system-ui", "permission", "picker"],
+                    example: "await apple.photos.presentLimitedLibraryPicker()",
+                    optionalArguments: ["timeoutMs"],
+                    argumentTypes: [
+                        "timeoutMs": .number,
+                    ],
+                    argumentHints: [
+                        "timeoutMs": "Optional timeout for waiting on the limited-library picker completion.",
+                    ],
+                    resultSummary: "Object with action/status and selectedIdentifiers when the limited selection changes."
+                ),
+                handler: { args, context in
+                    try systemUI.presentLimitedPhotoLibraryPicker(arguments: args, context: context)
+                }
+            ),
+            CapabilityRegistration(
+                descriptor: .init(
                     id: .documentsUIPick,
                     title: "Pick documents with system UI",
                     summary: "Present Files document picker UI and copy selected documents into the sandbox artifact store.",
@@ -519,6 +539,59 @@ public enum DefaultCapabilityLoader {
                 ),
                 handler: { args, context in
                     try systemUI.pickDocuments(arguments: args, context: context)
+                }
+            ),
+            CapabilityRegistration(
+                descriptor: .init(
+                    id: .documentsUIExport,
+                    title: "Export documents with system UI",
+                    summary: "Present Files export UI to save one or more sandbox files to a user-selected destination.",
+                    tags: ["documents", "files", "system-ui", "export", "save"],
+                    example: "await apple.documents.export({ path: 'tmp:report.pdf' })",
+                    optionalArguments: ["path", "paths", "asCopy", "timeoutMs"],
+                    argumentTypes: [
+                        "path": .string,
+                        "paths": .array,
+                        "asCopy": .bool,
+                        "timeoutMs": .number,
+                    ],
+                    argumentHints: [
+                        "path": "Single sandbox file path to export.",
+                        "paths": "Optional array of sandbox file paths to export.",
+                        "asCopy": "Whether to export as a copy; default true.",
+                        "timeoutMs": "Optional timeout for waiting on export completion.",
+                    ],
+                    resultSummary: "Object with action/count and destination URLs when the provider returns them."
+                ),
+                handler: { args, context in
+                    try systemUI.exportDocuments(arguments: args, context: context)
+                }
+            ),
+            CapabilityRegistration(
+                descriptor: .init(
+                    id: .documentsUIOpenIn,
+                    title: "Open document in another app",
+                    summary: "Present the system Open In menu for a sandbox file.",
+                    tags: ["documents", "files", "system-ui", "open-in", "handoff"],
+                    example: "await apple.documents.openIn({ path: 'tmp:report.pdf' })",
+                    requiredArguments: ["path"],
+                    optionalArguments: ["name", "uti", "timeoutMs"],
+                    argumentTypes: [
+                        "path": .string,
+                        "name": .string,
+                        "uti": .string,
+                        "timeoutMs": .number,
+                    ],
+                    argumentHints: [
+                        "path": "Sandbox file path to hand off.",
+                        "name": "Optional display name for the document interaction controller.",
+                        "uti": "Optional uniform type identifier override.",
+                        "timeoutMs": "Optional timeout for waiting on the Open In menu dismissal.",
+                    ],
+                    resultSummary: "Object with action and application bundle identifier when the user hands off the file."
+                ),
+                handler: { args, context in
+                    try systemUI.openDocument(arguments: args, context: context)
                 }
             ),
             CapabilityRegistration(
@@ -625,6 +698,38 @@ public enum DefaultCapabilityLoader {
             ),
             CapabilityRegistration(
                 descriptor: .init(
+                    id: .cameraUIScanData,
+                    title: "Scan text or barcodes with camera UI",
+                    summary: "Present VisionKit live data scanner UI and return recognized text or barcode payloads.",
+                    tags: ["camera", "scan", "barcode", "text", "visionkit", "system-ui"],
+                    example: "await apple.camera.scanData({ mode: 'barcode', returnsOnFirstResult: true })",
+                    optionalArguments: ["mode", "recognizedDataTypes", "languages", "qualityLevel", "recognizesMultipleItems", "returnsOnFirstResult", "timeoutMs"],
+                    argumentTypes: [
+                        "mode": .string,
+                        "recognizedDataTypes": .array,
+                        "languages": .array,
+                        "qualityLevel": .string,
+                        "recognizesMultipleItems": .bool,
+                        "returnsOnFirstResult": .bool,
+                        "timeoutMs": .number,
+                    ],
+                    argumentHints: [
+                        "mode": "any (default), text, or barcode.",
+                        "recognizedDataTypes": "Optional array containing text and/or barcode; overrides mode.",
+                        "languages": "Optional text recognition language identifiers.",
+                        "qualityLevel": "balanced (default), fast, or accurate.",
+                        "recognizesMultipleItems": "Whether the scanner tracks multiple items at once; default false.",
+                        "returnsOnFirstResult": "Whether to dismiss as soon as data is recognized; default true.",
+                        "timeoutMs": "Optional timeout for waiting on a scan result or cancellation.",
+                    ],
+                    resultSummary: "Object with action and items containing text transcripts or barcode payloads."
+                ),
+                handler: { args, context in
+                    try systemUI.scanData(arguments: args, context: context)
+                }
+            ),
+            CapabilityRegistration(
+                descriptor: .init(
                     id: .mailUICompose,
                     title: "Compose mail with system UI",
                     summary: "Present system mail compose UI with optional recipients, body, and sandbox file attachments.",
@@ -683,6 +788,36 @@ public enum DefaultCapabilityLoader {
                 ),
                 handler: { args, context in
                     try systemUI.composeMessage(arguments: args, context: context)
+                }
+            ),
+            CapabilityRegistration(
+                descriptor: .init(
+                    id: .printUIPresent,
+                    title: "Present print UI",
+                    summary: "Present the system print sheet for one or more sandbox files.",
+                    tags: ["print", "documents", "system-ui", "export"],
+                    example: "await apple.print.present({ path: 'tmp:report.pdf', jobName: 'Report' })",
+                    optionalArguments: ["path", "paths", "jobName", "outputType", "showsNumberOfCopies", "timeoutMs"],
+                    argumentTypes: [
+                        "path": .string,
+                        "paths": .array,
+                        "jobName": .string,
+                        "outputType": .string,
+                        "showsNumberOfCopies": .bool,
+                        "timeoutMs": .number,
+                    ],
+                    argumentHints: [
+                        "path": "Single sandbox file path to print.",
+                        "paths": "Optional array of sandbox file paths to print.",
+                        "jobName": "Optional print job name.",
+                        "outputType": "general (default), photo, or grayscale.",
+                        "showsNumberOfCopies": "Whether copy count controls are shown; default true.",
+                        "timeoutMs": "Optional timeout for waiting on print completion/cancellation.",
+                    ],
+                    resultSummary: "Object with action/completed for the print interaction."
+                ),
+                handler: { args, context in
+                    try systemUI.presentPrint(arguments: args, context: context)
                 }
             ),
             CapabilityRegistration(
@@ -764,6 +899,53 @@ public enum DefaultCapabilityLoader {
                 ),
                 handler: { args, context in
                     try systemUI.presentAlert(arguments: args, context: context)
+                }
+            ),
+            CapabilityRegistration(
+                descriptor: .init(
+                    id: .uiPromptPresent,
+                    title: "Present prompt with text fields",
+                    summary: "Present a system alert with one or more text fields and custom buttons.",
+                    tags: ["ui", "alert", "prompt", "input", "system-ui"],
+                    example: "await apple.ui.presentPrompt({ title: 'Name', fields: [{ id: 'name', placeholder: 'Name' }], buttons: [{ id: 'cancel', title: 'Cancel', style: 'cancel' }, { id: 'ok', title: 'OK' }] })",
+                    requiredArguments: ["fields", "buttons"],
+                    optionalArguments: ["title", "message", "timeoutMs"],
+                    argumentTypes: [
+                        "title": .string,
+                        "message": .string,
+                        "fields": .array,
+                        "buttons": .array,
+                        "timeoutMs": .number,
+                    ],
+                    argumentHints: [
+                        "fields": "Array of { id?, placeholder?, text?/defaultValue?, secure?, keyboardType? }. keyboardType is default, email, number, phone, or url.",
+                        "buttons": "Array of { id?, title, style? }; style is default, cancel, or destructive. At most one cancel button.",
+                        "timeoutMs": "Optional timeout for waiting on user selection.",
+                    ],
+                    resultSummary: "Object with selected button metadata and values keyed by field id."
+                ),
+                handler: { args, context in
+                    try systemUI.presentPrompt(arguments: args, context: context)
+                }
+            ),
+            CapabilityRegistration(
+                descriptor: .init(
+                    id: .settingsUIOpen,
+                    title: "Open app settings",
+                    summary: "Open the host app's Settings page so the user can recover denied permissions.",
+                    tags: ["settings", "permissions", "system-ui"],
+                    example: "await apple.settings.open()",
+                    optionalArguments: ["timeoutMs"],
+                    argumentTypes: [
+                        "timeoutMs": .number,
+                    ],
+                    argumentHints: [
+                        "timeoutMs": "Optional timeout for waiting on UIApplication.open completion.",
+                    ],
+                    resultSummary: "Object with action opened/failed and opened boolean."
+                ),
+                handler: { args, context in
+                    try systemUI.openSettings(arguments: args, context: context)
                 }
             ),
             CapabilityRegistration(

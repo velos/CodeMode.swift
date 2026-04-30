@@ -193,7 +193,7 @@ Cross-platform privileged helpers are installed under `apple.*`. Platform-specif
 
 `apple.location.requestPermission()` is currently exposed only on iOS hosts. Other Apple platforms can expose `apple.location.*` helpers when supported, but the explicit permission-request helper is intentionally hidden outside iOS for now.
 
-System UI helpers are installed only on supported UI platforms. Shared iOS/visionOS helpers include `apple.ui.presentAlert`, `apple.calendar.pickCalendar`, `apple.calendar.presentEvent`, `apple.calendar.presentNewEvent`, `apple.contacts.pick`, `apple.contacts.presentContact`, `apple.contacts.presentNewContact`, `apple.photos.pick`, `apple.documents.pick`, `apple.share.present`, `apple.quicklook.preview`, `apple.web.present`, and `apple.auth.webAuthenticate`. iOS-only helpers include `apple.camera.capture`, `apple.documents.scan`, `apple.mail.compose`, and `apple.messages.compose`. Host apps must provide a `SystemUIPresenter`; otherwise UI-presenting helpers fail with `UI_PRESENTER_UNAVAILABLE`.
+System UI helpers are installed only on supported UI platforms. Shared iOS/visionOS helpers include `apple.ui.presentAlert`, `apple.ui.presentPrompt`, `apple.settings.open`, `apple.calendar.pickCalendar`, `apple.calendar.presentEvent`, `apple.calendar.presentNewEvent`, `apple.contacts.pick`, `apple.contacts.presentContact`, `apple.contacts.presentNewContact`, `apple.photos.pick`, `apple.photos.presentLimitedLibraryPicker`, `apple.documents.pick`, `apple.documents.export`, `apple.documents.save`, `apple.documents.openIn`, `apple.share.present`, `apple.quicklook.preview`, `apple.camera.scanData`, `apple.print.present`, `apple.web.present`, and `apple.auth.webAuthenticate`. iOS-only helpers include `apple.camera.capture`, `apple.documents.scan`, `apple.mail.compose`, and `apple.messages.compose`. Host apps must provide a `SystemUIPresenter`; otherwise UI-presenting helpers fail with `UI_PRESENTER_UNAVAILABLE`.
 
 `call.events` is a non-throwing `AsyncStream` that can emit:
 
@@ -240,8 +240,8 @@ Required Info.plist keys by capability:
 - Calendar write-only (`calendar.write`): `NSCalendarsWriteOnlyAccessUsageDescription`
 - Calendar event editor/chooser UI (`calendar.ui.presentNewEvent`, `calendar.ui.pickCalendar`): `NSCalendarsWriteOnlyAccessUsageDescription`
 - Reminders (`reminders.read`, `reminders.write`): `NSRemindersFullAccessUsageDescription`
-- Photos (`photos.read`, `photos.export`): `NSPhotoLibraryUsageDescription`
-- Camera UI (`camera.ui.capture`, `documents.ui.scan`): `NSCameraUsageDescription`
+- Photos (`photos.read`, `photos.export`, `photos.ui.presentLimitedLibraryPicker`): `NSPhotoLibraryUsageDescription`
+- Camera UI (`camera.ui.capture`, `camera.ui.scanData`, `documents.ui.scan`): `NSCameraUsageDescription`
 - Camera video capture (`camera.ui.capture`): `NSMicrophoneUsageDescription`
 - AlarmKit (`alarm.permission.request`, `alarm.read`, `alarm.schedule`, `alarm.cancel`): `NSAlarmKitUsageDescription`
 - HealthKit read (`health.permission.request`, `health.read`): `NSHealthShareUsageDescription`

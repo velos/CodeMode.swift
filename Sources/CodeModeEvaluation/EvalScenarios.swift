@@ -619,16 +619,24 @@ public enum CodeModeEvalScenarios {
                 "apple.contacts.presentContact",
                 "apple.contacts.presentNewContact",
                 "apple.photos.pick",
+                "apple.photos.presentLimitedLibraryPicker",
                 "apple.documents.pick",
+                "apple.documents.export",
+                "apple.documents.save",
+                "apple.documents.openIn",
                 "apple.documents.scan",
                 "apple.share.present",
                 "apple.quicklook.preview",
                 "apple.camera.capture",
+                "apple.camera.scanData",
                 "apple.mail.compose",
                 "apple.messages.compose",
+                "apple.print.present",
                 "apple.web.present",
                 "apple.auth.webAuthenticate",
-                "apple.ui.presentAlert"
+                "apple.ui.presentAlert",
+                "apple.ui.presentPrompt",
+                "apple.settings.open"
             ];
             return Object.fromEntries(names.map(name => [name, api.byJSName[name] ?? null]));
         }
@@ -644,14 +652,22 @@ public enum CodeModeEvalScenarios {
                 "\"apple.contacts.pick\":null",
                 "\"apple.contacts.presentContact\":null",
                 "\"apple.contacts.presentNewContact\":null",
+                "\"apple.documents.export\":null",
+                "\"apple.documents.openIn\":null",
                 "\"apple.documents.pick\":null",
+                "\"apple.documents.save\":null",
                 "\"apple.documents.scan\":null",
+                "\"apple.camera.scanData\":null",
                 "\"apple.mail.compose\":null",
                 "\"apple.messages.compose\":null",
+                "\"apple.photos.presentLimitedLibraryPicker\":null",
                 "\"apple.photos.pick\":null",
+                "\"apple.print.present\":null",
                 "\"apple.quicklook.preview\":null",
+                "\"apple.settings.open\":null",
                 "\"apple.share.present\":null",
                 "\"apple.ui.presentAlert\":null",
+                "\"apple.ui.presentPrompt\":null",
                 "\"apple.web.present\":null",
             ]
         )
@@ -660,17 +676,24 @@ public enum CodeModeEvalScenarios {
     public static let catalogSharedSystemUIDiscovery = CodeModeEvalScenario(
         id: "catalog.system-ui-shared-discovery",
         title: "Catalog discovers shared iOS and visionOS system UI helpers",
-        task: "Search the iOS catalog for Files document picking, share sheet, Quick Look preview, Safari presentation, web authentication, and custom alert helpers. Return each capability, JavaScript name, arguments, hints, and result summary.",
+        task: "Search the iOS catalog for Files document picking/export/open-in, share sheet, Quick Look, print, Safari, web authentication, Photos limited-library management, data scanning, settings, alert, and prompt helpers. Return each capability, JavaScript name, arguments, hints, and result summary.",
         catalogPlatform: .iOS,
         searchCode: """
         async () => {
             const names = [
                 "apple.documents.pick",
+                "apple.documents.export",
+                "apple.documents.openIn",
                 "apple.share.present",
                 "apple.quicklook.preview",
+                "apple.print.present",
                 "apple.web.present",
                 "apple.auth.webAuthenticate",
-                "apple.ui.presentAlert"
+                "apple.photos.presentLimitedLibraryPicker",
+                "apple.camera.scanData",
+                "apple.ui.presentAlert",
+                "apple.ui.presentPrompt",
+                "apple.settings.open"
             ];
             return Object.fromEntries(names.map(name => {
                 const ref = api.byJSName[name];
@@ -689,24 +712,42 @@ public enum CodeModeEvalScenarios {
             toolOrder: [.searchJavaScriptAPI],
             requiredSearchResultFragments: [
                 "apple.auth.webAuthenticate",
+                "apple.camera.scanData",
+                "apple.documents.export",
+                "apple.documents.openIn",
                 "apple.documents.pick",
+                "apple.documents.save",
+                "apple.photos.presentLimitedLibraryPicker",
+                "apple.print.present",
                 "apple.quicklook.preview",
+                "apple.settings.open",
                 "apple.share.present",
                 "apple.ui.presentAlert",
+                "apple.ui.presentPrompt",
                 "apple.web.present",
                 "auth.ui.webAuthenticate",
                 "buttonID",
                 "buttons",
                 "callbackURL",
                 "callbackURLScheme",
+                "camera.ui.scanData",
                 "completed",
                 "contentTypes",
+                "documents.ui.export",
+                "documents.ui.openIn",
                 "documents.ui.pick",
                 "excludedActivityTypes",
+                "fields",
+                "jobName",
                 "outputDirectory",
+                "photos.ui.presentLimitedLibraryPicker",
+                "print.ui.present",
                 "quicklook.ui.preview",
+                "recognizedDataTypes",
+                "settings.ui.open",
                 "share.ui.present",
                 "ui.alert.present",
+                "ui.prompt.present",
                 "web.ui.present",
             ]
         )

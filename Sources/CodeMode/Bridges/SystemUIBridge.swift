@@ -28,6 +28,12 @@ public final class SystemUIBridge: @unchecked Sendable {
         return try context.systemUIPresenter.pickPhotos(arguments: arguments, context: context)
     }
 
+    public func presentLimitedPhotoLibraryPicker(arguments: [String: JSONValue], context: BridgeInvocationContext) throws -> JSONValue {
+        try validateTimeoutMs(arguments, capability: "photos.ui.presentLimitedLibraryPicker")
+        try context.checkCancellation()
+        return try context.systemUIPresenter.presentLimitedPhotoLibraryPicker(arguments: arguments, context: context)
+    }
+
     public func pickContacts(arguments: [String: JSONValue], context: BridgeInvocationContext) throws -> JSONValue {
         try validateContactPickerArguments(arguments)
         try context.checkCancellation()
@@ -58,6 +64,20 @@ public final class SystemUIBridge: @unchecked Sendable {
         return try context.systemUIPresenter.pickDocuments(arguments: arguments, context: context)
     }
 
+    public func exportDocuments(arguments: [String: JSONValue], context: BridgeInvocationContext) throws -> JSONValue {
+        try validatePathOrPaths(arguments, capability: "documents.ui.export")
+        try validateTimeoutMs(arguments, capability: "documents.ui.export")
+        try context.checkCancellation()
+        return try context.systemUIPresenter.exportDocuments(arguments: arguments, context: context)
+    }
+
+    public func openDocument(arguments: [String: JSONValue], context: BridgeInvocationContext) throws -> JSONValue {
+        try validateNonemptyString(arguments, key: "path", capability: "documents.ui.openIn")
+        try validateTimeoutMs(arguments, capability: "documents.ui.openIn")
+        try context.checkCancellation()
+        return try context.systemUIPresenter.openDocument(arguments: arguments, context: context)
+    }
+
     public func scanDocuments(arguments: [String: JSONValue], context: BridgeInvocationContext) throws -> JSONValue {
         try validateNonemptyOptionalString(arguments, key: "outputDirectory", capability: "documents.ui.scan")
         try validateTimeoutMs(arguments, capability: "documents.ui.scan")
@@ -84,6 +104,12 @@ public final class SystemUIBridge: @unchecked Sendable {
         return try context.systemUIPresenter.captureCamera(arguments: arguments, context: context)
     }
 
+    public func scanData(arguments: [String: JSONValue], context: BridgeInvocationContext) throws -> JSONValue {
+        try validateDataScannerArguments(arguments)
+        try context.checkCancellation()
+        return try context.systemUIPresenter.scanData(arguments: arguments, context: context)
+    }
+
     public func composeMail(arguments: [String: JSONValue], context: BridgeInvocationContext) throws -> JSONValue {
         try validateMessageRecipients(arguments, keys: ["to", "cc", "bcc"], capability: "mail.ui.compose")
         try validateAttachmentObjects(arguments, capability: "mail.ui.compose")
@@ -98,6 +124,18 @@ public final class SystemUIBridge: @unchecked Sendable {
         try validateTimeoutMs(arguments, capability: "messages.ui.compose")
         try context.checkCancellation()
         return try context.systemUIPresenter.composeMessage(arguments: arguments, context: context)
+    }
+
+    public func presentPrint(arguments: [String: JSONValue], context: BridgeInvocationContext) throws -> JSONValue {
+        try validatePathOrPaths(arguments, capability: "print.ui.present")
+        if let outputType = arguments.string("outputType")?.lowercased(),
+           ["general", "photo", "grayscale"].contains(outputType) == false
+        {
+            throw BridgeError.invalidArguments("print.ui.present outputType must be general, photo, or grayscale")
+        }
+        try validateTimeoutMs(arguments, capability: "print.ui.present")
+        try context.checkCancellation()
+        return try context.systemUIPresenter.presentPrint(arguments: arguments, context: context)
     }
 
     public func presentWeb(arguments: [String: JSONValue], context: BridgeInvocationContext) throws -> JSONValue {
@@ -119,6 +157,18 @@ public final class SystemUIBridge: @unchecked Sendable {
         try validateAlertArguments(arguments)
         try context.checkCancellation()
         return try context.systemUIPresenter.presentAlert(arguments: arguments, context: context)
+    }
+
+    public func presentPrompt(arguments: [String: JSONValue], context: BridgeInvocationContext) throws -> JSONValue {
+        try validatePromptArguments(arguments)
+        try context.checkCancellation()
+        return try context.systemUIPresenter.presentPrompt(arguments: arguments, context: context)
+    }
+
+    public func openSettings(arguments: [String: JSONValue], context: BridgeInvocationContext) throws -> JSONValue {
+        try validateTimeoutMs(arguments, capability: "settings.ui.open")
+        try context.checkCancellation()
+        return try context.systemUIPresenter.openSettings(arguments: arguments, context: context)
     }
 
     private func validateCalendarPickerArguments(_ arguments: [String: JSONValue]) throws {
@@ -208,6 +258,94 @@ public final class SystemUIBridge: @unchecked Sendable {
         }
 
         try validateTimeoutMs(arguments, capability: "ui.alert.present")
+    }
+
+    private func validatePromptArguments(_ arguments: [String: JSONValue]) throws {
+        try validateAlertArguments(arguments, capability: "ui.prompt.present")
+        if let preferredStyle = arguments.string("preferredStyle")?.lowercased(),
+           ["actionSheet", "actionsheet"].contains(preferredStyle)
+        {
+            throw BridgeError.invalidArguments("ui.prompt.present preferredStyle must be alert")
+        }
+
+        guard let fields = arguments.array("fields"), fields.isEmpty == false else {
+            throw BridgeError.invalidArguments("ui.prompt.present requires a non-empty fields array")
+        }
+
+        for (index, field) in fields.enumerated() {
+            guard let object = field.objectValue else {
+                throw BridgeError.invalidArguments("ui.prompt.present fields must contain objects")
+            }
+            try validateNonemptyOptionalString(object, key: "id", capability: "ui.prompt.present field \(index)")
+            try validateNonemptyOptionalString(object, key: "placeholder", capability: "ui.prompt.present field \(index)")
+            try validateNonemptyOptionalString(object, key: "text", capability: "ui.prompt.present field \(index)")
+            try validateNonemptyOptionalString(object, key: "defaultValue", capability: "ui.prompt.present field \(index)")
+            if let keyboardType = object.string("keyboardType")?.lowercased(),
+               ["default", "email", "number", "phone", "url"].contains(keyboardType) == false
+            {
+                throw BridgeError.invalidArguments("ui.prompt.present field keyboardType must be default, email, number, phone, or url")
+            }
+        }
+    }
+
+    private func validateAlertArguments(_ arguments: [String: JSONValue], capability: String) throws {
+        if let preferredStyle = arguments.string("preferredStyle")?.lowercased(),
+           ["alert", "actionSheet", "actionsheet"].contains(preferredStyle) == false
+        {
+            throw BridgeError.invalidArguments("\(capability) preferredStyle must be alert or actionSheet")
+        }
+
+        guard let buttons = arguments.array("buttons"), buttons.isEmpty == false else {
+            throw BridgeError.invalidArguments("\(capability) requires a non-empty buttons array")
+        }
+
+        var cancelCount = 0
+        for (index, button) in buttons.enumerated() {
+            guard let object = button.objectValue else {
+                throw BridgeError.invalidArguments("\(capability) buttons must contain objects")
+            }
+            try validateNonemptyString(object, key: "title", capability: "\(capability) button \(index)")
+            try validateNonemptyOptionalString(object, key: "id", capability: "\(capability) button \(index)")
+            if let style = object.string("style")?.lowercased() {
+                guard ["default", "cancel", "destructive"].contains(style) else {
+                    throw BridgeError.invalidArguments("\(capability) button style must be default, cancel, or destructive")
+                }
+                if style == "cancel" {
+                    cancelCount += 1
+                }
+            }
+        }
+
+        if cancelCount > 1 {
+            throw BridgeError.invalidArguments("\(capability) supports at most one cancel button")
+        }
+
+        try validateTimeoutMs(arguments, capability: capability)
+    }
+
+    private func validateDataScannerArguments(_ arguments: [String: JSONValue]) throws {
+        if let mode = arguments.string("mode")?.lowercased(),
+           ["any", "text", "barcode"].contains(mode) == false
+        {
+            throw BridgeError.invalidArguments("camera.ui.scanData mode must be any, text, or barcode")
+        }
+
+        try validateStringArray(arguments, key: "recognizedDataTypes", capability: "camera.ui.scanData")
+        for value in arguments.array("recognizedDataTypes") ?? [] {
+            guard let type = value.stringValue?.lowercased(),
+                  ["text", "barcode"].contains(type)
+            else {
+                throw BridgeError.invalidArguments("camera.ui.scanData recognizedDataTypes must contain text or barcode")
+            }
+        }
+
+        try validateStringArray(arguments, key: "languages", capability: "camera.ui.scanData")
+        if let qualityLevel = arguments.string("qualityLevel")?.lowercased(),
+           ["balanced", "fast", "accurate"].contains(qualityLevel) == false
+        {
+            throw BridgeError.invalidArguments("camera.ui.scanData qualityLevel must be balanced, fast, or accurate")
+        }
+        try validateTimeoutMs(arguments, capability: "camera.ui.scanData")
     }
 
     private func validateShareArguments(_ arguments: [String: JSONValue]) throws {

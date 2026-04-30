@@ -133,11 +133,15 @@ enum RuntimeJavaScript {
     globalThis.apple.photos = {
         list: function(args) { return __invokeAsync('photos.read', args || {}); },
         export: function(args) { return __invokeAsync('photos.export', args || {}); },
-        pick: function(args) { return __invokeAsync('photos.ui.pick', args || {}); }
+        pick: function(args) { return __invokeAsync('photos.ui.pick', args || {}); },
+        presentLimitedLibraryPicker: function(args) { return __invokeAsync('photos.ui.presentLimitedLibraryPicker', args || {}); }
     };
 
     globalThis.apple.documents = {
         pick: function(args) { return __invokeAsync('documents.ui.pick', args || {}); },
+        export: function(args) { return __invokeAsync('documents.ui.export', args || {}); },
+        save: function(args) { return __invokeAsync('documents.ui.export', args || {}); },
+        openIn: function(args) { return __invokeAsync('documents.ui.openIn', args || {}); },
         scan: function(args) { return __invokeAsync('documents.ui.scan', args || {}); }
     };
 
@@ -150,7 +154,8 @@ enum RuntimeJavaScript {
     };
 
     globalThis.apple.camera = {
-        capture: function(args) { return __invokeAsync('camera.ui.capture', args || {}); }
+        capture: function(args) { return __invokeAsync('camera.ui.capture', args || {}); },
+        scanData: function(args) { return __invokeAsync('camera.ui.scanData', args || {}); }
     };
 
     globalThis.apple.mail = {
@@ -159,6 +164,10 @@ enum RuntimeJavaScript {
 
     globalThis.apple.messages = {
         compose: function(args) { return __invokeAsync('messages.ui.compose', args || {}); }
+    };
+
+    globalThis.apple.print = {
+        present: function(args) { return __invokeAsync('print.ui.present', args || {}); }
     };
 
     globalThis.apple.web = {
@@ -170,7 +179,12 @@ enum RuntimeJavaScript {
     };
 
     globalThis.apple.ui = {
-        presentAlert: function(args) { return __invokeAsync('ui.alert.present', args || {}); }
+        presentAlert: function(args) { return __invokeAsync('ui.alert.present', args || {}); },
+        presentPrompt: function(args) { return __invokeAsync('ui.prompt.present', args || {}); }
+    };
+
+    globalThis.apple.settings = {
+        open: function(args) { return __invokeAsync('settings.ui.open', args || {}); }
     };
 
     globalThis.apple.vision = {

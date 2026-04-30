@@ -6,6 +6,7 @@ import Foundation
 @preconcurrency import ContactsUI
 @preconcurrency import EventKit
 @preconcurrency import EventKitUI
+@preconcurrency import Photos
 @preconcurrency import PhotosUI
 @preconcurrency import QuickLook
 @preconcurrency import SafariServices
@@ -206,6 +207,34 @@ public final class UIKitSystemUIPresenter: SystemUIPresenter, @unchecked Sendabl
         return .array(exported)
     }
 
+    public func presentLimitedPhotoLibraryPicker(arguments: [String: JSONValue], context: BridgeInvocationContext) throws -> JSONValue {
+        let timeoutMs = arguments.int("timeoutMs") ?? Self.defaultTimeoutMs
+        let status = PHPhotoLibrary.authorizationStatus(for: .readWrite)
+        guard status == .limited else {
+            return .object([
+                "action": .string("notLimited"),
+                "status": .string(photoAuthorizationStatusString(status)),
+            ])
+        }
+
+        return try runUIOperation(timeoutMs: timeoutMs) { complete in
+            do {
+                let presenter = try self.requirePresenter()
+                PHPhotoLibrary.shared().presentLimitedLibraryPicker(from: presenter) { identifiers in
+                    complete(.success(.object([
+                        "action": .string("completed"),
+                        "status": .string("limited"),
+                        "selectedIdentifiers": .array(identifiers.map(JSONValue.string)),
+                    ])))
+                }
+            } catch let error as BridgeError {
+                complete(.failure(error))
+            } catch {
+                complete(.failure(.nativeFailure(error.localizedDescription)))
+            }
+        }
+    }
+
     public func pickContacts(arguments: [String: JSONValue], context: BridgeInvocationContext) throws -> JSONValue {
         let timeoutMs = arguments.int("timeoutMs") ?? Self.defaultTimeoutMs
         let mode = arguments.string("mode")?.lowercased() ?? "single"
@@ -357,6 +386,76 @@ public final class UIKitSystemUIPresenter: SystemUIPresenter, @unchecked Sendabl
                 context: context
             )
         })
+    }
+
+    public func exportDocuments(arguments: [String: JSONValue], context: BridgeInvocationContext) throws -> JSONValue {
+        let timeoutMs = arguments.int("timeoutMs") ?? Self.defaultTimeoutMs
+        let urls = try sandboxURLs(arguments: arguments, context: context)
+        let asCopy = arguments.bool("asCopy") ?? true
+        let token = UUID()
+
+        let destinationURLs: [URL] = try runUIOperation(timeoutMs: timeoutMs, onTimeout: { self.releaseCoordinator(token) }) { complete in
+            do {
+                let presenter = try self.requirePresenter()
+                let controller = UIDocumentPickerViewController(forExporting: urls, asCopy: asCopy)
+                let coordinator = DocumentPickerCoordinator { [weak self] urls in
+                    self?.releaseCoordinator(token)
+                    complete(.success(urls))
+                }
+                self.retainCoordinator(coordinator, token: token)
+                controller.delegate = coordinator
+                presenter.present(controller, animated: true)
+            } catch let error as BridgeError {
+                complete(.failure(error))
+            } catch {
+                complete(.failure(.nativeFailure(error.localizedDescription)))
+            }
+        }
+
+        return .object([
+            "action": .string(destinationURLs.isEmpty ? "cancelled" : "exported"),
+            "count": .number(Double(urls.count)),
+            "destinationURLs": .array(destinationURLs.map { .string($0.absoluteString) }),
+        ])
+    }
+
+    public func openDocument(arguments: [String: JSONValue], context: BridgeInvocationContext) throws -> JSONValue {
+        let timeoutMs = arguments.int("timeoutMs") ?? Self.defaultTimeoutMs
+        let url = try sandboxURL(path: arguments.string("path") ?? "", context: context)
+        let token = UUID()
+
+        return try runUIOperation(timeoutMs: timeoutMs, onTimeout: { self.releaseCoordinator(token) }) { complete in
+            do {
+                let presenter = try self.requirePresenter()
+                let controller = UIDocumentInteractionController(url: url)
+                controller.name = arguments.string("name")
+                controller.uti = arguments.string("uti")
+
+                let coordinator = DocumentInteractionCoordinator(presenter: presenter) { [weak self] result in
+                    self?.releaseCoordinator(token)
+                    complete(.success(result))
+                }
+                coordinator.controller = controller
+                self.retainCoordinator(coordinator, token: token)
+                controller.delegate = coordinator
+
+                let sourceRect = CGRect(
+                    x: presenter.view.bounds.midX,
+                    y: presenter.view.bounds.midY,
+                    width: 1,
+                    height: 1
+                )
+                guard controller.presentOpenInMenu(from: sourceRect, in: presenter.view, animated: true) else {
+                    self.releaseCoordinator(token)
+                    complete(.failure(.unsupportedPlatform("documents.ui.openIn")))
+                    return
+                }
+            } catch let error as BridgeError {
+                complete(.failure(error))
+            } catch {
+                complete(.failure(.nativeFailure(error.localizedDescription)))
+            }
+        }
     }
 
     public func scanDocuments(arguments: [String: JSONValue], context: BridgeInvocationContext) throws -> JSONValue {
@@ -538,6 +637,71 @@ public final class UIKitSystemUIPresenter: SystemUIPresenter, @unchecked Sendabl
         #endif
     }
 
+    public func scanData(arguments: [String: JSONValue], context: BridgeInvocationContext) throws -> JSONValue {
+        #if canImport(VisionKit)
+        let timeoutMs = arguments.int("timeoutMs") ?? Self.defaultTimeoutMs
+        let token = UUID()
+
+        return try runUIOperation(timeoutMs: timeoutMs, onTimeout: { self.releaseCoordinator(token) }) { complete in
+            do {
+                guard DataScannerViewController.isSupported, DataScannerViewController.isAvailable else {
+                    complete(.failure(.unsupportedPlatform("camera.ui.scanData")))
+                    return
+                }
+
+                let presenter = try self.requirePresenter()
+                let controller = DataScannerViewController(
+                    recognizedDataTypes: self.scannerRecognizedDataTypes(from: arguments),
+                    qualityLevel: self.scannerQualityLevel(from: arguments),
+                    recognizesMultipleItems: arguments.bool("recognizesMultipleItems") ?? false,
+                    isHighFrameRateTrackingEnabled: true,
+                    isPinchToZoomEnabled: true,
+                    isGuidanceEnabled: true,
+                    isHighlightingEnabled: true
+                )
+                let navigation = UINavigationController(rootViewController: controller)
+                let coordinator = DataScannerCoordinator(
+                    controller: controller,
+                    navigationController: navigation,
+                    returnsOnFirstResult: arguments.bool("returnsOnFirstResult") ?? true
+                ) { [weak self] result in
+                    self?.releaseCoordinator(token)
+                    complete(result)
+                }
+                self.retainCoordinator(coordinator, token: token)
+                controller.delegate = coordinator
+                controller.navigationItem.leftBarButtonItem = UIBarButtonItem(
+                    barButtonSystemItem: .cancel,
+                    target: coordinator,
+                    action: #selector(DataScannerCoordinator.cancel)
+                )
+
+                presenter.present(navigation, animated: true) {
+                    do {
+                        try controller.startScanning()
+                    } catch let error as DataScannerViewController.ScanningUnavailable {
+                        navigation.dismiss(animated: true)
+                        self.releaseCoordinator(token)
+                        complete(.failure(.unsupportedPlatform("camera.ui.scanData \(error)")))
+                    } catch {
+                        navigation.dismiss(animated: true)
+                        self.releaseCoordinator(token)
+                        complete(.failure(.nativeFailure(error.localizedDescription)))
+                    }
+                }
+            } catch let error as BridgeError {
+                complete(.failure(error))
+            } catch {
+                complete(.failure(.nativeFailure(error.localizedDescription)))
+            }
+        }
+        #else
+        _ = arguments
+        _ = context
+        throw BridgeError.unsupportedPlatform("camera.ui.scanData")
+        #endif
+    }
+
     public func composeMail(arguments: [String: JSONValue], context: BridgeInvocationContext) throws -> JSONValue {
         #if canImport(MessageUI) && os(iOS)
         let timeoutMs = arguments.int("timeoutMs") ?? Self.defaultTimeoutMs
@@ -618,6 +782,57 @@ public final class UIKitSystemUIPresenter: SystemUIPresenter, @unchecked Sendabl
         _ = context
         throw BridgeError.unsupportedPlatform("messages.ui.compose")
         #endif
+    }
+
+    public func presentPrint(arguments: [String: JSONValue], context: BridgeInvocationContext) throws -> JSONValue {
+        let timeoutMs = arguments.int("timeoutMs") ?? Self.defaultTimeoutMs
+        let urls = try sandboxURLs(arguments: arguments, context: context)
+        let token = UUID()
+
+        return try runUIOperation(timeoutMs: timeoutMs, onTimeout: { self.releaseCoordinator(token) }) { complete in
+            do {
+                let presenter = try self.requirePresenter()
+                let controller = UIPrintInteractionController.shared
+                let printInfo = UIPrintInfo(dictionary: nil)
+                printInfo.jobName = arguments.string("jobName") ?? urls.first?.lastPathComponent ?? "CodeMode Print Job"
+                printInfo.outputType = self.printOutputType(from: arguments)
+                controller.printInfo = printInfo
+                controller.showsNumberOfCopies = arguments.bool("showsNumberOfCopies") ?? true
+                if urls.count == 1 {
+                    controller.printingItem = urls[0]
+                    controller.printingItems = nil
+                } else {
+                    controller.printingItem = nil
+                    controller.printingItems = urls
+                }
+
+                let coordinator = PrintCoordinator(parent: presenter)
+                self.retainCoordinator(coordinator, token: token)
+                controller.delegate = coordinator
+
+                guard controller.present(animated: true, completionHandler: { [weak self] controller, completed, error in
+                    controller.delegate = nil
+                    self?.releaseCoordinator(token)
+                    if let error {
+                        complete(.failure(.nativeFailure(error.localizedDescription)))
+                        return
+                    }
+                    complete(.success(.object([
+                        "action": .string(completed ? "completed" : "cancelled"),
+                        "completed": .bool(completed),
+                    ])))
+                }) else {
+                    controller.delegate = nil
+                    self.releaseCoordinator(token)
+                    complete(.failure(.unsupportedPlatform("print.ui.present")))
+                    return
+                }
+            } catch let error as BridgeError {
+                complete(.failure(error))
+            } catch {
+                complete(.failure(.nativeFailure(error.localizedDescription)))
+            }
+        }
     }
 
     public func presentWeb(arguments: [String: JSONValue], context: BridgeInvocationContext) throws -> JSONValue {
@@ -775,6 +990,85 @@ public final class UIKitSystemUIPresenter: SystemUIPresenter, @unchecked Sendabl
         }
     }
 
+    public func presentPrompt(arguments: [String: JSONValue], context: BridgeInvocationContext) throws -> JSONValue {
+        let timeoutMs = arguments.int("timeoutMs") ?? Self.defaultTimeoutMs
+        let token = UUID()
+
+        return try runUIOperation(timeoutMs: timeoutMs, onTimeout: { self.releaseCoordinator(token) }) { complete in
+            do {
+                let presenter = try self.requirePresenter()
+                let controller = UIAlertController(
+                    title: arguments.string("title"),
+                    message: arguments.string("message"),
+                    preferredStyle: .alert
+                )
+                let fields = arguments.array("fields") ?? []
+
+                for field in fields {
+                    let object = field.objectValue ?? [:]
+                    controller.addTextField { textField in
+                        textField.placeholder = object.string("placeholder")
+                        textField.text = object.string("text") ?? object.string("defaultValue")
+                        textField.isSecureTextEntry = object.bool("secure") ?? false
+                        textField.keyboardType = self.keyboardType(object.string("keyboardType"))
+                    }
+                }
+
+                for (index, button) in (arguments.array("buttons") ?? []).enumerated() {
+                    guard let object = button.objectValue else {
+                        complete(.failure(.invalidArguments("ui.prompt.present buttons must contain objects")))
+                        return
+                    }
+                    let title = object.string("title") ?? ""
+                    let id = object.string("id") ?? title
+                    let styleName = object.string("style")?.lowercased() ?? "default"
+                    let actionStyle = self.alertActionStyle(styleName)
+                    controller.addAction(
+                        UIAlertAction(title: title, style: actionStyle) { [weak self, weak controller] _ in
+                            var values: [String: JSONValue] = [:]
+                            for (fieldIndex, field) in fields.enumerated() {
+                                let fieldID = field.objectValue?.string("id") ?? "\(fieldIndex)"
+                                values[fieldID] = .string(controller?.textFields?[fieldIndex].text ?? "")
+                            }
+                            self?.releaseCoordinator(token)
+                            complete(.success(.object([
+                                "action": .string("selected"),
+                                "buttonID": .string(id),
+                                "buttonTitle": .string(title),
+                                "buttonIndex": .number(Double(index)),
+                                "style": .string(styleName),
+                                "values": .object(values),
+                            ])))
+                        }
+                    )
+                }
+
+                self.retainCoordinator(controller, token: token)
+                presenter.present(controller, animated: true)
+            } catch let error as BridgeError {
+                complete(.failure(error))
+            } catch {
+                complete(.failure(.nativeFailure(error.localizedDescription)))
+            }
+        }
+    }
+
+    public func openSettings(arguments: [String: JSONValue], context: BridgeInvocationContext) throws -> JSONValue {
+        let timeoutMs = arguments.int("timeoutMs") ?? Self.defaultTimeoutMs
+        guard let url = URL(string: UIApplication.openSettingsURLString) else {
+            throw BridgeError.unsupportedPlatform("settings.ui.open")
+        }
+
+        return try runUIOperation(timeoutMs: timeoutMs) { complete in
+            UIApplication.shared.open(url, options: [:]) { success in
+                complete(.success(.object([
+                    "action": .string(success ? "opened" : "failed"),
+                    "opened": .bool(success),
+                ])))
+            }
+        }
+    }
+
     private func runUIOperation<T: Sendable>(
         timeoutMs: Int,
         onTimeout: (@Sendable () -> Void)? = nil,
@@ -855,6 +1149,80 @@ public final class UIKitSystemUIPresenter: SystemUIPresenter, @unchecked Sendabl
             return .default
         }
     }
+
+    @MainActor private func keyboardType(_ name: String?) -> UIKeyboardType {
+        switch name?.lowercased() {
+        case "email":
+            return .emailAddress
+        case "number":
+            return .numberPad
+        case "phone":
+            return .phonePad
+        case "url":
+            return .URL
+        default:
+            return .default
+        }
+    }
+
+    @MainActor private func printOutputType(from arguments: [String: JSONValue]) -> UIPrintInfo.OutputType {
+        switch arguments.string("outputType")?.lowercased() {
+        case "photo":
+            return .photo
+        case "grayscale":
+            return .grayscale
+        default:
+            return .general
+        }
+    }
+
+    private func photoAuthorizationStatusString(_ status: PHAuthorizationStatus) -> String {
+        switch status {
+        case .authorized:
+            return "authorized"
+        case .limited:
+            return "limited"
+        case .denied:
+            return "denied"
+        case .restricted:
+            return "restricted"
+        case .notDetermined:
+            return "notDetermined"
+        @unknown default:
+            return "unknown"
+        }
+    }
+
+    #if canImport(VisionKit)
+    @MainActor private func scannerRecognizedDataTypes(from arguments: [String: JSONValue]) -> Set<DataScannerViewController.RecognizedDataType> {
+        let languages = (arguments.array("languages") ?? []).compactMap(\.stringValue)
+        let requested = (arguments.array("recognizedDataTypes") ?? []).compactMap { $0.stringValue?.lowercased() }
+        let types = requested.isEmpty ? [arguments.string("mode")?.lowercased() ?? "any"] : requested
+
+        var recognized: Set<DataScannerViewController.RecognizedDataType> = []
+        if types.contains("any") || types.contains("text") {
+            recognized.insert(.text(languages: languages))
+        }
+        if types.contains("any") || types.contains("barcode") {
+            recognized.insert(.barcode())
+        }
+        if recognized.isEmpty {
+            recognized = [.text(languages: languages), .barcode()]
+        }
+        return recognized
+    }
+
+    @MainActor private func scannerQualityLevel(from arguments: [String: JSONValue]) -> DataScannerViewController.QualityLevel {
+        switch arguments.string("qualityLevel")?.lowercased() {
+        case "fast":
+            return .fast
+        case "accurate":
+            return .accurate
+        default:
+            return .balanced
+        }
+    }
+    #endif
 
     private func exportPickerResult(
         _ result: PhotoPickerSelection,
@@ -1119,6 +1487,10 @@ public final class UIKitSystemUIPresenter: SystemUIPresenter, @unchecked Sendabl
         return try paths.map { try context.pathPolicy.resolve(path: $0) }
     }
 
+    private func sandboxURL(path: String, context: BridgeInvocationContext) throws -> URL {
+        try context.pathPolicy.resolve(path: path)
+    }
+
     @MainActor private func shareItems(from arguments: [String: JSONValue], context: BridgeInvocationContext) throws -> [Any] {
         var items: [Any] = []
         if let text = arguments.string("text") {
@@ -1379,6 +1751,66 @@ private struct PhotoPickerSelection: @unchecked Sendable {
     }
 }
 
+@MainActor private final class DocumentInteractionCoordinator: NSObject, @preconcurrency UIDocumentInteractionControllerDelegate {
+    weak var presenter: UIViewController?
+    var controller: UIDocumentInteractionController?
+    private var application: String?
+    private var didSend = false
+    private let onComplete: (JSONValue) -> Void
+
+    init(presenter: UIViewController, onComplete: @escaping (JSONValue) -> Void) {
+        self.presenter = presenter
+        self.onComplete = onComplete
+    }
+
+    func documentInteractionControllerViewControllerForPreview(_ controller: UIDocumentInteractionController) -> UIViewController {
+        _ = controller
+        return presenter ?? UIViewController()
+    }
+
+    func documentInteractionController(
+        _ controller: UIDocumentInteractionController,
+        willBeginSendingToApplication application: String?
+    ) {
+        _ = controller
+        self.application = application
+        didSend = true
+    }
+
+    func documentInteractionController(
+        _ controller: UIDocumentInteractionController,
+        didEndSendingToApplication application: String?
+    ) {
+        _ = controller
+        self.application = application ?? self.application
+        didSend = true
+    }
+
+    func documentInteractionControllerDidDismissOpenInMenu(_ controller: UIDocumentInteractionController) {
+        _ = controller
+        var object: [String: JSONValue] = [
+            "action": .string(didSend ? "sent" : "dismissed"),
+        ]
+        if let application {
+            object["application"] = .string(application)
+        }
+        onComplete(.object(object))
+    }
+}
+
+@MainActor private final class PrintCoordinator: NSObject, UIPrintInteractionControllerDelegate {
+    weak var parent: UIViewController?
+
+    init(parent: UIViewController) {
+        self.parent = parent
+    }
+
+    func printInteractionControllerParentViewController(_ printInteractionController: UIPrintInteractionController) -> UIViewController? {
+        _ = printInteractionController
+        return parent
+    }
+}
+
 @MainActor private final class QuickLookCoordinator: NSObject, QLPreviewControllerDataSource, @preconcurrency QLPreviewControllerDelegate {
     private let urls: [URL]
     private let onComplete: () -> Void
@@ -1403,6 +1835,117 @@ private struct PhotoPickerSelection: @unchecked Sendable {
         onComplete()
     }
 }
+
+#if canImport(VisionKit)
+@MainActor private final class DataScannerCoordinator: NSObject, DataScannerViewControllerDelegate {
+    private weak var controller: DataScannerViewController?
+    private weak var navigationController: UINavigationController?
+    private let returnsOnFirstResult: Bool
+    private let onComplete: (Result<JSONValue, BridgeError>) -> Void
+    private var completed = false
+    private var currentItems: [RecognizedItem] = []
+
+    init(
+        controller: DataScannerViewController,
+        navigationController: UINavigationController,
+        returnsOnFirstResult: Bool,
+        onComplete: @escaping (Result<JSONValue, BridgeError>) -> Void
+    ) {
+        self.controller = controller
+        self.navigationController = navigationController
+        self.returnsOnFirstResult = returnsOnFirstResult
+        self.onComplete = onComplete
+    }
+
+    @objc func cancel() {
+        complete(action: "cancelled", items: currentItems)
+    }
+
+    func dataScanner(_ dataScanner: DataScannerViewController, didTapOn item: RecognizedItem) {
+        _ = dataScanner
+        complete(action: "selected", items: [item])
+    }
+
+    func dataScanner(_ dataScanner: DataScannerViewController, didAdd addedItems: [RecognizedItem], allItems: [RecognizedItem]) {
+        _ = dataScanner
+        currentItems = allItems
+        if returnsOnFirstResult, (allItems.isEmpty == false || addedItems.isEmpty == false) {
+            complete(action: "recognized", items: allItems.isEmpty ? addedItems : allItems)
+        }
+    }
+
+    func dataScanner(_ dataScanner: DataScannerViewController, didUpdate updatedItems: [RecognizedItem], allItems: [RecognizedItem]) {
+        _ = dataScanner
+        _ = updatedItems
+        currentItems = allItems
+    }
+
+    func dataScanner(_ dataScanner: DataScannerViewController, didRemove removedItems: [RecognizedItem], allItems: [RecognizedItem]) {
+        _ = dataScanner
+        _ = removedItems
+        currentItems = allItems
+    }
+
+    func dataScanner(_ dataScanner: DataScannerViewController, becameUnavailableWithError error: DataScannerViewController.ScanningUnavailable) {
+        _ = dataScanner
+        complete(.failure(.unsupportedPlatform("camera.ui.scanData \(error)")))
+    }
+
+    private func complete(action: String, items: [RecognizedItem]) {
+        complete(.success(.object([
+            "action": .string(action),
+            "items": .array(items.map(mapRecognizedItem)),
+        ])))
+    }
+
+    private func complete(_ result: Result<JSONValue, BridgeError>) {
+        guard completed == false else {
+            return
+        }
+        completed = true
+        controller?.stopScanning()
+        navigationController?.dismiss(animated: true)
+        onComplete(result)
+    }
+}
+
+@MainActor private func mapRecognizedItem(_ item: RecognizedItem) -> JSONValue {
+    var object: [String: JSONValue] = [
+        "id": .string(item.id.uuidString),
+        "bounds": mapRecognizedBounds(item.bounds),
+    ]
+
+    switch item {
+    case .text(let text):
+        object["type"] = .string("text")
+        object["transcript"] = .string(text.transcript)
+    case .barcode(let barcode):
+        object["type"] = .string("barcode")
+        object["payload"] = .string(barcode.payloadStringValue ?? "")
+        object["symbology"] = .string(String(describing: barcode.observation.symbology))
+    @unknown default:
+        object["type"] = .string("unknown")
+    }
+
+    return .object(object)
+}
+
+@MainActor private func mapRecognizedBounds(_ bounds: RecognizedItem.Bounds) -> JSONValue {
+    .object([
+        "topLeft": mapPoint(bounds.topLeft),
+        "topRight": mapPoint(bounds.topRight),
+        "bottomRight": mapPoint(bounds.bottomRight),
+        "bottomLeft": mapPoint(bounds.bottomLeft),
+    ])
+}
+
+@MainActor private func mapPoint(_ point: CGPoint) -> JSONValue {
+    .object([
+        "x": .number(Double(point.x)),
+        "y": .number(Double(point.y)),
+    ])
+}
+#endif
 
 #if os(iOS)
 private struct CameraCaptureResult: Sendable {

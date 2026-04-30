@@ -336,6 +336,7 @@ public enum CapabilityID: String, Sendable, Codable, CaseIterable, Hashable {
     case photosRead = "photos.read"
     case photosExport = "photos.export"
     case photosUIPick = "photos.ui.pick"
+    case photosUIPresentLimitedLibraryPicker = "photos.ui.presentLimitedLibraryPicker"
 
     case visionImageAnalyze = "vision.image.analyze"
 
@@ -376,13 +377,19 @@ public enum CapabilityID: String, Sendable, Codable, CaseIterable, Hashable {
     case contactsUIPresentContact = "contacts.ui.presentContact"
     case contactsUIPresentNewContact = "contacts.ui.presentNewContact"
     case documentsUIPick = "documents.ui.pick"
+    case documentsUIExport = "documents.ui.export"
+    case documentsUIOpenIn = "documents.ui.openIn"
     case documentsUIScan = "documents.ui.scan"
     case shareUIPresent = "share.ui.present"
     case quickLookUIPreview = "quicklook.ui.preview"
     case cameraUICapture = "camera.ui.capture"
+    case cameraUIScanData = "camera.ui.scanData"
     case mailUICompose = "mail.ui.compose"
     case messagesUICompose = "messages.ui.compose"
+    case printUIPresent = "print.ui.present"
     case webUIPresent = "web.ui.present"
     case authUIWebAuthenticate = "auth.ui.webAuthenticate"
     case uiAlertPresent = "ui.alert.present"
+    case uiPromptPresent = "ui.prompt.present"
+    case settingsUIOpen = "settings.ui.open"
 }

@@ -73,7 +73,23 @@ import Testing
 }
 
 @Test func validatorDoesNotRequireFullLibraryKeysForSystemPickers() {
-    let keys = HostConfigurationValidator.requiredInfoPlistKeys(for: [.photosUIPick, .contactsUIPick, .documentsUIPick, .shareUIPresent, .quickLookUIPreview, .webUIPresent, .authUIWebAuthenticate, .uiAlertPresent])
+    let keys = HostConfigurationValidator.requiredInfoPlistKeys(
+        for: [
+            .photosUIPick,
+            .contactsUIPick,
+            .documentsUIPick,
+            .documentsUIExport,
+            .documentsUIOpenIn,
+            .shareUIPresent,
+            .quickLookUIPreview,
+            .printUIPresent,
+            .webUIPresent,
+            .authUIWebAuthenticate,
+            .uiAlertPresent,
+            .uiPromptPresent,
+            .settingsUIOpen,
+        ]
+    )
 
     #expect(keys.contains("NSPhotoLibraryUsageDescription") == false)
     #expect(keys.contains("NSContactsUsageDescription") == false)
@@ -81,14 +97,22 @@ import Testing
 
 @Test func validatorRequiresExpectedKeysForExpandedSystemUI() {
     let keys = HostConfigurationValidator.requiredInfoPlistKeys(
-        for: [.calendarUIPresentEvent, .contactsUIPresentContact, .contactsUIPresentNewContact, .documentsUIScan, .cameraUICapture]
+        for: [
+            .calendarUIPresentEvent,
+            .contactsUIPresentContact,
+            .contactsUIPresentNewContact,
+            .photosUIPresentLimitedLibraryPicker,
+            .documentsUIScan,
+            .cameraUICapture,
+            .cameraUIScanData,
+        ]
     )
 
     #expect(keys.contains("NSCalendarsFullAccessUsageDescription"))
     #expect(keys.contains("NSContactsUsageDescription"))
     #expect(keys.contains("NSCameraUsageDescription"))
     #expect(keys.contains("NSMicrophoneUsageDescription"))
-    #expect(keys.contains("NSPhotoLibraryUsageDescription") == false)
+    #expect(keys.contains("NSPhotoLibraryUsageDescription"))
 }
 
 @Test func validatorReportsPhotosAndHomeKitMissingUsageDescriptions() {
