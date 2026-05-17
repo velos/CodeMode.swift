@@ -95,7 +95,7 @@ extension UIKitSystemUIPresenter {
     }
 
     public func presentNewCalendarEvent(arguments: [String: JSONValue], context: BridgeInvocationContext) throws -> JSONValue {
-        let timeoutMs = Self.defaultTimeoutMs
+        let timeoutMs = arguments.int("timeoutMs") ?? Self.defaultTimeoutMs
         let formatter = ISO8601DateFormatter()
         let token = UUID()
 

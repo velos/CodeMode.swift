@@ -32,6 +32,10 @@ public enum CodeModeEvalScenarios {
         notificationsPermissionRequest,
         locationPermissionStatus,
         networkInvalidURL,
+        calendarLifecycleCatalogDiscovery,
+        networkBase64TimeoutCatalogDiscovery,
+        notificationsDeliveredContentCatalogDiscovery,
+        systemUIParameterCatalogDiscovery,
         calendarWritePermissionDenied,
         homeWriteValidation,
         mediaMetadataValidation,
@@ -490,7 +494,7 @@ public enum CodeModeEvalScenarios {
     public static let reminderCatalogDiscovery = CodeModeEvalScenario(
         id: "catalog.reminder-create",
         title: "Reminder helper discovery",
-        task: "Search the catalog for the JavaScript helper and capability used to create reminders. Return the capability, first JS name, and required arguments.",
+        task: "Search the catalog for the JavaScript helper and capability used to create reminders. Return the capability, first JS name, optional arguments, and argument hints.",
         searchCode: """
         async () => {
             const wanted = ["reminders", "create"];
@@ -508,7 +512,8 @@ public enum CodeModeEvalScenarios {
                 .map(ref => ({
                     capability: ref.capability,
                     jsName: ref.jsNames[0],
-                    requiredArguments: ref.requiredArguments
+                    optionalArguments: ref.optionalArguments,
+                    argumentHints: ref.argumentHints
                 }));
         }
         """,
@@ -1046,6 +1051,178 @@ public enum CodeModeEvalScenarios {
             requiredErrorSuggestionFragments: ["url", "Example:"],
             requiredExecuteCodeFragments: ["fetch", "http://%zz"],
             expectedErrorCode: "INVALID_ARGUMENTS"
+        )
+    )
+
+    public static let calendarLifecycleCatalogDiscovery = CodeModeEvalScenario(
+        id: "calendar.lifecycle-catalog",
+        title: "EventKit lifecycle catalog discovery",
+        task: "Search for calendar and reminders lifecycle helpers. Return each capability, JavaScript name, optional arguments, argument hints, and result summary, including create/update/delete helpers and calendar filtering arguments.",
+        searchCode: """
+        async () => {
+            const names = [
+                "apple.calendar.listEvents",
+                "apple.calendar.createEvent",
+                "apple.calendar.updateEvent",
+                "apple.calendar.deleteEvent",
+                "apple.reminders.listReminders",
+                "apple.reminders.createReminder",
+                "apple.reminders.updateReminder",
+                "apple.reminders.completeReminder",
+                "apple.reminders.deleteReminder"
+            ];
+            return Object.fromEntries(names.map(name => {
+                const ref = api.byJSName[name];
+                return [name, ref ? {
+                    capability: ref.capability,
+                    jsNames: ref.jsNames,
+                    requiredArguments: ref.requiredArguments,
+                    optionalArguments: ref.optionalArguments,
+                    argumentHints: ref.argumentHints,
+                    resultSummary: ref.resultSummary
+                } : null];
+            }));
+        }
+        """,
+        expectation: CodeModeEvalExpectation(
+            toolOrder: [.searchJavaScriptAPI],
+            requiredSearchResultFragments: [
+                "apple.calendar.deleteEvent",
+                "apple.calendar.updateEvent",
+                "apple.reminders.completeReminder",
+                "apple.reminders.deleteReminder",
+                "apple.reminders.updateReminder",
+                "calendar.delete",
+                "calendar.write",
+                "calendarIdentifier",
+                "calendarIdentifiers",
+                "includeCompleted",
+                "isAllDay",
+                "isCompleted",
+                "reminders.delete",
+                "span",
+            ]
+        )
+    )
+
+    public static let networkBase64TimeoutCatalogDiscovery = CodeModeEvalScenario(
+        id: "network.base64-timeout-catalog",
+        title: "Network base64 and timeout catalog discovery",
+        task: "Search for fetch and return the network.fetch JavaScript name, arguments, hints, and result summary. The result must include timeoutMs, bodyBase64, responseEncoding, and base64 response support.",
+        searchCode: """
+        async () => {
+            const ref = api.byJSName["fetch"];
+            return {
+                capability: ref.capability,
+                jsNames: ref.jsNames,
+                requiredArguments: ref.requiredArguments,
+                optionalArguments: ref.optionalArguments,
+                argumentHints: ref.argumentHints,
+                resultSummary: ref.resultSummary
+            };
+        }
+        """,
+        expectation: CodeModeEvalExpectation(
+            toolOrder: [.searchJavaScriptAPI],
+            requiredSearchResultFragments: [
+                "network.fetch",
+                "fetch",
+                "options.bodyBase64",
+                "options.responseEncoding",
+                "options.timeoutMs",
+                "base64",
+                "HTTP(S)",
+            ]
+        )
+    )
+
+    public static let notificationsDeliveredContentCatalogDiscovery = CodeModeEvalScenario(
+        id: "notifications.delivered-content-catalog",
+        title: "Notifications delivered/content catalog discovery",
+        task: "Search for notification scheduling, pending, and delivered helpers. Return each capability, JavaScript name, arguments, hints, and result summary, including richer schedule content fields and delivered-notification management.",
+        searchCode: """
+        async () => {
+            const names = [
+                "apple.notifications.schedule",
+                "apple.notifications.listPending",
+                "apple.notifications.cancelPending",
+                "apple.notifications.listDelivered",
+                "apple.notifications.removeDelivered"
+            ];
+            return Object.fromEntries(names.map(name => {
+                const ref = api.byJSName[name];
+                return [name, ref ? {
+                    capability: ref.capability,
+                    jsNames: ref.jsNames,
+                    requiredArguments: ref.requiredArguments,
+                    optionalArguments: ref.optionalArguments,
+                    argumentHints: ref.argumentHints,
+                    resultSummary: ref.resultSummary
+                } : null];
+            }));
+        }
+        """,
+        expectation: CodeModeEvalExpectation(
+            toolOrder: [.searchJavaScriptAPI],
+            requiredSearchResultFragments: [
+                "apple.notifications.listDelivered",
+                "apple.notifications.removeDelivered",
+                "badge",
+                "categoryIdentifier",
+                "notifications.delivered.delete",
+                "notifications.delivered.read",
+                "sound",
+                "threadIdentifier",
+                "userInfo",
+            ]
+        )
+    )
+
+    public static let systemUIParameterCatalogDiscovery = CodeModeEvalScenario(
+        id: "system-ui.parameter-catalog",
+        title: "UIKit parameter catalog discovery",
+        task: "Search the iOS system UI catalog for calendar editor, camera capture, live data scanner, and alert helpers. Return arguments, hints, and result summaries that expose the new timeout/sourceRect/camera/scanner parameters.",
+        catalogPlatform: .iOS,
+        searchCode: """
+        async () => {
+            const names = [
+                "apple.calendar.presentNewEvent",
+                "apple.camera.capture",
+                "apple.camera.scanData",
+                "apple.ui.presentAlert"
+            ];
+            return Object.fromEntries(names.map(name => {
+                const ref = api.byJSName[name];
+                return [name, ref ? {
+                    capability: ref.capability,
+                    jsNames: ref.jsNames,
+                    requiredArguments: ref.requiredArguments,
+                    optionalArguments: ref.optionalArguments,
+                    argumentHints: ref.argumentHints,
+                    resultSummary: ref.resultSummary
+                } : null];
+            }));
+        }
+        """,
+        expectation: CodeModeEvalExpectation(
+            toolOrder: [.searchJavaScriptAPI],
+            requiredSearchResultFragments: [
+                "allowsEditing",
+                "apple.calendar.presentNewEvent",
+                "apple.camera.capture",
+                "apple.camera.scanData",
+                "apple.ui.presentAlert",
+                "cameraDevice",
+                "flashMode",
+                "isGuidanceEnabled",
+                "isHighFrameRateTrackingEnabled",
+                "isHighlightingEnabled",
+                "isPinchToZoomEnabled",
+                "maximumDurationSeconds",
+                "sourceRect",
+                "timeoutMs",
+                "videoQuality",
+            ]
         )
     )
 

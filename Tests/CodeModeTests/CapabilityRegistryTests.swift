@@ -104,6 +104,55 @@ import Testing
     #expect(JavaScriptBindingCatalog.names(for: .contactsUIPresentNewContact) == ["apple.contacts.presentNewContact"])
 }
 
+@Test func expandedAPIDescriptorsExposeExpectedJavaScriptNames() throws {
+    let descriptors = Dictionary(
+        uniqueKeysWithValues: DefaultCapabilityLoader.loadAllRegistrations().map { ($0.descriptor.id, $0.descriptor) }
+    )
+
+    let calendarWrite = try #require(descriptors[.calendarWrite])
+    #expect(calendarWrite.requiredPermissions.isEmpty)
+    #expect(calendarWrite.optionalArguments.contains("calendarIdentifier"))
+    #expect(JavaScriptBindingCatalog.names(for: .calendarWrite) == ["apple.calendar.createEvent", "apple.calendar.updateEvent"])
+
+    let calendarDelete = try #require(descriptors[.calendarDelete])
+    #expect(calendarDelete.requiredPermissions == [.calendar])
+    #expect(calendarDelete.requiredArguments == ["identifier"])
+    #expect(JavaScriptBindingCatalog.names(for: .calendarDelete) == ["apple.calendar.deleteEvent"])
+
+    let remindersWrite = try #require(descriptors[.remindersWrite])
+    #expect(remindersWrite.optionalArguments.contains("isCompleted"))
+    #expect(JavaScriptBindingCatalog.names(for: .remindersWrite) == [
+        "apple.reminders.createReminder",
+        "apple.reminders.updateReminder",
+        "apple.reminders.completeReminder",
+    ])
+
+    let remindersDelete = try #require(descriptors[.remindersDelete])
+    #expect(remindersDelete.requiredArguments == ["identifier"])
+    #expect(JavaScriptBindingCatalog.names(for: .remindersDelete) == ["apple.reminders.deleteReminder"])
+
+    let networkFetch = try #require(descriptors[.networkFetch])
+    #expect(networkFetch.optionalArguments.contains("options.timeoutMs"))
+    #expect(networkFetch.optionalArguments.contains("options.bodyBase64"))
+    #expect(networkFetch.optionalArguments.contains("options.responseEncoding"))
+
+    let notificationsSchedule = try #require(descriptors[.notificationsSchedule])
+    #expect(notificationsSchedule.optionalArguments.contains("userInfo"))
+    #expect(notificationsSchedule.optionalArguments.contains("threadIdentifier"))
+    #expect(JavaScriptBindingCatalog.names(for: .notificationsDeliveredRead) == ["apple.notifications.listDelivered"])
+    #expect(JavaScriptBindingCatalog.names(for: .notificationsDeliveredDelete) == ["apple.notifications.removeDelivered"])
+
+    let cameraCapture = try #require(descriptors[.cameraUICapture])
+    #expect(cameraCapture.optionalArguments.contains("cameraDevice"))
+    #expect(cameraCapture.optionalArguments.contains("maximumDurationSeconds"))
+
+    let scanData = try #require(descriptors[.cameraUIScanData])
+    #expect(scanData.optionalArguments.contains("isGuidanceEnabled"))
+
+    let alert = try #require(descriptors[.uiAlertPresent])
+    #expect(alert.optionalArguments.contains("sourceRect"))
+}
+
 @Test func filesystemListDescriptorDocumentsEntryObjects() throws {
     let descriptor = try #require(
         DefaultCapabilityLoader.loadAllRegistrations()

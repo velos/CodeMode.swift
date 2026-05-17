@@ -324,10 +324,12 @@ public enum CapabilityID: String, Sendable, Codable, CaseIterable, Hashable {
 
     case calendarRead = "calendar.read"
     case calendarWrite = "calendar.write"
+    case calendarDelete = "calendar.delete"
     case calendarUIPresentNewEvent = "calendar.ui.presentNewEvent"
 
     case remindersRead = "reminders.read"
     case remindersWrite = "reminders.write"
+    case remindersDelete = "reminders.delete"
 
     case contactsRead = "contacts.read"
     case contactsSearch = "contacts.search"
@@ -344,6 +346,8 @@ public enum CapabilityID: String, Sendable, Codable, CaseIterable, Hashable {
     case notificationsSchedule = "notifications.schedule"
     case notificationsPendingRead = "notifications.pending.read"
     case notificationsPendingDelete = "notifications.pending.delete"
+    case notificationsDeliveredRead = "notifications.delivered.read"
+    case notificationsDeliveredDelete = "notifications.delivered.delete"
 
     case alarmPermissionRequest = "alarm.permission.request"
     case alarmRead = "alarm.read"

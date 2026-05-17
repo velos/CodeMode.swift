@@ -187,9 +187,10 @@ import Testing
 
     let result = try #require(response.result?.objectValue)
     #expect(result.string("capability") == CapabilityID.calendarWrite.rawValue)
-    #expect(result.array("requiredArguments")?.contains(.string("title")) == true)
-    #expect(result.array("requiredArguments")?.contains(.string("start")) == true)
-    #expect(result.array("requiredArguments")?.contains(.string("end")) == true)
+    #expect(result.array("optionalArguments")?.contains(.string("title")) == true)
+    #expect(result.array("optionalArguments")?.contains(.string("start")) == true)
+    #expect(result.array("optionalArguments")?.contains(.string("end")) == true)
+    #expect(result.array("jsNames")?.contains(.string("apple.calendar.updateEvent")) == true)
 }
 
 @Test func searchReturnsProjectedResults() async throws {

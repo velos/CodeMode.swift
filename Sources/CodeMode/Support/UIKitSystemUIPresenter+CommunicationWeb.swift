@@ -114,13 +114,24 @@ extension UIKitSystemUIPresenter {
                 let presenter = try self.requirePresenter()
                 let controller = UIImagePickerController()
                 controller.sourceType = .camera
+                let cameraDevice = self.cameraDevice(from: arguments)
+                guard UIImagePickerController.isCameraDeviceAvailable(cameraDevice) else {
+                    complete(.failure(.unsupportedPlatform("camera.ui.capture \(arguments.string("cameraDevice") ?? "rear")")))
+                    return
+                }
+                controller.cameraDevice = cameraDevice
+                controller.cameraFlashMode = self.cameraFlashMode(from: arguments)
+                controller.videoQuality = self.cameraVideoQuality(from: arguments)
+                if let maximumDurationSeconds = arguments.double("maximumDurationSeconds") {
+                    controller.videoMaximumDuration = maximumDurationSeconds
+                }
                 let mediaTypes = self.cameraMediaTypes(for: mediaType)
                 guard mediaTypes.isEmpty == false else {
                     complete(.failure(.unsupportedPlatform("camera.ui.capture \(mediaType)")))
                     return
                 }
                 controller.mediaTypes = mediaTypes
-                controller.allowsEditing = false
+                controller.allowsEditing = arguments.bool("allowsEditing") ?? false
 
                 let coordinator = CameraCaptureCoordinator(outputDirectory: outputDirectory) { [weak self] result in
                     self?.releaseCoordinator(token)
@@ -171,10 +182,10 @@ extension UIKitSystemUIPresenter {
                     recognizedDataTypes: self.scannerRecognizedDataTypes(from: arguments),
                     qualityLevel: self.scannerQualityLevel(from: arguments),
                     recognizesMultipleItems: arguments.bool("recognizesMultipleItems") ?? false,
-                    isHighFrameRateTrackingEnabled: true,
-                    isPinchToZoomEnabled: true,
-                    isGuidanceEnabled: true,
-                    isHighlightingEnabled: true
+                    isHighFrameRateTrackingEnabled: arguments.bool("isHighFrameRateTrackingEnabled") ?? true,
+                    isPinchToZoomEnabled: arguments.bool("isPinchToZoomEnabled") ?? true,
+                    isGuidanceEnabled: arguments.bool("isGuidanceEnabled") ?? true,
+                    isHighlightingEnabled: arguments.bool("isHighlightingEnabled") ?? true
                 )
                 let navigation = UINavigationController(rootViewController: controller)
                 let coordinator = DataScannerCoordinator(
@@ -490,12 +501,7 @@ extension UIKitSystemUIPresenter {
                 }
 
                 controller.popoverPresentationController?.sourceView = presenter.view
-                controller.popoverPresentationController?.sourceRect = CGRect(
-                    x: presenter.view.bounds.midX,
-                    y: presenter.view.bounds.midY,
-                    width: 1,
-                    height: 1
-                )
+                controller.popoverPresentationController?.sourceRect = self.popoverSourceRect(from: arguments, presenter: presenter)
 
                 self.retainCoordinator(controller, token: token)
                 presenter.present(controller, animated: true)

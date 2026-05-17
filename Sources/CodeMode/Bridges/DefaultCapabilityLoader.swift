@@ -72,14 +72,24 @@ private struct DefaultCapabilityRegistrationBuilder {
                     tags: ["network", "http", "fetch"],
                     example: "await fetch('https://api.example.com/data').then(r => r.json())",
                     requiredArguments: ["url"],
-                    optionalArguments: ["options.method", "options.headers", "options.body"],
+                    optionalArguments: [
+                        "options.method",
+                        "options.headers",
+                        "options.body",
+                        "options.bodyBase64",
+                        "options.timeoutMs",
+                        "options.responseEncoding",
+                    ],
                     argumentHints: [
                         "url": "Absolute HTTP(S) URL string.",
                         "options.method": "HTTP method; defaults to GET.",
                         "options.headers": "Object of header key/value string pairs.",
                         "options.body": "UTF-8 request body string.",
+                        "options.bodyBase64": "Base64-encoded request body. Mutually exclusive with options.body.",
+                        "options.timeoutMs": "Request and bridge wait timeout in milliseconds; defaults to 30000.",
+                        "options.responseEncoding": "text (default) or base64.",
                     ],
-                    resultSummary: "Object with ok/status/statusText/headers/bodyText."
+                    resultSummary: "Object with ok/status/statusText/headers/bodyText or bodyBase64."
                 ),
                 handler: { args, context in
                     try network.fetch(arguments: args, context: context)
@@ -210,13 +220,15 @@ private struct DefaultCapabilityRegistrationBuilder {
                     tags: ["calendar", "eventkit", "schedule"],
                     example: "await apple.calendar.listEvents({ start: '2026-02-21T00:00:00Z', end: '2026-03-01T00:00:00Z' })",
                     requiredPermissions: [.calendar],
-                    optionalArguments: ["start", "end", "limit"],
+                    optionalArguments: ["start", "end", "limit", "calendarIdentifier", "calendarIdentifiers"],
                     argumentHints: [
                         "start": "ISO8601 timestamp; defaults to now.",
                         "end": "ISO8601 timestamp; defaults to start + 14 days.",
                         "limit": "Max number of items, default 50.",
+                        "calendarIdentifier": "Optional EventKit calendarIdentifier to restrict results.",
+                        "calendarIdentifiers": "Optional array of EventKit calendarIdentifier strings to restrict results.",
                     ],
-                    resultSummary: "Array of events with identifier/title/startDate/endDate/notes/calendarTitle."
+                    resultSummary: "Array of events with identifier/title/startDate/endDate/notes/calendarIdentifier/calendarTitle/location/url/isAllDay."
                 ),
                 handler: { args, context in
                     try eventKit.readEvents(arguments: args, context: context)
@@ -225,23 +237,59 @@ private struct DefaultCapabilityRegistrationBuilder {
             CapabilityRegistration(
                 descriptor: .init(
                     id: .calendarWrite,
-                    title: "Create calendar event",
-                    summary: "Create a calendar event in the default calendar.",
+                    title: "Create or update calendar event",
+                    summary: "Create a calendar event or patch an existing event by identifier.",
                     tags: ["calendar", "eventkit", "schedule"],
                     example: "await apple.calendar.createEvent({ title: 'Standup', start: '2026-02-22T16:00:00Z', end: '2026-02-22T16:15:00Z' })",
-                    requiredPermissions: [.calendarWriteOnly],
-                    requiredArguments: ["title", "start", "end"],
-                    optionalArguments: ["notes"],
+                    requiredPermissions: [],
+                    optionalArguments: [
+                        "operation",
+                        "identifier",
+                        "title",
+                        "start",
+                        "end",
+                        "notes",
+                        "location",
+                        "url",
+                        "isAllDay",
+                        "calendarIdentifier",
+                    ],
                     argumentHints: [
+                        "operation": "create (default without identifier) or update (default with identifier).",
+                        "identifier": "EventKit eventIdentifier to update. Updates require full calendar access at runtime.",
                         "title": "Event title string.",
                         "start": "ISO8601 start timestamp.",
                         "end": "ISO8601 end timestamp.",
                         "notes": "Optional notes/body string.",
+                        "location": "Optional location string.",
+                        "url": "Optional absolute URL string attached to the event.",
+                        "isAllDay": "Whether the event is all-day.",
+                        "calendarIdentifier": "Optional destination EventKit calendarIdentifier.",
                     ],
-                    resultSummary: "Object with identifier/title."
+                    resultSummary: "Object with identifier/title/startDate/endDate/notes/calendarIdentifier/calendarTitle/location/url/isAllDay."
                 ),
                 handler: { args, context in
                     try eventKit.writeEvent(arguments: args, context: context)
+                }
+            ),
+            CapabilityRegistration(
+                descriptor: .init(
+                    id: .calendarDelete,
+                    title: "Delete calendar event",
+                    summary: "Delete an existing EventKit event by identifier.",
+                    tags: ["calendar", "eventkit", "schedule", "delete"],
+                    example: "await apple.calendar.deleteEvent({ identifier: 'EVENT_ID', span: 'thisEvent' })",
+                    requiredPermissions: [.calendar],
+                    requiredArguments: ["identifier"],
+                    optionalArguments: ["span"],
+                    argumentHints: [
+                        "identifier": "EventKit eventIdentifier from apple.calendar.listEvents.",
+                        "span": "thisEvent (default) or futureEvents for recurring events.",
+                    ],
+                    resultSummary: "Object with identifier/deleted."
+                ),
+                handler: { args, context in
+                    try eventKit.deleteEvent(arguments: args, context: context)
                 }
             ),
             CapabilityRegistration(
@@ -305,13 +353,14 @@ private struct DefaultCapabilityRegistrationBuilder {
                     tags: ["calendar", "eventkit", "system-ui", "picker"],
                     example: "await apple.calendar.presentNewEvent({ title: 'Standup', start: '2026-02-22T16:00:00Z', end: '2026-02-22T16:15:00Z' })",
                     requiredPermissions: [.calendarWriteOnly],
-                    optionalArguments: ["title", "start", "end", "notes", "location"],
+                    optionalArguments: ["title", "start", "end", "notes", "location", "timeoutMs"],
                     argumentTypes: [
                         "title": .string,
                         "start": .string,
                         "end": .string,
                         "notes": .string,
                         "location": .string,
+                        "timeoutMs": .number,
                     ],
                     argumentHints: [
                         "title": "Optional event title shown in the editor.",
@@ -319,6 +368,7 @@ private struct DefaultCapabilityRegistrationBuilder {
                         "end": "Optional ISO8601 end timestamp.",
                         "notes": "Optional event notes/body text.",
                         "location": "Optional location string.",
+                        "timeoutMs": "Optional timeout for waiting on user save/cancel.",
                     ],
                     resultSummary: "Object with action plus identifier/title when the user saves."
                 ),
@@ -334,11 +384,16 @@ private struct DefaultCapabilityRegistrationBuilder {
                     tags: ["reminders", "eventkit", "task"],
                     example: "await apple.reminders.listReminders({ limit: 20 })",
                     requiredPermissions: [.reminders],
-                    optionalArguments: ["limit"],
+                    optionalArguments: ["start", "end", "includeCompleted", "calendarIdentifier", "calendarIdentifiers", "limit"],
                     argumentHints: [
+                        "start": "Optional ISO8601 due-date lower bound.",
+                        "end": "Optional ISO8601 due-date upper bound.",
+                        "includeCompleted": "Whether completed reminders are included; default false.",
+                        "calendarIdentifier": "Optional EventKit reminder calendarIdentifier to restrict results.",
+                        "calendarIdentifiers": "Optional array of EventKit reminder calendarIdentifier strings to restrict results.",
                         "limit": "Max number of reminder items, default 50.",
                     ],
-                    resultSummary: "Array of reminders with identifier/title/isCompleted/dueDate."
+                    resultSummary: "Array of reminders with identifier/title/isCompleted/dueDate/completionDate/notes/priority/calendarIdentifier/calendarTitle."
                 ),
                 handler: { args, context in
                     try eventKit.readReminders(arguments: args, context: context)
@@ -347,21 +402,44 @@ private struct DefaultCapabilityRegistrationBuilder {
             CapabilityRegistration(
                 descriptor: .init(
                     id: .remindersWrite,
-                    title: "Create reminder",
-                    summary: "Create a reminder in default reminders list.",
+                    title: "Create or update reminder",
+                    summary: "Create a reminder or patch an existing reminder by identifier.",
                     tags: ["reminders", "eventkit", "task"],
                     example: "await apple.reminders.createReminder({ title: 'Buy batteries', dueDate: '2026-02-22T18:00:00Z' })",
                     requiredPermissions: [.reminders],
-                    requiredArguments: ["title"],
-                    optionalArguments: ["dueDate"],
+                    optionalArguments: ["operation", "identifier", "title", "dueDate", "notes", "isCompleted", "priority", "calendarIdentifier"],
                     argumentHints: [
+                        "operation": "create (default without identifier), update, or complete.",
+                        "identifier": "EventKit calendarItemIdentifier to update or complete.",
                         "title": "Reminder title string.",
                         "dueDate": "Optional ISO8601 due date timestamp.",
+                        "notes": "Optional reminder notes.",
+                        "isCompleted": "Completion state for update or completeReminder; default true for completeReminder.",
+                        "priority": "EventKit reminder priority integer.",
+                        "calendarIdentifier": "Optional destination EventKit reminders calendarIdentifier.",
                     ],
-                    resultSummary: "Object with identifier/title."
+                    resultSummary: "Object with identifier/title/isCompleted/dueDate/completionDate/notes/priority/calendarIdentifier/calendarTitle."
                 ),
                 handler: { args, context in
                     try eventKit.writeReminder(arguments: args, context: context)
+                }
+            ),
+            CapabilityRegistration(
+                descriptor: .init(
+                    id: .remindersDelete,
+                    title: "Delete reminder",
+                    summary: "Delete an existing EventKit reminder by identifier.",
+                    tags: ["reminders", "eventkit", "task", "delete"],
+                    example: "await apple.reminders.deleteReminder({ identifier: 'REMINDER_ID' })",
+                    requiredPermissions: [.reminders],
+                    requiredArguments: ["identifier"],
+                    argumentHints: [
+                        "identifier": "EventKit calendarItemIdentifier from apple.reminders.listReminders.",
+                    ],
+                    resultSummary: "Object with identifier/deleted."
+                ),
+                handler: { args, context in
+                    try eventKit.deleteReminder(arguments: args, context: context)
                 }
             ),
         ]
@@ -752,16 +830,35 @@ private struct DefaultCapabilityRegistrationBuilder {
                     summary: "Present system camera UI and export captured media into the sandbox artifact store.",
                     tags: ["camera", "capture", "photos", "system-ui", "artifact"],
                     example: "await apple.camera.capture({ mediaType: 'image', outputDirectory: 'tmp:camera' })",
-                    optionalArguments: ["mediaType", "outputDirectory", "timeoutMs"],
+                    optionalArguments: [
+                        "mediaType",
+                        "outputDirectory",
+                        "timeoutMs",
+                        "allowsEditing",
+                        "cameraDevice",
+                        "flashMode",
+                        "videoQuality",
+                        "maximumDurationSeconds",
+                    ],
                     argumentTypes: [
                         "mediaType": .string,
                         "outputDirectory": .string,
                         "timeoutMs": .number,
+                        "allowsEditing": .bool,
+                        "cameraDevice": .string,
+                        "flashMode": .string,
+                        "videoQuality": .string,
+                        "maximumDurationSeconds": .number,
                     ],
                     argumentHints: [
                         "mediaType": "any (default), image/photo, or video.",
                         "outputDirectory": "Optional sandbox directory for captured media; defaults to tmp:.",
                         "timeoutMs": "Optional timeout for waiting on capture/export.",
+                        "allowsEditing": "Whether the system editor is shown before returning media; default false.",
+                        "cameraDevice": "rear (default) or front.",
+                        "flashMode": "auto (default), on, or off.",
+                        "videoQuality": "UIImagePickerController quality name such as high, medium, low, 640x480, iFrame1280x720, or iFrame960x540.",
+                        "maximumDurationSeconds": "Optional maximum duration for video capture.",
                     ],
                     resultSummary: "Object with path/artifactID/mediaType/uniformTypeIdentifier/bytes."
                 ),
@@ -776,7 +873,19 @@ private struct DefaultCapabilityRegistrationBuilder {
                     summary: "Present VisionKit live data scanner UI and return recognized text or barcode payloads.",
                     tags: ["camera", "scan", "barcode", "text", "visionkit", "system-ui"],
                     example: "await apple.camera.scanData({ mode: 'barcode', returnsOnFirstResult: true })",
-                    optionalArguments: ["mode", "recognizedDataTypes", "languages", "qualityLevel", "recognizesMultipleItems", "returnsOnFirstResult", "timeoutMs"],
+                    optionalArguments: [
+                        "mode",
+                        "recognizedDataTypes",
+                        "languages",
+                        "qualityLevel",
+                        "recognizesMultipleItems",
+                        "returnsOnFirstResult",
+                        "isGuidanceEnabled",
+                        "isHighlightingEnabled",
+                        "isPinchToZoomEnabled",
+                        "isHighFrameRateTrackingEnabled",
+                        "timeoutMs",
+                    ],
                     argumentTypes: [
                         "mode": .string,
                         "recognizedDataTypes": .array,
@@ -784,6 +893,10 @@ private struct DefaultCapabilityRegistrationBuilder {
                         "qualityLevel": .string,
                         "recognizesMultipleItems": .bool,
                         "returnsOnFirstResult": .bool,
+                        "isGuidanceEnabled": .bool,
+                        "isHighlightingEnabled": .bool,
+                        "isPinchToZoomEnabled": .bool,
+                        "isHighFrameRateTrackingEnabled": .bool,
                         "timeoutMs": .number,
                     ],
                     argumentHints: [
@@ -793,6 +906,10 @@ private struct DefaultCapabilityRegistrationBuilder {
                         "qualityLevel": "balanced (default), fast, or accurate.",
                         "recognizesMultipleItems": "Whether the scanner tracks multiple items at once; default false.",
                         "returnsOnFirstResult": "Whether to dismiss as soon as data is recognized; default true.",
+                        "isGuidanceEnabled": "Whether VisionKit guidance UI is shown; default true.",
+                        "isHighlightingEnabled": "Whether recognized items are highlighted; default true.",
+                        "isPinchToZoomEnabled": "Whether pinch-to-zoom is enabled; default true.",
+                        "isHighFrameRateTrackingEnabled": "Whether high-frame-rate tracking is enabled; default true.",
                         "timeoutMs": "Optional timeout for waiting on a scan result or cancellation.",
                     ],
                     resultSummary: "Object with action and items containing text transcripts or barcode payloads."
@@ -953,18 +1070,20 @@ private struct DefaultCapabilityRegistrationBuilder {
                     tags: ["ui", "alert", "dialog", "system-ui"],
                     example: "await apple.ui.presentAlert({ title: 'Delete draft?', message: 'This cannot be undone.', buttons: [{ id: 'cancel', title: 'Cancel', style: 'cancel' }, { id: 'delete', title: 'Delete', style: 'destructive' }] })",
                     requiredArguments: ["buttons"],
-                    optionalArguments: ["title", "message", "preferredStyle", "timeoutMs"],
+                    optionalArguments: ["title", "message", "preferredStyle", "sourceRect", "timeoutMs"],
                     argumentTypes: [
                         "title": .string,
                         "message": .string,
                         "preferredStyle": .string,
                         "buttons": .array,
+                        "sourceRect": .object,
                         "timeoutMs": .number,
                     ],
                     argumentHints: [
                         "title": "Optional alert title.",
                         "message": "Optional alert message.",
                         "preferredStyle": "alert (default) or actionSheet.",
+                        "sourceRect": "Optional { x, y, width, height } anchor for action sheets.",
                         "buttons": "Array of { id?, title, style? }; style is default, cancel, or destructive. At most one cancel button.",
                         "timeoutMs": "Optional timeout for waiting on user selection.",
                     ],
@@ -1073,13 +1192,32 @@ private struct DefaultCapabilityRegistrationBuilder {
                     example: "await apple.notifications.schedule({ title: 'Stand up', body: 'Stretch break', secondsFromNow: 900 })",
                     requiredPermissions: [.notifications],
                     requiredArguments: ["title"],
-                    optionalArguments: ["identifier", "subtitle", "body", "secondsFromNow", "fireDate", "repeats"],
+                    optionalArguments: [
+                        "identifier",
+                        "subtitle",
+                        "body",
+                        "secondsFromNow",
+                        "fireDate",
+                        "repeats",
+                        "sound",
+                        "badge",
+                        "userInfo",
+                        "threadIdentifier",
+                        "categoryIdentifier",
+                    ],
                     argumentHints: [
                         "title": "Notification title text.",
                         "identifier": "Optional request identifier; defaults to codemode UUID.",
+                        "subtitle": "Optional subtitle text.",
+                        "body": "Optional body text.",
                         "secondsFromNow": "Delay in seconds for time interval trigger (default 5).",
                         "fireDate": "Optional ISO8601 timestamp for calendar trigger.",
                         "repeats": "Boolean repeat flag (time interval requires >= 60 seconds).",
+                        "sound": "default (default), none, or a bundled custom sound name.",
+                        "badge": "Optional app icon badge number.",
+                        "userInfo": "Optional property-list-safe userInfo object.",
+                        "threadIdentifier": "Optional thread identifier for notification grouping.",
+                        "categoryIdentifier": "Optional category identifier for notification actions.",
                     ],
                     resultSummary: "Object with identifier/scheduled/repeats."
                 ),
@@ -1122,6 +1260,43 @@ private struct DefaultCapabilityRegistrationBuilder {
                 ),
                 handler: { args, context in
                     try notifications.deletePending(arguments: args, context: context)
+                }
+            ),
+            CapabilityRegistration(
+                descriptor: .init(
+                    id: .notificationsDeliveredRead,
+                    title: "List delivered local notifications",
+                    summary: "List notifications currently delivered in Notification Center.",
+                    tags: ["notifications", "local", "delivered"],
+                    example: "await apple.notifications.listDelivered({ limit: 20 })",
+                    requiredPermissions: [.notifications],
+                    optionalArguments: ["limit"],
+                    argumentHints: [
+                        "limit": "Max number of delivered notifications to return, default 50.",
+                    ],
+                    resultSummary: "Array of delivered notifications with identifiers/content/date metadata."
+                ),
+                handler: { args, context in
+                    try notifications.readDelivered(arguments: args, context: context)
+                }
+            ),
+            CapabilityRegistration(
+                descriptor: .init(
+                    id: .notificationsDeliveredDelete,
+                    title: "Delete delivered local notifications",
+                    summary: "Delete delivered notifications by identifier list or clear all.",
+                    tags: ["notifications", "local", "delivered", "delete"],
+                    example: "await apple.notifications.removeDelivered({ identifiers: ['codemode.1', 'codemode.2'] })",
+                    requiredPermissions: [.notifications],
+                    optionalArguments: ["identifier", "identifiers"],
+                    argumentHints: [
+                        "identifier": "Single delivered notification identifier to remove.",
+                        "identifiers": "Array of delivered notification identifiers to remove. Omit both to clear all delivered notifications.",
+                    ],
+                    resultSummary: "Object with deleted/count fields."
+                ),
+                handler: { args, context in
+                    try notifications.deleteDelivered(arguments: args, context: context)
                 }
             ),
         ]

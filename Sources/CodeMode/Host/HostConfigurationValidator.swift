@@ -40,11 +40,18 @@ public enum HostConfigurationValidator {
             keys.insert("NSCalendarsWriteOnlyAccessUsageDescription")
         }
 
-        if capabilities.contains(.calendarRead) || capabilities.contains(.calendarUIPresentEvent) {
+        if capabilities.contains(.calendarRead) ||
+            capabilities.contains(.calendarWrite) ||
+            capabilities.contains(.calendarDelete) ||
+            capabilities.contains(.calendarUIPresentEvent)
+        {
             keys.insert("NSCalendarsFullAccessUsageDescription")
         }
 
-        if capabilities.contains(.remindersRead) || capabilities.contains(.remindersWrite) {
+        if capabilities.contains(.remindersRead) ||
+            capabilities.contains(.remindersWrite) ||
+            capabilities.contains(.remindersDelete)
+        {
             keys.insert("NSRemindersFullAccessUsageDescription")
         }
 
@@ -123,6 +130,8 @@ public enum HostConfigurationValidator {
         if requiredCapabilities.contains(.notificationsSchedule) ||
             requiredCapabilities.contains(.notificationsPendingRead) ||
             requiredCapabilities.contains(.notificationsPendingDelete) ||
+            requiredCapabilities.contains(.notificationsDeliveredRead) ||
+            requiredCapabilities.contains(.notificationsDeliveredDelete) ||
             requiredCapabilities.contains(.notificationsPermissionRequest)
         {
             issues.append(

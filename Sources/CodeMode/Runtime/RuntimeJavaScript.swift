@@ -73,18 +73,36 @@ enum RuntimeJavaScript {
     }
 
     if (typeof URL === 'undefined') {
-        globalThis.URL = function(url){ this.href = String(url); };
+        globalThis.URL = function(url){
+            this.href = String(url);
+            this.toString = function(){ return this.href; };
+            this.valueOf = function(){ return this.href; };
+        };
     }
 
     function __response(payload) {
         const bodyText = payload && payload.bodyText ? String(payload.bodyText) : '';
+        const bodyBase64 = payload && payload.bodyBase64 ? String(payload.bodyBase64) : '';
+        const headerValues = payload && payload.headers ? payload.headers : {};
+        const headers = Object.assign({}, headerValues);
+        headers.get = function(name) {
+            const target = String(name || '').toLowerCase();
+            const keys = Object.keys(headerValues);
+            for (let i = 0; i < keys.length; i++) {
+                if (String(keys[i]).toLowerCase() === target) {
+                    return headerValues[keys[i]];
+                }
+            }
+            return null;
+        };
         return {
             ok: !!(payload && payload.ok),
             status: payload && payload.status ? Number(payload.status) : 0,
             statusText: payload && payload.statusText ? String(payload.statusText) : '',
-            headers: payload && payload.headers ? payload.headers : {},
+            headers: headers,
             text: function(){ return Promise.resolve(bodyText); },
-            json: function(){ return Promise.resolve(bodyText.length ? JSON.parse(bodyText) : null); }
+            json: function(){ return Promise.resolve(bodyText.length ? JSON.parse(bodyText) : null); },
+            base64: function(){ return Promise.resolve(bodyBase64); }
         };
     }
 
@@ -111,7 +129,9 @@ enum RuntimeJavaScript {
 
     globalThis.apple.calendar = {
         listEvents: function(args) { return __invokeAsync('calendar.read', args || {}); },
-        createEvent: function(args) { return __invokeAsync('calendar.write', args || {}); },
+        createEvent: function(args) { return __invokeAsync('calendar.write', Object.assign({}, args || {}, { operation: 'create' })); },
+        updateEvent: function(args) { return __invokeAsync('calendar.write', Object.assign({}, args || {}, { operation: 'update' })); },
+        deleteEvent: function(args) { return __invokeAsync('calendar.delete', args || {}); },
         pickCalendar: function(args) { return __invokeAsync('calendar.ui.pickCalendar', args || {}); },
         presentEvent: function(args) { return __invokeAsync('calendar.ui.presentEvent', args || {}); },
         presentNewEvent: function(args) { return __invokeAsync('calendar.ui.presentNewEvent', args || {}); }
@@ -119,7 +139,10 @@ enum RuntimeJavaScript {
 
     globalThis.apple.reminders = {
         listReminders: function(args) { return __invokeAsync('reminders.read', args || {}); },
-        createReminder: function(args) { return __invokeAsync('reminders.write', args || {}); }
+        createReminder: function(args) { return __invokeAsync('reminders.write', Object.assign({}, args || {}, { operation: 'create' })); },
+        updateReminder: function(args) { return __invokeAsync('reminders.write', Object.assign({}, args || {}, { operation: 'update' })); },
+        completeReminder: function(args) { return __invokeAsync('reminders.write', Object.assign({ isCompleted: true }, args || {}, { operation: 'complete' })); },
+        deleteReminder: function(args) { return __invokeAsync('reminders.delete', args || {}); }
     };
 
     globalThis.apple.contacts = {
@@ -195,7 +218,9 @@ enum RuntimeJavaScript {
         requestPermission: function() { return __invokeAsync('notifications.permission.request', {}); },
         schedule: function(args) { return __invokeAsync('notifications.schedule', args || {}); },
         listPending: function(args) { return __invokeAsync('notifications.pending.read', args || {}); },
-        cancelPending: function(args) { return __invokeAsync('notifications.pending.delete', args || {}); }
+        cancelPending: function(args) { return __invokeAsync('notifications.pending.delete', args || {}); },
+        listDelivered: function(args) { return __invokeAsync('notifications.delivered.read', args || {}); },
+        removeDelivered: function(args) { return __invokeAsync('notifications.delivered.delete', args || {}); }
     };
 
     globalThis.ios = globalThis.ios || {};

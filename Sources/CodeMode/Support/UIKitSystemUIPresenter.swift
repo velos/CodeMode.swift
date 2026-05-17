@@ -137,6 +137,24 @@ public final class UIKitSystemUIPresenter: SystemUIPresenter, @unchecked Sendabl
         }
     }
 
+    @MainActor func popoverSourceRect(from arguments: [String: JSONValue], presenter: UIViewController) -> CGRect {
+        if let sourceRect = arguments.object("sourceRect"),
+           let x = sourceRect.double("x"),
+           let y = sourceRect.double("y"),
+           let width = sourceRect.double("width"),
+           let height = sourceRect.double("height")
+        {
+            return CGRect(x: x, y: y, width: width, height: height)
+        }
+
+        return CGRect(
+            x: presenter.view.bounds.midX,
+            y: presenter.view.bounds.midY,
+            width: 1,
+            height: 1
+        )
+    }
+
     func photoAuthorizationStatusString(_ status: PHAuthorizationStatus) -> String {
         switch status {
         case .authorized:
@@ -488,6 +506,43 @@ public final class UIKitSystemUIPresenter: SystemUIPresenter, @unchecked Sendabl
             return available.filter { UTType($0)?.conforms(to: .movie) == true || UTType($0)?.conforms(to: .video) == true }
         default:
             return available
+        }
+    }
+
+    @MainActor func cameraDevice(from arguments: [String: JSONValue]) -> UIImagePickerController.CameraDevice {
+        switch arguments.string("cameraDevice")?.lowercased() {
+        case "front":
+            return .front
+        default:
+            return .rear
+        }
+    }
+
+    @MainActor func cameraFlashMode(from arguments: [String: JSONValue]) -> UIImagePickerController.CameraFlashMode {
+        switch arguments.string("flashMode")?.lowercased() {
+        case "on":
+            return .on
+        case "off":
+            return .off
+        default:
+            return .auto
+        }
+    }
+
+    @MainActor func cameraVideoQuality(from arguments: [String: JSONValue]) -> UIImagePickerController.QualityType {
+        switch arguments.string("videoQuality")?.lowercased() {
+        case "medium":
+            return .typeMedium
+        case "low":
+            return .typeLow
+        case "640x480":
+            return .type640x480
+        case "iframe1280x720":
+            return .typeIFrame1280x720
+        case "iframe960x540":
+            return .typeIFrame960x540
+        default:
+            return .typeHigh
         }
     }
     #endif

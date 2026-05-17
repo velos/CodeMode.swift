@@ -41,6 +41,8 @@ private final class StubHTTPURLProtocol: URLProtocol {
             "url": request.url?.absoluteString ?? "",
             "method": request.httpMethod ?? "GET",
             "body": requestBody,
+            "timeoutMs": Int((request.timeoutInterval * 1_000).rounded()),
+            "xUnit": request.value(forHTTPHeaderField: "X-Unit") ?? "",
         ]
 
         let bodyData = (try? JSONSerialization.data(withJSONObject: payload, options: [])) ?? Data("{}".utf8)
@@ -90,6 +92,64 @@ private final class StubHTTPURLProtocol: URLProtocol {
     #expect(decoded?["body"] as? String == "payload")
 }
 
+@Test func networkFetchSupportsBase64BodyHeadersAndTimeout() throws {
+    let configuration = URLSessionConfiguration.ephemeral
+    configuration.protocolClasses = [StubHTTPURLProtocol.self]
+    let session = URLSession(configuration: configuration)
+
+    let bridge = NetworkBridge(session: session)
+    let (context, sandbox) = try makeInvocationContext()
+    defer {
+        cleanup(sandbox)
+        session.invalidateAndCancel()
+    }
+
+    let result = try bridge.fetch(arguments: [
+        "url": .string("https://unit.test/endpoint"),
+        "options": .object([
+            "method": .string("PUT"),
+            "headers": .object(["X-Unit": .string("yes")]),
+            "bodyBase64": .string(Data("payload".utf8).base64EncodedString()),
+            "timeoutMs": .number(1_234),
+        ]),
+    ], context: context)
+
+    let object = try requireObject(result)
+    let bodyText = object.string("bodyText") ?? ""
+    let decoded = try JSONSerialization.jsonObject(with: Data(bodyText.utf8)) as? [String: Any]
+    #expect(decoded?["method"] as? String == "PUT")
+    #expect(decoded?["body"] as? String == "payload")
+    #expect(decoded?["timeoutMs"] as? Int == 1_234)
+    #expect(decoded?["xUnit"] as? String == "yes")
+}
+
+@Test func networkFetchCanReturnBase64Response() throws {
+    let configuration = URLSessionConfiguration.ephemeral
+    configuration.protocolClasses = [StubHTTPURLProtocol.self]
+    let session = URLSession(configuration: configuration)
+
+    let bridge = NetworkBridge(session: session)
+    let (context, sandbox) = try makeInvocationContext()
+    defer {
+        cleanup(sandbox)
+        session.invalidateAndCancel()
+    }
+
+    let result = try bridge.fetch(arguments: [
+        "url": .string("https://unit.test/endpoint"),
+        "options": .object([
+            "responseEncoding": .string("base64"),
+        ]),
+    ], context: context)
+
+    let object = try requireObject(result)
+    let encoded = try #require(object.string("bodyBase64"))
+    let data = try #require(Data(base64Encoded: encoded))
+    let decoded = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+    #expect(decoded?["method"] as? String == "GET")
+    #expect(object.string("bodyText") == "")
+}
+
 @Test func networkFetchRejectsInvalidURL() throws {
     let bridge = NetworkBridge()
     let (context, sandbox) = try makeInvocationContext()
@@ -100,7 +160,33 @@ private final class StubHTTPURLProtocol: URLProtocol {
         Issue.record("Expected invalid URL to throw")
     } catch {
         let code = requireBridgeErrorCode(error)
-        #expect(code == "INVALID_ARGUMENTS" || code == "NATIVE_FAILURE")
+        #expect(code == "INVALID_ARGUMENTS")
+    }
+
+    do {
+        _ = try bridge.fetch(arguments: ["url": .string("file:///tmp/a.txt")], context: context)
+        Issue.record("Expected non-HTTP URL to throw")
+    } catch {
+        #expect(requireBridgeErrorCode(error) == "INVALID_ARGUMENTS")
+    }
+}
+
+@Test func networkFetchRejectsConflictingRequestBodies() throws {
+    let bridge = NetworkBridge()
+    let (context, sandbox) = try makeInvocationContext()
+    defer { cleanup(sandbox) }
+
+    do {
+        _ = try bridge.fetch(arguments: [
+            "url": .string("https://unit.test/endpoint"),
+            "options": .object([
+                "body": .string("payload"),
+                "bodyBase64": .string(Data("payload".utf8).base64EncodedString()),
+            ]),
+        ], context: context)
+        Issue.record("Expected body/bodyBase64 conflict to throw")
+    } catch {
+        #expect(requireBridgeErrorCode(error) == "INVALID_ARGUMENTS")
     }
 }
 
@@ -119,5 +205,25 @@ private final class StubHTTPURLProtocol: URLProtocol {
         )
     )
 
-    #expect(observed.error?.code == "INVALID_ARGUMENTS" || observed.error?.code == "NATIVE_FAILURE")
+    #expect(observed.error?.code == "INVALID_ARGUMENTS")
+}
+
+@Test func executeURLPolyfillStringifiesURLObjects() async throws {
+    let (tools, sandbox) = try makeTools()
+    defer { cleanup(sandbox) }
+
+    let observed = try await execute(
+        tools,
+        request: JavaScriptExecutionRequest(
+            code: """
+            const url = new URL("https://example.com/path?q=1");
+            return { stringValue: String(url), methodValue: url.toString() };
+            """,
+            allowedCapabilities: []
+        )
+    )
+
+    let result = try #require(observed.result?.output?.objectValue)
+    #expect(result.string("stringValue") == "https://example.com/path?q=1")
+    #expect(result.string("methodValue") == "https://example.com/path?q=1")
 }

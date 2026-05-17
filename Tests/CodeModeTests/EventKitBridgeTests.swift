@@ -24,6 +24,24 @@ import Testing
     } catch {
         #expect(requireBridgeErrorCode(error) == "PERMISSION_DENIED")
     }
+
+    do {
+        _ = try bridge.writeEvent(arguments: [
+            "operation": .string("update"),
+            "identifier": .string("event-1"),
+            "title": .string("Updated"),
+        ], context: context)
+        Issue.record("Expected permission denial for calendar.write update")
+    } catch {
+        #expect(requireBridgeErrorCode(error) == "PERMISSION_DENIED")
+    }
+
+    do {
+        _ = try bridge.deleteEvent(arguments: ["identifier": .string("event-1")], context: context)
+        Issue.record("Expected permission denial for calendar.delete")
+    } catch {
+        #expect(requireBridgeErrorCode(error) == "PERMISSION_DENIED")
+    }
 }
 
 @Test func eventKitReminderOperationsRequirePermission() throws {
@@ -42,6 +60,13 @@ import Testing
     do {
         _ = try bridge.writeReminder(arguments: [:], context: context)
         Issue.record("Expected permission denial for reminders.write")
+    } catch {
+        #expect(requireBridgeErrorCode(error) == "PERMISSION_DENIED")
+    }
+
+    do {
+        _ = try bridge.deleteReminder(arguments: ["identifier": .string("reminder-1")], context: context)
+        Issue.record("Expected permission denial for reminders.delete")
     } catch {
         #expect(requireBridgeErrorCode(error) == "PERMISSION_DENIED")
     }

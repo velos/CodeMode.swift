@@ -81,6 +81,10 @@ public extension JSONValue {
             } else {
                 self = .number(value.doubleValue)
             }
+        case let value as [AnyHashable: Any]:
+            self = .object(value.reduce(into: [String: JSONValue]()) { partial, pair in
+                partial[String(describing: pair.key)] = JSONValue(any: pair.value)
+            })
         case let value as [String: Any]:
             self = .object(value.mapValues { JSONValue(any: $0) })
         case let value as [Any]:

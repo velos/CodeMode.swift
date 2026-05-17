@@ -52,14 +52,14 @@ import Testing
     #expect(issues.contains(where: { $0.key == "WeatherKit capability" && $0.severity == .warning }))
 }
 
-@Test func validatorRequiresWriteOnlyCalendarKeyForCalendarWrite() {
+@Test func validatorRequiresCalendarKeysForCalendarWriteLifecycle() {
     let issues = HostConfigurationValidator.validate(
         requiredCapabilities: [.calendarWrite],
         infoPlist: [:]
     )
 
     #expect(issues.contains(where: { $0.key == "NSCalendarsWriteOnlyAccessUsageDescription" && $0.severity == .error }))
-    #expect(issues.contains(where: { $0.key == "NSCalendarsFullAccessUsageDescription" }) == false)
+    #expect(issues.contains(where: { $0.key == "NSCalendarsFullAccessUsageDescription" && $0.severity == .error }))
 }
 
 @Test func validatorRequiresWriteOnlyCalendarKeyForCalendarUIPresentationOnly() {
@@ -127,7 +127,7 @@ import Testing
 
 @Test func validatorAddsNotificationsAndHomeWarnings() {
     let issues = HostConfigurationValidator.validate(
-        requiredCapabilities: [.notificationsSchedule, .homeRead],
+        requiredCapabilities: [.notificationsSchedule, .notificationsDeliveredRead, .notificationsDeliveredDelete, .homeRead],
         infoPlist: [
             "NSHomeKitUsageDescription": "Need HomeKit to read home accessories",
         ]
