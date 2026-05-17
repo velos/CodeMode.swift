@@ -3,6 +3,7 @@ import Foundation
 public enum DefaultCapabilityLoader {
     public static func loadAllRegistrations(
         fileSystem: any CodeModeFileSystem = LocalCodeModeFileSystem(),
+        eventInbox: any CodeModeEventInbox = UnavailableCodeModeEventInbox(),
         cloudKitClient: any CloudKitClient = UnavailableCloudKitClient(),
         remoteNotificationsClient: any RemoteNotificationsClient = UnavailableRemoteNotificationsClient(),
         speechClient: any SpeechClient = UnavailableSpeechClient(),
@@ -16,6 +17,7 @@ public enum DefaultCapabilityLoader {
     ) -> [CapabilityRegistration] {
         DefaultCapabilityRegistrationBuilder(
             fileSystem: fileSystem,
+            eventInbox: eventInbox,
             cloudKitClient: cloudKitClient,
             remoteNotificationsClient: remoteNotificationsClient,
             speechClient: speechClient,
@@ -46,6 +48,7 @@ struct DefaultCapabilityRegistrationBuilder {
     let home: HomeBridge
     let media: MediaBridge
     let systemUI: SystemUIBridge
+    let eventInbox: any CodeModeEventInbox
     let cloudKit: CloudKitBridge
     let remoteNotifications: RemoteNotificationsBridge
     let speech: SpeechBridge
@@ -59,6 +62,7 @@ struct DefaultCapabilityRegistrationBuilder {
 
     init(
         fileSystem: any CodeModeFileSystem,
+        eventInbox: any CodeModeEventInbox,
         cloudKitClient: any CloudKitClient,
         remoteNotificationsClient: any RemoteNotificationsClient,
         speechClient: any SpeechClient,
@@ -85,16 +89,17 @@ struct DefaultCapabilityRegistrationBuilder {
         self.home = HomeBridge()
         self.media = MediaBridge()
         self.systemUI = SystemUIBridge()
-        self.cloudKit = CloudKitBridge(client: cloudKitClient)
-        self.remoteNotifications = RemoteNotificationsBridge(client: remoteNotificationsClient)
+        self.eventInbox = eventInbox
+        self.cloudKit = CloudKitBridge(client: cloudKitClient, eventInbox: eventInbox)
+        self.remoteNotifications = RemoteNotificationsBridge(client: remoteNotificationsClient, eventInbox: eventInbox)
         self.speech = SpeechBridge(client: speechClient)
-        self.appIntents = AppIntentsBridge(client: appIntentsClient)
+        self.appIntents = AppIntentsBridge(client: appIntentsClient, eventInbox: eventInbox)
         self.foundationModels = FoundationModelsBridge(client: foundationModelsClient)
         self.activity = ActivityBridge(client: activityClient)
         self.maps = MapsBridge(client: mapsClient)
         self.music = MusicBridge(client: musicClient)
         self.passKit = PassKitBridge(client: passKitClient)
-        self.storeKit = StoreKitBridge(client: storeKitClient)
+        self.storeKit = StoreKitBridge(client: storeKitClient, eventInbox: eventInbox)
     }
 
     func loadAll() -> [CapabilityRegistration] {

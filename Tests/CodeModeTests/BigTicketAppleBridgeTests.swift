@@ -17,6 +17,68 @@ import Testing
     #expect(observed.error?.code == "UNSUPPORTED_PLATFORM")
 }
 
+@Test func systemCloudKitAndMapsClientsAreOptInConfigurationValues() {
+    let configuration = CodeModeConfiguration(
+        cloudKitClient: SystemCloudKitClient(),
+        mapsClient: SystemMapsClient()
+    )
+
+    #expect(configuration.cloudKitClient is SystemCloudKitClient)
+    #expect(configuration.mapsClient is SystemMapsClient)
+}
+
+@Test func eventInboxRoutesExistingInboxStyleReads() async throws {
+    let (tools, sandbox) = try makeTools(eventInbox: FakeEventInbox())
+    defer { cleanup(sandbox) }
+
+    let observed = try await execute(
+        tools,
+        request: JavaScriptExecutionRequest(
+            code: """
+            const cloud = await apple.cloudkit.listEvents({ limit: 2 });
+            const notifications = await apple.notifications.listResponses({ limit: 3 });
+            const handoffs = await apple.appIntents.listHandoffs({ limit: 4 });
+            const transactions = await apple.storekit.listTransactions({ limit: 5 });
+            return {
+                cloud: cloud.source,
+                notifications: notifications.source,
+                handoffs: handoffs.source,
+                transactions: transactions.source,
+                transactionLimit: transactions.limit
+            };
+            """,
+            allowedCapabilities: [
+                .cloudKitSubscriptionEventsRead,
+                .notificationsResponsesRead,
+                .appIntentsHandoffsRead,
+                .storeKitTransactionsRead,
+            ]
+        )
+    )
+
+    let output = try #require(observed.result?.output?.objectValue)
+    #expect(output["cloud"]?.stringValue == "cloudkit.subscription")
+    #expect(output["notifications"]?.stringValue == "notifications.response")
+    #expect(output["handoffs"]?.stringValue == "appintents.handoff")
+    #expect(output["transactions"]?.stringValue == "storekit.transaction")
+    #expect(output["transactionLimit"]?.intValue == 5)
+}
+
+@Test func unavailableEventInboxFallsBackToClientUnsupportedPlatform() async throws {
+    let (tools, sandbox) = try makeTools()
+    defer { cleanup(sandbox) }
+
+    let observed = try await execute(
+        tools,
+        request: JavaScriptExecutionRequest(
+            code: "return await apple.cloudkit.listEvents({ limit: 1 });",
+            allowedCapabilities: [.cloudKitSubscriptionEventsRead]
+        )
+    )
+
+    #expect(observed.error?.code == "UNSUPPORTED_PLATFORM")
+}
+
 @Test func cloudKitAndMapsAdaptersForwardValidatedArguments() async throws {
     let (tools, sandbox) = try makeTools(
         cloudKitClient: FakeCloudKitClient(),
@@ -30,9 +92,14 @@ import Testing
             code: """
             const records = await apple.cloudkit.queryRecords({ database: "private", recordType: "Task", limit: 2 });
             const places = await apple.maps.search({ query: "coffee", limit: 3 });
-            return { recordType: records.recordType, database: records.database, query: places.query, limit: places.limit };
+            const route = await apple.maps.routeEstimate({
+                origin: { latitude: 37.33, longitude: -122.03 },
+                destination: { latitude: 37.77, longitude: -122.42 },
+                transportType: "walking"
+            });
+            return { recordType: records.recordType, database: records.database, query: places.query, limit: places.limit, transportType: route.transportType };
             """,
-            allowedCapabilities: [.cloudKitRecordsQuery, .mapsSearch]
+            allowedCapabilities: [.cloudKitRecordsQuery, .mapsSearch, .mapsRouteEstimate]
         )
     )
 
@@ -41,6 +108,98 @@ import Testing
     #expect(output["database"]?.stringValue == "private")
     #expect(output["query"]?.stringValue == "coffee")
     #expect(output["limit"]?.intValue == 3)
+    #expect(output["transportType"]?.stringValue == "walking")
+}
+
+@Test func cloudKitValidationHappensBeforeClientCalls() async throws {
+    let (tools, sandbox) = try makeTools(cloudKitClient: FailingCloudKitClient())
+    defer { cleanup(sandbox) }
+
+    let invalidDatabase = try await execute(
+        tools,
+        request: JavaScriptExecutionRequest(
+            code: "return await apple.cloudkit.queryRecords({ database: 'archive', recordType: 'Task' });",
+            allowedCapabilities: [.cloudKitRecordsQuery]
+        )
+    )
+    #expect(invalidDatabase.error?.code == "INVALID_ARGUMENTS")
+
+    let invalidFields = try await execute(
+        tools,
+        request: JavaScriptExecutionRequest(
+            code: "return await apple.cloudkit.saveRecord({ recordType: 'Task', fields: {} });",
+            allowedCapabilities: [.cloudKitRecordSave]
+        )
+    )
+    #expect(invalidFields.error?.code == "INVALID_ARGUMENTS")
+
+    let invalidPredicate = try await execute(
+        tools,
+        request: JavaScriptExecutionRequest(
+            code: "return await apple.cloudkit.queryRecords({ recordType: 'Task', predicate: 'TRUEPREDICATE' });",
+            allowedCapabilities: [.cloudKitRecordsQuery]
+        )
+    )
+    #expect(invalidPredicate.error?.code == "INVALID_ARGUMENTS")
+}
+
+@Test func bigTicketValidationRejectsMalformedArgumentsBeforePermissionsOrClients() async throws {
+    let (tools, sandbox) = try makeTools(
+        permissionBroker: FixedPermissionBroker(statuses: [.music: .denied]),
+        hostPlatform: .iOS
+    )
+    defer { cleanup(sandbox) }
+
+    let badCategories = try await execute(
+        tools,
+        request: JavaScriptExecutionRequest(
+            code: "return await apple.notifications.setCategories({ categories: [{ actions: [{ identifier: 'done', title: 'Done' }] }] });",
+            allowedCapabilities: [.notificationsCategoriesSet]
+        )
+    )
+    #expect(badCategories.error?.code == "INVALID_ARGUMENTS")
+
+    let badTransport = try await execute(
+        tools,
+        request: JavaScriptExecutionRequest(
+            code: """
+            return await apple.maps.routeEstimate({
+                origin: { latitude: 37.33, longitude: -122.03 },
+                destination: { latitude: 37.77, longitude: -122.42 },
+                transportType: "hoverboard"
+            });
+            """,
+            allowedCapabilities: [.mapsRouteEstimate]
+        )
+    )
+    #expect(badTransport.error?.code == "INVALID_ARGUMENTS")
+
+    let emptyProducts = try await execute(
+        tools,
+        request: JavaScriptExecutionRequest(
+            code: "return await apple.storekit.listProducts({ productIDs: [] });",
+            allowedCapabilities: [.storeKitProductsRead]
+        )
+    )
+    #expect(emptyProducts.error?.code == "INVALID_ARGUMENTS")
+
+    let badDismissal = try await execute(
+        tools,
+        request: JavaScriptExecutionRequest(
+            code: "return await apple.activity.end({ identifier: 'activity-1', dismissalPolicy: 'later' });",
+            allowedCapabilities: [.activityEnd]
+        )
+    )
+    #expect(badDismissal.error?.code == "INVALID_ARGUMENTS")
+
+    let badMusic = try await execute(
+        tools,
+        request: JavaScriptExecutionRequest(
+            code: "return await apple.music.play({ action: 'shuffleEverything' });",
+            allowedCapabilities: [.musicPlaybackControl]
+        )
+    )
+    #expect(badMusic.error?.code == "INVALID_ARGUMENTS")
 }
 
 @Test func speechTranscriptionRequiresPermissionAndResolvesSandboxPath() async throws {
@@ -177,6 +336,41 @@ private struct FakeCloudKitClient: CloudKitClient {
     }
 }
 
+private struct FailingCloudKitClient: CloudKitClient {
+    func accountStatus(arguments: [String: JSONValue]) throws -> JSONValue {
+        throw BridgeError.nativeFailure("CloudKit client should not be called")
+    }
+
+    func queryRecords(arguments: [String: JSONValue]) throws -> JSONValue {
+        throw BridgeError.nativeFailure("CloudKit client should not be called")
+    }
+
+    func saveRecord(arguments: [String: JSONValue]) throws -> JSONValue {
+        throw BridgeError.nativeFailure("CloudKit client should not be called")
+    }
+
+    func deleteRecord(arguments: [String: JSONValue]) throws -> JSONValue {
+        throw BridgeError.nativeFailure("CloudKit client should not be called")
+    }
+
+    func saveSubscription(arguments: [String: JSONValue]) throws -> JSONValue {
+        throw BridgeError.nativeFailure("CloudKit client should not be called")
+    }
+
+    func readSubscriptionEvents(arguments: [String: JSONValue]) throws -> JSONValue {
+        throw BridgeError.nativeFailure("CloudKit client should not be called")
+    }
+}
+
+private struct FakeEventInbox: CodeModeEventInbox {
+    func readEvents(source: String, arguments: [String: JSONValue]) throws -> JSONValue {
+        .object([
+            "source": .string(source),
+            "limit": .number(Double(arguments.int("limit") ?? 0)),
+        ])
+    }
+}
+
 private struct FakeMapsClient: MapsClient {
     func geocode(arguments: [String: JSONValue]) throws -> JSONValue {
         .array([.object(["address": .string(arguments.string("address") ?? "")])])
@@ -194,7 +388,11 @@ private struct FakeMapsClient: MapsClient {
     }
 
     func routeEstimate(arguments: [String: JSONValue]) throws -> JSONValue {
-        .object(["distanceMeters": .number(1_000), "expectedTravelTimeSeconds": .number(600)])
+        .object([
+            "distanceMeters": .number(1_000),
+            "expectedTravelTimeSeconds": .number(600),
+            "transportType": .string(arguments.string("transportType") ?? "automobile"),
+        ])
     }
 
     func open(arguments: [String: JSONValue]) throws -> JSONValue {

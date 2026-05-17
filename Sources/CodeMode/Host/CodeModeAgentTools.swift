@@ -9,6 +9,7 @@ public final class CodeModeAgentTools: @unchecked Sendable {
         let registrations = CapabilityPlatformSupport.filter(
             DefaultCapabilityLoader.loadAllRegistrations(
                 fileSystem: config.fileSystem,
+                eventInbox: config.eventInbox,
                 cloudKitClient: config.cloudKitClient,
                 remoteNotificationsClient: config.remoteNotificationsClient,
                 speechClient: config.speechClient,

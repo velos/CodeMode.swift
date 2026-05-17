@@ -365,6 +365,8 @@ public final class CapabilityRegistry: @unchecked Sendable {
             }
         }
 
+        try validateKnownArgumentValues(arguments, for: capability)
+
         let allowedNames = Set(required + optional + Array(typed.keys))
         if allowedNames.isEmpty == false {
             let allowedTopLevel = Set(allowedNames.map(firstPathSegment))
@@ -372,6 +374,34 @@ public final class CapabilityRegistry: @unchecked Sendable {
             if unknown.isEmpty == false {
                 throw BridgeError.invalidArguments("\(capability.rawValue) received unknown arguments: \(unknown.joined(separator: ", "))")
             }
+        }
+    }
+
+    private func validateKnownArgumentValues(_ arguments: [String: JSONValue], for capability: CapabilityID) throws {
+        switch capability {
+        case .musicPlaybackControl:
+            try validateStringValue(
+                "action",
+                in: arguments,
+                allowed: ["play", "pause", "stop", "skipToNext", "skipToPrevious", "playCatalog", "playLibrary"],
+                capability: capability
+            )
+        default:
+            return
+        }
+    }
+
+    private func validateStringValue(
+        _ name: String,
+        in arguments: [String: JSONValue],
+        allowed: Set<String>,
+        capability: CapabilityID
+    ) throws {
+        guard let value = arguments.string(name) else {
+            return
+        }
+        guard allowed.contains(value) else {
+            throw BridgeError.invalidArguments("\(capability.rawValue) \(name) must be one of \(allowed.sorted().joined(separator: ", "))")
         }
     }
 

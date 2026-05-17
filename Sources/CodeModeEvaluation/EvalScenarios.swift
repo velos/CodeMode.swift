@@ -42,6 +42,12 @@ public enum CodeModeEvalScenarios {
         mapsBigTicketCatalogDiscovery,
         foundationModelsAppIntentsActivityCatalogDiscovery,
         walletMusicStoreKitSafetyCatalogDiscovery,
+        cloudKitInvalidDatabaseValidation,
+        mapsInvalidTransportValidation,
+        storeKitEmptyProductIDsValidation,
+        notificationsMalformedCategoriesValidation,
+        activityInvalidDismissalPolicyValidation,
+        musicInvalidPlaybackActionValidation,
         calendarWritePermissionDenied,
         homeWriteValidation,
         mediaMetadataValidation,
@@ -1536,6 +1542,145 @@ public enum CodeModeEvalScenarios {
                 "apple.storekit.listTransactions",
                 "inbox",
             ]
+        )
+    )
+
+    public static let cloudKitInvalidDatabaseValidation = CodeModeEvalScenario(
+        id: "cloudkit.invalid-database-validation",
+        title: "CloudKit database validation",
+        task: "First search for apple.cloudkit.queryRecords. Then call it with database exactly \"archive\" and recordType \"Task\". Do not catch the error in JavaScript; let executeJavaScript surface structured INVALID_ARGUMENTS before any CloudKit client is required.",
+        searchCode: """
+        async () => {
+            return api.byJSName["apple.cloudkit.queryRecords"];
+        }
+        """,
+        executeCode: """
+        return await apple.cloudkit.queryRecords({ database: "archive", recordType: "Task" });
+        """,
+        allowedCapabilities: [.cloudKitRecordsQuery],
+        expectation: CodeModeEvalExpectation(
+            toolOrder: [.searchJavaScriptAPI, .executeJavaScript],
+            exactAllowedCapabilities: [.cloudKitRecordsQuery],
+            requiredSearchResultFragments: ["apple.cloudkit.queryRecords", "database", "private", "shared", "public"],
+            requiredExecuteCodeFragments: ["apple.cloudkit.queryRecords", "archive"],
+            expectedErrorCode: "INVALID_ARGUMENTS"
+        )
+    )
+
+    public static let mapsInvalidTransportValidation = CodeModeEvalScenario(
+        id: "maps.invalid-transport-validation",
+        title: "MapKit transport validation",
+        task: "First search for apple.maps.routeEstimate. Then call it with valid origin/destination coordinates but transportType exactly \"hoverboard\". Do not catch the error in JavaScript; let executeJavaScript surface structured INVALID_ARGUMENTS before any Maps client is required.",
+        searchCode: """
+        async () => {
+            return api.byJSName["apple.maps.routeEstimate"];
+        }
+        """,
+        executeCode: """
+        return await apple.maps.routeEstimate({
+            origin: { latitude: 37.33, longitude: -122.03 },
+            destination: { latitude: 37.77, longitude: -122.42 },
+            transportType: "hoverboard"
+        });
+        """,
+        allowedCapabilities: [.mapsRouteEstimate],
+        expectation: CodeModeEvalExpectation(
+            toolOrder: [.searchJavaScriptAPI, .executeJavaScript],
+            exactAllowedCapabilities: [.mapsRouteEstimate],
+            requiredSearchResultFragments: ["apple.maps.routeEstimate", "transportType", "automobile"],
+            requiredExecuteCodeFragments: ["apple.maps.routeEstimate", "hoverboard"],
+            expectedErrorCode: "INVALID_ARGUMENTS"
+        )
+    )
+
+    public static let storeKitEmptyProductIDsValidation = CodeModeEvalScenario(
+        id: "storekit.empty-productids-validation",
+        title: "StoreKit productIDs validation",
+        task: "First search for apple.storekit.listProducts. Then call it with productIDs as an empty array. Do not catch the error in JavaScript; let executeJavaScript surface structured INVALID_ARGUMENTS before any StoreKit client is required.",
+        searchCode: """
+        async () => {
+            return api.byJSName["apple.storekit.listProducts"];
+        }
+        """,
+        executeCode: """
+        return await apple.storekit.listProducts({ productIDs: [] });
+        """,
+        allowedCapabilities: [.storeKitProductsRead],
+        expectation: CodeModeEvalExpectation(
+            toolOrder: [.searchJavaScriptAPI, .executeJavaScript],
+            exactAllowedCapabilities: [.storeKitProductsRead],
+            requiredSearchResultFragments: ["apple.storekit.listProducts", "productIDs"],
+            requiredExecuteCodeFragments: ["apple.storekit.listProducts", "productIDs"],
+            expectedErrorCode: "INVALID_ARGUMENTS"
+        )
+    )
+
+    public static let notificationsMalformedCategoriesValidation = CodeModeEvalScenario(
+        id: "notifications.malformed-categories-validation",
+        title: "APNs category shape validation",
+        task: "First search for apple.notifications.setCategories. Then call it with a category missing identifier. Do not catch the error in JavaScript; let executeJavaScript surface structured INVALID_ARGUMENTS before any remote notification client is required.",
+        searchCode: """
+        async () => {
+            return api.byJSName["apple.notifications.setCategories"];
+        }
+        """,
+        executeCode: """
+        return await apple.notifications.setCategories({
+            categories: [{ actions: [{ identifier: "done", title: "Done" }] }]
+        });
+        """,
+        allowedCapabilities: [.notificationsCategoriesSet],
+        expectation: CodeModeEvalExpectation(
+            toolOrder: [.searchJavaScriptAPI, .executeJavaScript],
+            exactAllowedCapabilities: [.notificationsCategoriesSet],
+            requiredSearchResultFragments: ["apple.notifications.setCategories", "categories", "actions"],
+            requiredExecuteCodeFragments: ["apple.notifications.setCategories", "categories"],
+            expectedErrorCode: "INVALID_ARGUMENTS"
+        )
+    )
+
+    public static let activityInvalidDismissalPolicyValidation = CodeModeEvalScenario(
+        id: "activity.invalid-dismissal-policy-validation",
+        title: "ActivityKit dismissal policy validation",
+        task: "First search for apple.activity.end on iOS. Then call it with dismissalPolicy exactly \"later\". Do not catch the error in JavaScript; let executeJavaScript surface structured INVALID_ARGUMENTS before any ActivityKit client is required.",
+        catalogPlatform: .iOS,
+        searchCode: """
+        async () => {
+            return api.byJSName["apple.activity.end"];
+        }
+        """,
+        executeCode: """
+        return await apple.activity.end({ identifier: "activity-1", dismissalPolicy: "later" });
+        """,
+        allowedCapabilities: [.activityEnd],
+        expectation: CodeModeEvalExpectation(
+            toolOrder: [.searchJavaScriptAPI, .executeJavaScript],
+            exactAllowedCapabilities: [.activityEnd],
+            requiredSearchResultFragments: ["apple.activity.end", "dismissalPolicy", "immediate"],
+            requiredExecuteCodeFragments: ["apple.activity.end", "later"],
+            expectedErrorCode: "INVALID_ARGUMENTS"
+        )
+    )
+
+    public static let musicInvalidPlaybackActionValidation = CodeModeEvalScenario(
+        id: "music.invalid-playback-action-validation",
+        title: "Music playback action validation",
+        task: "First search for apple.music.play. Then call it with action exactly \"shuffleEverything\". Do not catch the error in JavaScript; let executeJavaScript surface structured INVALID_ARGUMENTS before any Music permission or client is required.",
+        searchCode: """
+        async () => {
+            return api.byJSName["apple.music.play"];
+        }
+        """,
+        executeCode: """
+        return await apple.music.play({ action: "shuffleEverything" });
+        """,
+        allowedCapabilities: [.musicPlaybackControl],
+        expectation: CodeModeEvalExpectation(
+            toolOrder: [.searchJavaScriptAPI, .executeJavaScript],
+            exactAllowedCapabilities: [.musicPlaybackControl],
+            requiredSearchResultFragments: ["apple.music.play", "action", "playCatalog"],
+            requiredExecuteCodeFragments: ["apple.music.play", "shuffleEverything"],
+            expectedErrorCode: "INVALID_ARGUMENTS"
         )
     )
 

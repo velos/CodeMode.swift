@@ -7,6 +7,7 @@ public struct CodeModeConfiguration: Sendable {
     public var permissionBroker: any PermissionBroker
     public var auditLogger: any AuditLogger
     public var systemUIPresenter: any SystemUIPresenter
+    public var eventInbox: any CodeModeEventInbox
     public var cloudKitClient: any CloudKitClient
     public var remoteNotificationsClient: any RemoteNotificationsClient
     public var speechClient: any SpeechClient
@@ -26,6 +27,7 @@ public struct CodeModeConfiguration: Sendable {
         permissionBroker: any PermissionBroker = SystemPermissionBroker(),
         auditLogger: any AuditLogger = SyncAuditLogger(),
         systemUIPresenter: any SystemUIPresenter = UnavailableSystemUIPresenter(),
+        eventInbox: any CodeModeEventInbox = UnavailableCodeModeEventInbox(),
         cloudKitClient: any CloudKitClient = UnavailableCloudKitClient(),
         remoteNotificationsClient: any RemoteNotificationsClient = UnavailableRemoteNotificationsClient(),
         speechClient: any SpeechClient = UnavailableSpeechClient(),
@@ -44,6 +46,7 @@ public struct CodeModeConfiguration: Sendable {
         self.permissionBroker = permissionBroker
         self.auditLogger = auditLogger
         self.systemUIPresenter = systemUIPresenter
+        self.eventInbox = eventInbox
         self.cloudKitClient = cloudKitClient
         self.remoteNotificationsClient = remoteNotificationsClient
         self.speechClient = speechClient

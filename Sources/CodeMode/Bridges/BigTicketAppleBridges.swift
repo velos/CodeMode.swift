@@ -2,9 +2,14 @@ import Foundation
 
 public final class CloudKitBridge: @unchecked Sendable {
     private let client: any CloudKitClient
+    private let eventInbox: any CodeModeEventInbox
 
-    public init(client: any CloudKitClient = UnavailableCloudKitClient()) {
+    public init(
+        client: any CloudKitClient = UnavailableCloudKitClient(),
+        eventInbox: any CodeModeEventInbox = UnavailableCodeModeEventInbox()
+    ) {
         self.client = client
+        self.eventInbox = eventInbox
     }
 
     public func accountStatus(arguments: [String: JSONValue]) throws -> JSONValue {
@@ -13,40 +18,52 @@ public final class CloudKitBridge: @unchecked Sendable {
 
     public func queryRecords(arguments: [String: JSONValue]) throws -> JSONValue {
         try requireNonEmptyString("recordType", in: arguments, capability: "cloudkit.records.query")
+        try validateOptionalCloudKitDatabase(arguments, capability: "cloudkit.records.query")
+        try validateOptionalCloudKitPredicate(arguments, capability: "cloudkit.records.query")
         try validateOptionalLimit(arguments)
         return try client.queryRecords(arguments: arguments)
     }
 
     public func saveRecord(arguments: [String: JSONValue]) throws -> JSONValue {
         try requireNonEmptyString("recordType", in: arguments, capability: "cloudkit.record.save")
-        guard arguments.object("fields") != nil else {
-            throw BridgeError.invalidArguments("cloudkit.record.save requires fields")
-        }
+        try validateOptionalCloudKitDatabase(arguments, capability: "cloudkit.record.save")
+        try validateCloudKitFields(arguments, capability: "cloudkit.record.save")
         return try client.saveRecord(arguments: arguments)
     }
 
     public func deleteRecord(arguments: [String: JSONValue]) throws -> JSONValue {
         try requireNonEmptyString("recordName", in: arguments, capability: "cloudkit.record.delete")
+        try validateOptionalCloudKitDatabase(arguments, capability: "cloudkit.record.delete")
         return try client.deleteRecord(arguments: arguments)
     }
 
     public func saveSubscription(arguments: [String: JSONValue]) throws -> JSONValue {
         try requireNonEmptyString("subscriptionID", in: arguments, capability: "cloudkit.subscription.save")
         try requireNonEmptyString("recordType", in: arguments, capability: "cloudkit.subscription.save")
+        try validateOptionalCloudKitDatabase(arguments, capability: "cloudkit.subscription.save")
+        try validateOptionalCloudKitPredicate(arguments, capability: "cloudkit.subscription.save")
         return try client.saveSubscription(arguments: arguments)
     }
 
     public func readSubscriptionEvents(arguments: [String: JSONValue]) throws -> JSONValue {
         try validateOptionalLimit(arguments)
+        if isConfigured(eventInbox) {
+            return try eventInbox.readEvents(source: "cloudkit.subscription", arguments: arguments)
+        }
         return try client.readSubscriptionEvents(arguments: arguments)
     }
 }
 
 public final class RemoteNotificationsBridge: @unchecked Sendable {
     private let client: any RemoteNotificationsClient
+    private let eventInbox: any CodeModeEventInbox
 
-    public init(client: any RemoteNotificationsClient = UnavailableRemoteNotificationsClient()) {
+    public init(
+        client: any RemoteNotificationsClient = UnavailableRemoteNotificationsClient(),
+        eventInbox: any CodeModeEventInbox = UnavailableCodeModeEventInbox()
+    ) {
         self.client = client
+        self.eventInbox = eventInbox
     }
 
     public func register(arguments: [String: JSONValue]) throws -> JSONValue {
@@ -62,14 +79,15 @@ public final class RemoteNotificationsBridge: @unchecked Sendable {
     }
 
     public func setCategories(arguments: [String: JSONValue]) throws -> JSONValue {
-        guard arguments.array("categories") != nil else {
-            throw BridgeError.invalidArguments("notifications.categories.set requires categories")
-        }
+        try validateNotificationCategories(arguments)
         return try client.setCategories(arguments: arguments)
     }
 
     public func readResponses(arguments: [String: JSONValue]) throws -> JSONValue {
         try validateOptionalLimit(arguments)
+        if isConfigured(eventInbox) {
+            return try eventInbox.readEvents(source: "notifications.response", arguments: arguments)
+        }
         return try client.readResponses(arguments: arguments)
     }
 }
@@ -113,9 +131,14 @@ public final class SpeechBridge: @unchecked Sendable {
 
 public final class AppIntentsBridge: @unchecked Sendable {
     private let client: any AppIntentsClient
+    private let eventInbox: any CodeModeEventInbox
 
-    public init(client: any AppIntentsClient = UnavailableAppIntentsClient()) {
+    public init(
+        client: any AppIntentsClient = UnavailableAppIntentsClient(),
+        eventInbox: any CodeModeEventInbox = UnavailableCodeModeEventInbox()
+    ) {
         self.client = client
+        self.eventInbox = eventInbox
     }
 
     public func listActions(arguments: [String: JSONValue]) throws -> JSONValue {
@@ -139,6 +162,9 @@ public final class AppIntentsBridge: @unchecked Sendable {
 
     public func readHandoffs(arguments: [String: JSONValue]) throws -> JSONValue {
         try validateOptionalLimit(arguments)
+        if isConfigured(eventInbox) {
+            return try eventInbox.readEvents(source: "appintents.handoff", arguments: arguments)
+        }
         return try client.readHandoffs(arguments: arguments)
     }
 }
@@ -198,6 +224,12 @@ public final class ActivityBridge: @unchecked Sendable {
 
     public func endActivity(arguments: [String: JSONValue]) throws -> JSONValue {
         try requireNonEmptyString("identifier", in: arguments, capability: "activity.end")
+        try validateOptionalStringEnum(
+            "dismissalPolicy",
+            in: arguments,
+            allowed: ["default", "immediate"],
+            capability: "activity.end"
+        )
         return try client.endActivity(arguments: arguments)
     }
 
@@ -217,6 +249,7 @@ public final class MapsBridge: @unchecked Sendable {
     public func geocode(arguments: [String: JSONValue]) throws -> JSONValue {
         try requireNonEmptyString("address", in: arguments, capability: "maps.geocode")
         try validateOptionalLimit(arguments)
+        try validateOptionalMapsRegion(arguments, capability: "maps.geocode")
         return try client.geocode(arguments: arguments)
     }
 
@@ -228,22 +261,31 @@ public final class MapsBridge: @unchecked Sendable {
     public func search(arguments: [String: JSONValue]) throws -> JSONValue {
         try requireNonEmptyString("query", in: arguments, capability: "maps.search")
         try validateOptionalLimit(arguments)
+        try validateOptionalMapsRegion(arguments, capability: "maps.search")
         return try client.search(arguments: arguments)
     }
 
     public func routeEstimate(arguments: [String: JSONValue]) throws -> JSONValue {
-        guard arguments.object("origin") != nil else {
+        guard let origin = arguments.object("origin") else {
             throw BridgeError.invalidArguments("maps.route.estimate requires origin")
         }
-        guard arguments.object("destination") != nil else {
+        guard let destination = arguments.object("destination") else {
             throw BridgeError.invalidArguments("maps.route.estimate requires destination")
         }
+        try validateCoordinateObject(origin, name: "origin", capability: "maps.route.estimate")
+        try validateCoordinateObject(destination, name: "destination", capability: "maps.route.estimate")
+        try validateMapsTransportType(arguments, capability: "maps.route.estimate")
         return try client.routeEstimate(arguments: arguments)
     }
 
     public func open(arguments: [String: JSONValue]) throws -> JSONValue {
+        if let destination = arguments.object("destination") {
+            try validateCoordinateObject(destination, name: "destination", capability: "maps.open")
+        }
+        try validateMapsTransportType(arguments, capability: "maps.open")
         guard arguments.string("query") != nil ||
             arguments.string("url") != nil ||
+            arguments.object("destination") != nil ||
             (arguments.double("latitude") != nil && arguments.double("longitude") != nil)
         else {
             throw BridgeError.invalidArguments("maps.open requires query, url, or latitude/longitude")
@@ -293,8 +335,14 @@ public final class MusicBridge: @unchecked Sendable {
     }
 
     public func controlPlayback(arguments: [String: JSONValue], context: BridgeInvocationContext) throws -> JSONValue {
-        try ensurePermission(.music, context: context)
         try requireNonEmptyString("action", in: arguments, capability: "music.playback.control")
+        try validateOptionalStringEnum(
+            "action",
+            in: arguments,
+            allowed: ["play", "pause", "stop", "skipToNext", "skipToPrevious", "playCatalog", "playLibrary"],
+            capability: "music.playback.control"
+        )
+        try ensurePermission(.music, context: context)
         return try client.controlPlayback(arguments: arguments)
     }
 }
@@ -341,14 +389,27 @@ public final class PassKitBridge: @unchecked Sendable {
 
 public final class StoreKitBridge: @unchecked Sendable {
     private let client: any StoreKitClient
+    private let eventInbox: any CodeModeEventInbox
 
-    public init(client: any StoreKitClient = UnavailableStoreKitClient()) {
+    public init(
+        client: any StoreKitClient = UnavailableStoreKitClient(),
+        eventInbox: any CodeModeEventInbox = UnavailableCodeModeEventInbox()
+    ) {
         self.client = client
+        self.eventInbox = eventInbox
     }
 
     public func products(arguments: [String: JSONValue]) throws -> JSONValue {
-        guard arguments.array("productIDs") != nil else {
+        guard let productIDs = arguments.array("productIDs") else {
             throw BridgeError.invalidArguments("storekit.products.read requires productIDs")
+        }
+        guard productIDs.isEmpty == false else {
+            throw BridgeError.invalidArguments("storekit.products.read productIDs must not be empty")
+        }
+        for productID in productIDs {
+            guard let value = productID.stringValue?.trimmingCharacters(in: .whitespacesAndNewlines), value.isEmpty == false else {
+                throw BridgeError.invalidArguments("storekit.products.read productIDs must contain non-empty strings")
+            }
         }
         return try client.products(arguments: arguments)
     }
@@ -370,6 +431,9 @@ public final class StoreKitBridge: @unchecked Sendable {
 
     public func transactionUpdates(arguments: [String: JSONValue]) throws -> JSONValue {
         try validateOptionalLimit(arguments)
+        if isConfigured(eventInbox) {
+            return try eventInbox.readEvents(source: "storekit.transaction", arguments: arguments)
+        }
         return try client.transactionUpdates(arguments: arguments)
     }
 }
@@ -389,6 +453,169 @@ private func requireCoordinateArguments(_ arguments: [String: JSONValue], capabi
     guard arguments.double("longitude") != nil else {
         throw BridgeError.invalidArguments("\(capability) requires longitude")
     }
+}
+
+private func validateOptionalCloudKitDatabase(_ arguments: [String: JSONValue], capability: String) throws {
+    try validateOptionalStringEnum("database", in: arguments, allowed: ["private", "shared", "public"], capability: capability)
+}
+
+private func validateCloudKitFields(_ arguments: [String: JSONValue], capability: String) throws {
+    guard let fields = arguments.object("fields") else {
+        throw BridgeError.invalidArguments("\(capability) requires fields")
+    }
+    guard fields.isEmpty == false else {
+        throw BridgeError.invalidArguments("\(capability) fields must not be empty")
+    }
+    for (field, value) in fields {
+        guard isCloudKitScalarOrScalarArray(value) else {
+            throw BridgeError.invalidArguments("\(capability) fields.\(field) must be a string, number, boolean, null, or array of scalar values")
+        }
+    }
+}
+
+private func validateOptionalCloudKitPredicate(_ arguments: [String: JSONValue], capability: String) throws {
+    guard let predicate = arguments["predicate"] else {
+        return
+    }
+    guard let object = predicate.objectValue else {
+        throw BridgeError.invalidArguments("\(capability) predicate must be an object shaped as { field, equals }")
+    }
+    guard object.keys.allSatisfy({ ["field", "equals"].contains($0) }) else {
+        throw BridgeError.invalidArguments("\(capability) predicate only supports field and equals")
+    }
+    guard let field = object.string("field")?.trimmingCharacters(in: .whitespacesAndNewlines), field.isEmpty == false else {
+        throw BridgeError.invalidArguments("\(capability) predicate.field must be a non-empty string")
+    }
+    guard let equals = object["equals"], isCloudKitScalar(equals) else {
+        throw BridgeError.invalidArguments("\(capability) predicate.equals must be a scalar value")
+    }
+}
+
+private func isCloudKitScalarOrScalarArray(_ value: JSONValue) -> Bool {
+    if isCloudKitScalar(value) {
+        return true
+    }
+    guard let array = value.arrayValue else {
+        return false
+    }
+    return array.allSatisfy(isCloudKitNonNullScalar)
+}
+
+private func isCloudKitScalar(_ value: JSONValue) -> Bool {
+    switch value {
+    case .string, .number, .bool, .null:
+        return true
+    case .object, .array:
+        return false
+    }
+}
+
+private func isCloudKitNonNullScalar(_ value: JSONValue) -> Bool {
+    switch value {
+    case .string, .number, .bool:
+        return true
+    case .null, .object, .array:
+        return false
+    }
+}
+
+private func validateNotificationCategories(_ arguments: [String: JSONValue]) throws {
+    guard let categories = arguments.array("categories") else {
+        throw BridgeError.invalidArguments("notifications.categories.set requires categories")
+    }
+    for category in categories {
+        guard let object = category.objectValue else {
+            throw BridgeError.invalidArguments("notifications.categories.set categories must contain objects")
+        }
+        guard let identifier = object.string("identifier")?.trimmingCharacters(in: .whitespacesAndNewlines), identifier.isEmpty == false else {
+            throw BridgeError.invalidArguments("notifications.categories.set category.identifier must be a non-empty string")
+        }
+        if let actions = object.array("actions") {
+            for action in actions {
+                guard let actionObject = action.objectValue else {
+                    throw BridgeError.invalidArguments("notifications.categories.set category.actions must contain objects")
+                }
+                guard let actionIdentifier = actionObject.string("identifier")?.trimmingCharacters(in: .whitespacesAndNewlines), actionIdentifier.isEmpty == false else {
+                    throw BridgeError.invalidArguments("notifications.categories.set action.identifier must be a non-empty string")
+                }
+                guard let title = actionObject.string("title")?.trimmingCharacters(in: .whitespacesAndNewlines), title.isEmpty == false else {
+                    throw BridgeError.invalidArguments("notifications.categories.set action.title must be a non-empty string")
+                }
+                try validateOptionalStringArray("options", in: actionObject, capability: "notifications.categories.set")
+            }
+        }
+        try validateOptionalStringArray("intentIdentifiers", in: object, capability: "notifications.categories.set")
+        try validateOptionalStringArray("options", in: object, capability: "notifications.categories.set")
+    }
+}
+
+private func validateCoordinateObject(_ object: [String: JSONValue], name: String, capability: String) throws {
+    guard object.double("latitude") != nil else {
+        throw BridgeError.invalidArguments("\(capability) \(name).latitude is required")
+    }
+    guard object.double("longitude") != nil else {
+        throw BridgeError.invalidArguments("\(capability) \(name).longitude is required")
+    }
+}
+
+private func validateOptionalMapsRegion(_ arguments: [String: JSONValue], capability: String) throws {
+    guard let region = arguments.object("region") else {
+        return
+    }
+    if region.double("latitude") != nil || region.double("longitude") != nil || region.double("radiusMeters") != nil {
+        guard region.double("latitude") != nil,
+              region.double("longitude") != nil,
+              let radius = region.double("radiusMeters"),
+              radius > 0
+        else {
+            throw BridgeError.invalidArguments("\(capability) region must include latitude, longitude, and positive radiusMeters")
+        }
+        return
+    }
+
+    guard let center = region.object("center") else {
+        throw BridgeError.invalidArguments("\(capability) region must include either latitude/longitude/radiusMeters or center/latitudeDelta/longitudeDelta")
+    }
+    try validateCoordinateObject(center, name: "region.center", capability: capability)
+    guard let latitudeDelta = region.double("latitudeDelta"), latitudeDelta > 0 else {
+        throw BridgeError.invalidArguments("\(capability) region.latitudeDelta must be greater than 0")
+    }
+    guard let longitudeDelta = region.double("longitudeDelta"), longitudeDelta > 0 else {
+        throw BridgeError.invalidArguments("\(capability) region.longitudeDelta must be greater than 0")
+    }
+}
+
+private func validateMapsTransportType(_ arguments: [String: JSONValue], capability: String) throws {
+    try validateOptionalStringEnum("transportType", in: arguments, allowed: ["automobile", "walking", "transit", "any"], capability: capability)
+}
+
+private func validateOptionalStringEnum(
+    _ name: String,
+    in arguments: [String: JSONValue],
+    allowed: Set<String>,
+    capability: String
+) throws {
+    guard let value = arguments.string(name) else {
+        return
+    }
+    guard allowed.contains(value) else {
+        throw BridgeError.invalidArguments("\(capability) \(name) must be one of \(allowed.sorted().joined(separator: ", "))")
+    }
+}
+
+private func validateOptionalStringArray(_ name: String, in arguments: [String: JSONValue], capability: String) throws {
+    guard let array = arguments.array(name) else {
+        return
+    }
+    for value in array {
+        guard let string = value.stringValue?.trimmingCharacters(in: .whitespacesAndNewlines), string.isEmpty == false else {
+            throw BridgeError.invalidArguments("\(capability) \(name) must contain non-empty strings")
+        }
+    }
+}
+
+private func isConfigured(_ inbox: any CodeModeEventInbox) -> Bool {
+    !(inbox is UnavailableCodeModeEventInbox)
 }
 
 private func validateOptionalLimit(_ arguments: [String: JSONValue]) throws {

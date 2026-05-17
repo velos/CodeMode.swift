@@ -1,5 +1,17 @@
 import Foundation
 
+public protocol CodeModeEventInbox: Sendable {
+    func readEvents(source: String, arguments: [String: JSONValue]) throws -> JSONValue
+}
+
+public struct UnavailableCodeModeEventInbox: CodeModeEventInbox {
+    public init() {}
+
+    public func readEvents(source: String, arguments: [String: JSONValue]) throws -> JSONValue {
+        try unavailable("\(source) event inbox")
+    }
+}
+
 public protocol CloudKitClient: Sendable {
     func accountStatus(arguments: [String: JSONValue]) throws -> JSONValue
     func queryRecords(arguments: [String: JSONValue]) throws -> JSONValue
