@@ -153,6 +153,83 @@ import Testing
     #expect(alert.optionalArguments.contains("sourceRect"))
 }
 
+@Test func bigTicketAPIDescriptorsExposeExpectedJavaScriptNames() throws {
+    let descriptors = Dictionary(
+        uniqueKeysWithValues: DefaultCapabilityLoader.loadAllRegistrations().map { ($0.descriptor.id, $0.descriptor) }
+    )
+
+    let cloudKit = try #require(descriptors[.cloudKitRecordsQuery])
+    #expect(cloudKit.requiredArguments == ["recordType"])
+    #expect(cloudKit.optionalArguments.contains("database"))
+    #expect(JavaScriptBindingCatalog.names(for: .cloudKitRecordsQuery) == ["apple.cloudkit.queryRecords"])
+    #expect(JavaScriptBindingCatalog.names(for: .cloudKitSubscriptionEventsRead) == ["apple.cloudkit.listEvents"])
+
+    let remote = try #require(descriptors[.notificationsRemoteRegister])
+    #expect(remote.summary.contains("APNs"))
+    #expect(JavaScriptBindingCatalog.names(for: .notificationsRemoteTokenRead) == ["apple.notifications.getRemoteToken"])
+    #expect(JavaScriptBindingCatalog.names(for: .notificationsResponsesRead) == ["apple.notifications.listResponses"])
+
+    let speechFile = try #require(descriptors[.speechFileTranscribe])
+    #expect(speechFile.requiredPermissions == [.speechRecognition])
+    #expect(speechFile.optionalArguments.contains("locale"))
+    #expect(JavaScriptBindingCatalog.names(for: .speechMicrophoneTranscribe) == ["apple.speech.transcribeMicrophone"])
+
+    let appIntentRun = try #require(descriptors[.appIntentsRun])
+    #expect(appIntentRun.requiredArguments == ["identifier"])
+    #expect(JavaScriptBindingCatalog.names(for: .appIntentsHandoffsRead) == ["apple.appIntents.listHandoffs"])
+
+    let foundationGenerate = try #require(descriptors[.foundationModelsGenerate])
+    #expect(foundationGenerate.requiredArguments == ["prompt"])
+    #expect(JavaScriptBindingCatalog.names(for: .foundationModelsExtract) == ["apple.foundationModels.extract"])
+
+    let activityStart = try #require(descriptors[.activityStart])
+    #expect(activityStart.requiredArguments == ["activityType", "attributes"])
+    #expect(JavaScriptBindingCatalog.names(for: .activityPushTokenRead) == ["apple.activity.getPushToken"])
+
+    let mapsSearch = try #require(descriptors[.mapsSearch])
+    #expect(mapsSearch.requiredArguments == ["query"])
+    #expect(JavaScriptBindingCatalog.names(for: .mapsRouteEstimate) == ["apple.maps.routeEstimate"])
+
+    let musicLibrary = try #require(descriptors[.musicLibraryRead])
+    #expect(musicLibrary.requiredPermissions == [.music])
+    #expect(JavaScriptBindingCatalog.names(for: .musicPlaybackControl) == ["apple.music.play"])
+
+    let walletPayment = try #require(descriptors[.passKitApplePayPresent])
+    #expect(walletPayment.argumentHints["confirmed"]?.contains("explicit user-visible confirmation") == true)
+    #expect(JavaScriptBindingCatalog.names(for: .passKitPassAdd) == ["apple.wallet.addPass"])
+
+    let storePurchase = try #require(descriptors[.storeKitPurchase])
+    #expect(storePurchase.requiredArguments == ["productID", "confirmed"])
+    #expect(storePurchase.argumentHints["confirmed"]?.contains("explicit user-visible confirmation") == true)
+    #expect(JavaScriptBindingCatalog.names(for: .storeKitTransactionsRead) == ["apple.storekit.listTransactions"])
+}
+
+@Test func bigTicketCapabilitiesHaveExpectedPlatformScope() {
+    let crossApple: Set<CapabilityID> = [
+        .cloudKitRecordsQuery,
+        .notificationsRemoteRegister,
+        .speechFileTranscribe,
+        .appIntentsRun,
+        .foundationModelsGenerate,
+        .mapsSearch,
+        .musicCatalogSearch,
+        .storeKitProductsRead,
+    ]
+    let iOSOnly: Set<CapabilityID> = [
+        .activityStart,
+        .activityPushTokenRead,
+        .passKitPassAdd,
+        .passKitApplePayPresent,
+    ]
+
+    #expect(crossApple.isSubset(of: CapabilityPlatformSupport.supportedCapabilities(for: .iOS)))
+    #expect(crossApple.isSubset(of: CapabilityPlatformSupport.supportedCapabilities(for: .macOS)))
+    #expect(crossApple.isSubset(of: CapabilityPlatformSupport.supportedCapabilities(for: .visionOS)))
+    #expect(iOSOnly.isSubset(of: CapabilityPlatformSupport.supportedCapabilities(for: .iOS)))
+    #expect(CapabilityPlatformSupport.supportedCapabilities(for: .macOS).isDisjoint(with: iOSOnly))
+    #expect(CapabilityPlatformSupport.supportedCapabilities(for: .visionOS).isDisjoint(with: iOSOnly))
+}
+
 @Test func filesystemListDescriptorDocumentsEntryObjects() throws {
     let descriptor = try #require(
         DefaultCapabilityLoader.loadAllRegistrations()

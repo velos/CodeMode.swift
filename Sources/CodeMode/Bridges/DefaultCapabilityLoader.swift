@@ -2,9 +2,31 @@ import Foundation
 
 public enum DefaultCapabilityLoader {
     public static func loadAllRegistrations(
-        fileSystem: any CodeModeFileSystem = LocalCodeModeFileSystem()
+        fileSystem: any CodeModeFileSystem = LocalCodeModeFileSystem(),
+        cloudKitClient: any CloudKitClient = UnavailableCloudKitClient(),
+        remoteNotificationsClient: any RemoteNotificationsClient = UnavailableRemoteNotificationsClient(),
+        speechClient: any SpeechClient = UnavailableSpeechClient(),
+        appIntentsClient: any AppIntentsClient = UnavailableAppIntentsClient(),
+        foundationModelsClient: any FoundationModelsClient = UnavailableFoundationModelsClient(),
+        activityClient: any ActivityClient = UnavailableActivityClient(),
+        mapsClient: any MapsClient = UnavailableMapsClient(),
+        musicClient: any MusicClient = UnavailableMusicClient(),
+        passKitClient: any PassKitClient = UnavailablePassKitClient(),
+        storeKitClient: any StoreKitClient = UnavailableStoreKitClient()
     ) -> [CapabilityRegistration] {
-        DefaultCapabilityRegistrationBuilder(fileSystem: fileSystem).loadAll()
+        DefaultCapabilityRegistrationBuilder(
+            fileSystem: fileSystem,
+            cloudKitClient: cloudKitClient,
+            remoteNotificationsClient: remoteNotificationsClient,
+            speechClient: speechClient,
+            appIntentsClient: appIntentsClient,
+            foundationModelsClient: foundationModelsClient,
+            activityClient: activityClient,
+            mapsClient: mapsClient,
+            musicClient: musicClient,
+            passKitClient: passKitClient,
+            storeKitClient: storeKitClient
+        ).loadAll()
     }
 }
 
@@ -24,8 +46,30 @@ private struct DefaultCapabilityRegistrationBuilder {
     private let home: HomeBridge
     private let media: MediaBridge
     private let systemUI: SystemUIBridge
+    private let cloudKit: CloudKitBridge
+    private let remoteNotifications: RemoteNotificationsBridge
+    private let speech: SpeechBridge
+    private let appIntents: AppIntentsBridge
+    private let foundationModels: FoundationModelsBridge
+    private let activity: ActivityBridge
+    private let maps: MapsBridge
+    private let music: MusicBridge
+    private let passKit: PassKitBridge
+    private let storeKit: StoreKitBridge
 
-    init(fileSystem: any CodeModeFileSystem) {
+    init(
+        fileSystem: any CodeModeFileSystem,
+        cloudKitClient: any CloudKitClient,
+        remoteNotificationsClient: any RemoteNotificationsClient,
+        speechClient: any SpeechClient,
+        appIntentsClient: any AppIntentsClient,
+        foundationModelsClient: any FoundationModelsClient,
+        activityClient: any ActivityClient,
+        mapsClient: any MapsClient,
+        musicClient: any MusicClient,
+        passKitClient: any PassKitClient,
+        storeKitClient: any StoreKitClient
+    ) {
         self.fs = FileSystemBridge(fileSystem: fileSystem)
         self.network = NetworkBridge()
         self.keychain = KeychainBridge()
@@ -41,6 +85,16 @@ private struct DefaultCapabilityRegistrationBuilder {
         self.home = HomeBridge()
         self.media = MediaBridge()
         self.systemUI = SystemUIBridge()
+        self.cloudKit = CloudKitBridge(client: cloudKitClient)
+        self.remoteNotifications = RemoteNotificationsBridge(client: remoteNotificationsClient)
+        self.speech = SpeechBridge(client: speechClient)
+        self.appIntents = AppIntentsBridge(client: appIntentsClient)
+        self.foundationModels = FoundationModelsBridge(client: foundationModelsClient)
+        self.activity = ActivityBridge(client: activityClient)
+        self.maps = MapsBridge(client: mapsClient)
+        self.music = MusicBridge(client: musicClient)
+        self.passKit = PassKitBridge(client: passKitClient)
+        self.storeKit = StoreKitBridge(client: storeKitClient)
     }
 
     func loadAll() -> [CapabilityRegistration] {
@@ -58,6 +112,7 @@ private struct DefaultCapabilityRegistrationBuilder {
             healthRegistrations(),
             homeRegistrations(),
             mediaRegistrations(),
+            bigTicketAppleRegistrations(),
             filesystemRegistrations(),
         ].flatMap { $0 }
     }
@@ -1573,6 +1628,999 @@ private struct DefaultCapabilityRegistrationBuilder {
                 ),
                 handler: { args, context in
                     try media.transcode(arguments: args, context: context)
+                }
+            ),
+        ]
+    }
+
+    private func bigTicketAppleRegistrations() -> [CapabilityRegistration] {
+        [
+            cloudKitRegistrations(),
+            remoteNotificationRegistrations(),
+            speechRegistrations(),
+            appIntentsRegistrations(),
+            foundationModelsRegistrations(),
+            activityRegistrations(),
+            mapsRegistrations(),
+            musicRegistrations(),
+            passKitRegistrations(),
+            storeKitRegistrations(),
+        ].flatMap { $0 }
+    }
+
+    private func cloudKitRegistrations() -> [CapabilityRegistration] {
+        [
+            CapabilityRegistration(
+                descriptor: .init(
+                    id: .cloudKitAccountStatus,
+                    title: "Read CloudKit account status",
+                    summary: "Read iCloud account availability for CloudKit-backed agent state.",
+                    tags: ["cloudkit", "icloud", "sync", "account"],
+                    example: "await apple.cloudkit.getAccountStatus({ containerIdentifier: 'iCloud.com.example.app' })",
+                    optionalArguments: ["containerIdentifier"],
+                    argumentHints: [
+                        "containerIdentifier": "Optional iCloud container identifier; defaults to the host client's configured container.",
+                    ],
+                    resultSummary: "Object with status/accountAvailable and containerIdentifier when available."
+                ),
+                handler: { args, _ in
+                    try cloudKit.accountStatus(arguments: args)
+                }
+            ),
+            CapabilityRegistration(
+                descriptor: .init(
+                    id: .cloudKitRecordsQuery,
+                    title: "Query CloudKit records",
+                    summary: "Query records from a private/shared/public CloudKit database for synced agent state.",
+                    tags: ["cloudkit", "icloud", "database", "query"],
+                    example: "await apple.cloudkit.queryRecords({ database: 'private', recordType: 'Task', limit: 20 })",
+                    requiredArguments: ["recordType"],
+                    optionalArguments: ["database", "containerIdentifier", "zoneID", "predicate", "sortDescriptors", "desiredKeys", "limit"],
+                    argumentHints: [
+                        "database": "private (default), shared, or public.",
+                        "recordType": "CloudKit record type to query.",
+                        "containerIdentifier": "Optional iCloud container identifier.",
+                        "zoneID": "Optional custom zone identifier.",
+                        "predicate": "Host-supported predicate object or string; keep predicates bounded and repairable.",
+                        "sortDescriptors": "Optional array of sort descriptor objects.",
+                        "desiredKeys": "Optional array of field keys to return.",
+                        "limit": "Max records to return; default is host-defined.",
+                    ],
+                    resultSummary: "Array of records with recordName/recordType/fields/modifiedAt/database."
+                ),
+                handler: { args, _ in
+                    try cloudKit.queryRecords(arguments: args)
+                }
+            ),
+            CapabilityRegistration(
+                descriptor: .init(
+                    id: .cloudKitRecordSave,
+                    title: "Save CloudKit record",
+                    summary: "Create or update a CloudKit record in a private/shared/public database.",
+                    tags: ["cloudkit", "icloud", "database", "write"],
+                    example: "await apple.cloudkit.saveRecord({ database: 'private', recordType: 'Task', recordName: 'task-1', fields: { title: 'Review' } })",
+                    requiredArguments: ["recordType", "fields"],
+                    optionalArguments: ["recordName", "database", "containerIdentifier", "zoneID", "savePolicy"],
+                    argumentHints: [
+                        "recordType": "CloudKit record type to create or update.",
+                        "fields": "JSON object mapped by the host client into supported CloudKit field values.",
+                        "recordName": "Optional CloudKit recordName; omitted means create a new record.",
+                        "database": "private (default), shared, or public.",
+                        "containerIdentifier": "Optional iCloud container identifier.",
+                        "zoneID": "Optional custom zone identifier.",
+                        "savePolicy": "Host-supported save policy such as changedKeys or allKeys.",
+                    ],
+                    resultSummary: "Saved record object with recordName/recordType/fields/changeTag/database."
+                ),
+                handler: { args, _ in
+                    try cloudKit.saveRecord(arguments: args)
+                }
+            ),
+            CapabilityRegistration(
+                descriptor: .init(
+                    id: .cloudKitRecordDelete,
+                    title: "Delete CloudKit record",
+                    summary: "Delete a CloudKit record by recordName from a configured database.",
+                    tags: ["cloudkit", "icloud", "database", "delete"],
+                    example: "await apple.cloudkit.deleteRecord({ database: 'private', recordName: 'task-1' })",
+                    requiredArguments: ["recordName"],
+                    optionalArguments: ["database", "containerIdentifier", "zoneID"],
+                    argumentHints: [
+                        "recordName": "CloudKit recordName to delete.",
+                        "database": "private (default), shared, or public.",
+                        "containerIdentifier": "Optional iCloud container identifier.",
+                        "zoneID": "Optional custom zone identifier.",
+                    ],
+                    resultSummary: "Object with recordName/deleted/database."
+                ),
+                handler: { args, _ in
+                    try cloudKit.deleteRecord(arguments: args)
+                }
+            ),
+            CapabilityRegistration(
+                descriptor: .init(
+                    id: .cloudKitSubscriptionSave,
+                    title: "Save CloudKit subscription",
+                    summary: "Register a bounded CloudKit query subscription so the host can enqueue subscription events later.",
+                    tags: ["cloudkit", "icloud", "subscription", "inbox"],
+                    example: "await apple.cloudkit.subscribe({ subscriptionID: 'tasks', database: 'private', recordType: 'Task' })",
+                    requiredArguments: ["subscriptionID", "recordType"],
+                    optionalArguments: ["database", "containerIdentifier", "zoneID", "predicate", "firesOnRecordCreation", "firesOnRecordUpdate", "firesOnRecordDeletion"],
+                    argumentHints: [
+                        "subscriptionID": "Stable host-visible subscription identifier.",
+                        "recordType": "CloudKit record type to observe.",
+                        "database": "private (default), shared, or public.",
+                        "predicate": "Host-supported predicate object or string.",
+                        "firesOnRecordCreation": "Whether creation events are enqueued; default true.",
+                        "firesOnRecordUpdate": "Whether update events are enqueued; default true.",
+                        "firesOnRecordDeletion": "Whether delete events are enqueued; default true.",
+                    ],
+                    resultSummary: "Object with subscriptionID/saved/database."
+                ),
+                handler: { args, _ in
+                    try cloudKit.saveSubscription(arguments: args)
+                }
+            ),
+            CapabilityRegistration(
+                descriptor: .init(
+                    id: .cloudKitSubscriptionEventsRead,
+                    title: "Read CloudKit subscription inbox",
+                    summary: "Read bounded CloudKit subscription events previously received by the host.",
+                    tags: ["cloudkit", "icloud", "subscription", "inbox", "events"],
+                    example: "await apple.cloudkit.listEvents({ subscriptionID: 'tasks', limit: 20 })",
+                    optionalArguments: ["subscriptionID", "limit", "afterCursor"],
+                    argumentHints: [
+                        "subscriptionID": "Optional subscription filter.",
+                        "limit": "Maximum number of inbox events to read.",
+                        "afterCursor": "Optional host-provided cursor for incremental reads.",
+                    ],
+                    resultSummary: "Array of subscription event objects with cursor/subscriptionID/recordName/reason/database."
+                ),
+                handler: { args, _ in
+                    try cloudKit.readSubscriptionEvents(arguments: args)
+                }
+            ),
+        ]
+    }
+
+    private func remoteNotificationRegistrations() -> [CapabilityRegistration] {
+        [
+            CapabilityRegistration(
+                descriptor: .init(
+                    id: .notificationsRemoteRegister,
+                    title: "Register for remote notifications",
+                    summary: "Ask the host app to register with APNs and record the client device-token lifecycle.",
+                    tags: ["notifications", "apns", "remote", "registration"],
+                    example: "await apple.notifications.registerRemote()",
+                    optionalArguments: ["types"],
+                    argumentHints: [
+                        "types": "Optional host-supported notification types; APNs provider sending is intentionally out of scope.",
+                    ],
+                    resultSummary: "Object with registered/status and deviceToken when already available."
+                ),
+                handler: { args, _ in
+                    try remoteNotifications.register(arguments: args)
+                }
+            ),
+            CapabilityRegistration(
+                descriptor: .init(
+                    id: .notificationsRemoteTokenRead,
+                    title: "Read APNs device token",
+                    summary: "Read the latest APNs device token captured by the host app.",
+                    tags: ["notifications", "apns", "remote", "token"],
+                    example: "await apple.notifications.getRemoteToken()",
+                    resultSummary: "Object with token/environment/updatedAt or null token when registration has not completed."
+                ),
+                handler: { args, _ in
+                    try remoteNotifications.readToken(arguments: args)
+                }
+            ),
+            CapabilityRegistration(
+                descriptor: .init(
+                    id: .notificationsSettingsRead,
+                    title: "Read notification settings",
+                    summary: "Read UserNotifications/APNs client settings exposed by the host.",
+                    tags: ["notifications", "apns", "settings", "permission"],
+                    example: "await apple.notifications.getSettings()",
+                    resultSummary: "Object with authorizationStatus/alert/badge/sound/criticalAlert/providesAppNotificationSettings."
+                ),
+                handler: { args, _ in
+                    try remoteNotifications.readSettings(arguments: args)
+                }
+            ),
+            CapabilityRegistration(
+                descriptor: .init(
+                    id: .notificationsCategoriesSet,
+                    title: "Set notification categories",
+                    summary: "Register host-approved notification categories and actions for push/local response handling.",
+                    tags: ["notifications", "apns", "categories", "actions"],
+                    example: "await apple.notifications.setCategories({ categories: [{ identifier: 'task', actions: [{ identifier: 'done', title: 'Done' }] }] })",
+                    requiredArguments: ["categories"],
+                    argumentHints: [
+                        "categories": "Array of category definitions with identifier/actions/options approved by the host.",
+                    ],
+                    resultSummary: "Object with registered category identifiers."
+                ),
+                handler: { args, _ in
+                    try remoteNotifications.setCategories(arguments: args)
+                }
+            ),
+            CapabilityRegistration(
+                descriptor: .init(
+                    id: .notificationsResponsesRead,
+                    title: "Read notification response inbox",
+                    summary: "Read bounded notification action/open responses captured by the host for later agent handling.",
+                    tags: ["notifications", "apns", "response", "inbox", "events"],
+                    example: "await apple.notifications.listResponses({ limit: 20 })",
+                    optionalArguments: ["limit", "categoryIdentifier", "actionIdentifier", "afterCursor"],
+                    argumentHints: [
+                        "limit": "Maximum number of response events to read.",
+                        "categoryIdentifier": "Optional category filter.",
+                        "actionIdentifier": "Optional action filter.",
+                        "afterCursor": "Optional host-provided cursor for incremental reads.",
+                    ],
+                    resultSummary: "Array of response events with cursor/identifier/actionIdentifier/categoryIdentifier/userText/userInfo/date."
+                ),
+                handler: { args, _ in
+                    try remoteNotifications.readResponses(arguments: args)
+                }
+            ),
+        ]
+    }
+
+    private func speechRegistrations() -> [CapabilityRegistration] {
+        [
+            CapabilityRegistration(
+                descriptor: .init(
+                    id: .speechPermissionRequest,
+                    title: "Request speech recognition permission",
+                    summary: "Trigger the Speech recognition permission prompt.",
+                    tags: ["speech", "permission", "transcription"],
+                    example: "await apple.speech.requestPermission()",
+                    resultSummary: "Object with status/granted."
+                ),
+                handler: { _, context in
+                    try speech.requestPermission(context: context)
+                }
+            ),
+            CapabilityRegistration(
+                descriptor: .init(
+                    id: .speechStatus,
+                    title: "Read speech recognition permission status",
+                    summary: "Read Speech recognition permission status without starting capture.",
+                    tags: ["speech", "permission", "transcription"],
+                    example: "await apple.speech.getStatus()",
+                    resultSummary: "Object with status/granted."
+                ),
+                handler: { _, context in
+                    try speech.status(context: context)
+                }
+            ),
+            CapabilityRegistration(
+                descriptor: .init(
+                    id: .speechFileTranscribe,
+                    title: "Transcribe audio file",
+                    summary: "Transcribe a sandbox audio file through the host Speech adapter.",
+                    tags: ["speech", "transcription", "audio"],
+                    example: "await apple.speech.transcribeFile({ path: 'tmp:meeting.m4a', locale: 'en-US', timeoutMs: 60000 })",
+                    requiredPermissions: [.speechRecognition],
+                    requiredArguments: ["path"],
+                    optionalArguments: ["locale", "timeoutMs", "requiresOnDeviceRecognition", "taskHint"],
+                    argumentHints: [
+                        "path": "Sandbox audio file path.",
+                        "locale": "BCP-47 locale identifier such as en-US.",
+                        "timeoutMs": "Maximum transcription wait time in milliseconds.",
+                        "requiresOnDeviceRecognition": "Whether to require on-device recognition when the host supports it.",
+                        "taskHint": "Speech task hint such as dictation, search, or confirmation.",
+                    ],
+                    resultSummary: "Object with transcript/segments/locale/isFinal/durationSeconds."
+                ),
+                handler: { args, context in
+                    try speech.transcribeFile(arguments: args, context: context)
+                }
+            ),
+            CapabilityRegistration(
+                descriptor: .init(
+                    id: .speechMicrophoneTranscribe,
+                    title: "Transcribe microphone audio",
+                    summary: "Run live microphone transcription through a host-mediated session with an explicit timeout.",
+                    tags: ["speech", "transcription", "audio", "microphone"],
+                    example: "await apple.speech.transcribeMicrophone({ locale: 'en-US', timeoutMs: 15000 })",
+                    requiredPermissions: [.speechRecognition, .microphone],
+                    optionalArguments: ["locale", "timeoutMs", "requiresOnDeviceRecognition", "taskHint", "partialResults"],
+                    argumentHints: [
+                        "locale": "BCP-47 locale identifier such as en-US.",
+                        "timeoutMs": "Maximum microphone capture/transcription time in milliseconds.",
+                        "requiresOnDeviceRecognition": "Whether to require on-device recognition when the host supports it.",
+                        "taskHint": "Speech task hint such as dictation, search, or confirmation.",
+                        "partialResults": "Whether partial transcripts may be returned.",
+                    ],
+                    resultSummary: "Object with transcript/segments/locale/isFinal/timedOut."
+                ),
+                handler: { args, context in
+                    try speech.transcribeMicrophone(arguments: args, context: context)
+                }
+            ),
+        ]
+    }
+
+    private func appIntentsRegistrations() -> [CapabilityRegistration] {
+        [
+            CapabilityRegistration(
+                descriptor: .init(
+                    id: .appIntentsList,
+                    title: "List host App Intent adapters",
+                    summary: "List host-registered App Intents or Shortcuts actions exposed to CodeMode.",
+                    tags: ["appintents", "shortcuts", "actions", "host-adapter"],
+                    example: "await apple.appIntents.list()",
+                    optionalArguments: ["domain", "limit"],
+                    argumentHints: [
+                        "domain": "Optional host-defined action domain filter.",
+                        "limit": "Maximum actions to return.",
+                    ],
+                    resultSummary: "Array of actions with identifier/title/summary/requiredParameters."
+                ),
+                handler: { args, _ in
+                    try appIntents.listActions(arguments: args)
+                }
+            ),
+            CapabilityRegistration(
+                descriptor: .init(
+                    id: .appIntentsRun,
+                    title: "Run host App Intent adapter",
+                    summary: "Run a host-registered App Intent adapter with structured parameters.",
+                    tags: ["appintents", "shortcuts", "actions", "host-adapter"],
+                    example: "await apple.appIntents.run({ identifier: 'createNote', parameters: { title: 'Draft' } })",
+                    requiredArguments: ["identifier"],
+                    optionalArguments: ["parameters", "timeoutMs"],
+                    argumentHints: [
+                        "identifier": "Host-registered action identifier from apple.appIntents.list.",
+                        "parameters": "Structured parameters validated by the host adapter.",
+                        "timeoutMs": "Maximum wait time in milliseconds.",
+                    ],
+                    resultSummary: "Adapter-defined structured result."
+                ),
+                handler: { args, _ in
+                    try appIntents.runAction(arguments: args)
+                }
+            ),
+            CapabilityRegistration(
+                descriptor: .init(
+                    id: .appIntentsDonate,
+                    title: "Donate host App Intent action",
+                    summary: "Ask the host to donate a supported action to Shortcuts/Siri suggestions where feasible.",
+                    tags: ["appintents", "shortcuts", "donation", "host-adapter"],
+                    example: "await apple.appIntents.donate({ identifier: 'createNote', parameters: { title: 'Draft' } })",
+                    requiredArguments: ["identifier"],
+                    optionalArguments: ["parameters"],
+                    argumentHints: [
+                        "identifier": "Host-registered action identifier.",
+                        "parameters": "Structured action parameters used for the donation.",
+                    ],
+                    resultSummary: "Object with donated/status."
+                ),
+                handler: { args, _ in
+                    try appIntents.donateAction(arguments: args)
+                }
+            ),
+            CapabilityRegistration(
+                descriptor: .init(
+                    id: .appIntentsOpen,
+                    title: "Open host App Intent surface",
+                    summary: "Open a host-provided App Intent, Shortcuts, or app surface for user-mediated continuation.",
+                    tags: ["appintents", "shortcuts", "open", "host-adapter"],
+                    example: "await apple.appIntents.open({ identifier: 'showTask', parameters: { id: 'task-1' } })",
+                    requiredArguments: ["identifier"],
+                    optionalArguments: ["parameters"],
+                    argumentHints: [
+                        "identifier": "Host-registered open action identifier.",
+                        "parameters": "Structured parameters for the host open action.",
+                    ],
+                    resultSummary: "Object with opened/status."
+                ),
+                handler: { args, _ in
+                    try appIntents.openAction(arguments: args)
+                }
+            ),
+            CapabilityRegistration(
+                descriptor: .init(
+                    id: .appIntentsHandoffsRead,
+                    title: "Read App Intent handoff inbox",
+                    summary: "Read bounded App Intent handoff events captured by the host app.",
+                    tags: ["appintents", "shortcuts", "handoff", "inbox", "events"],
+                    example: "await apple.appIntents.listHandoffs({ limit: 20 })",
+                    optionalArguments: ["identifier", "limit", "afterCursor"],
+                    argumentHints: [
+                        "identifier": "Optional action identifier filter.",
+                        "limit": "Maximum handoff events to return.",
+                        "afterCursor": "Optional host-provided cursor for incremental reads.",
+                    ],
+                    resultSummary: "Array of handoff events with cursor/identifier/parameters/date/source."
+                ),
+                handler: { args, _ in
+                    try appIntents.readHandoffs(arguments: args)
+                }
+            ),
+        ]
+    }
+
+    private func foundationModelsRegistrations() -> [CapabilityRegistration] {
+        [
+            CapabilityRegistration(
+                descriptor: .init(
+                    id: .foundationModelsStatus,
+                    title: "Read Foundation Models availability",
+                    summary: "Read host Foundation Models availability/status before attempting local generation.",
+                    tags: ["foundationmodels", "apple-intelligence", "llm", "availability"],
+                    example: "await apple.foundationModels.getStatus()",
+                    resultSummary: "Object with available/status/reason/modelIdentifier when available."
+                ),
+                handler: { args, _ in
+                    try foundationModels.status(arguments: args)
+                }
+            ),
+            CapabilityRegistration(
+                descriptor: .init(
+                    id: .foundationModelsGenerate,
+                    title: "Generate text with Foundation Models",
+                    summary: "Generate text locally through the host Foundation Models adapter when available.",
+                    tags: ["foundationmodels", "apple-intelligence", "llm", "generation"],
+                    example: "await apple.foundationModels.generate({ prompt: 'Summarize this note', maxTokens: 200 })",
+                    requiredArguments: ["prompt"],
+                    optionalArguments: ["instructions", "temperature", "maxTokens", "schemaIdentifier", "timeoutMs"],
+                    argumentHints: [
+                        "prompt": "Prompt text sent to the host Foundation Models session.",
+                        "instructions": "Optional host-approved system instructions.",
+                        "temperature": "Optional sampling temperature when supported.",
+                        "maxTokens": "Optional maximum output tokens.",
+                        "schemaIdentifier": "Optional host-defined output schema identifier.",
+                        "timeoutMs": "Maximum generation wait time in milliseconds.",
+                    ],
+                    resultSummary: "Object with text/finishReason/usage when available."
+                ),
+                handler: { args, _ in
+                    try foundationModels.generateText(arguments: args)
+                }
+            ),
+            CapabilityRegistration(
+                descriptor: .init(
+                    id: .foundationModelsExtract,
+                    title: "Extract structured data with Foundation Models",
+                    summary: "Run host-defined structured extraction or classification with Foundation Models.",
+                    tags: ["foundationmodels", "apple-intelligence", "llm", "structured-output"],
+                    example: "await apple.foundationModels.extract({ input: text, schemaIdentifier: 'todo' })",
+                    requiredArguments: ["input"],
+                    optionalArguments: ["schema", "schemaIdentifier", "instructions", "timeoutMs"],
+                    argumentHints: [
+                        "input": "Input text to classify or extract from.",
+                        "schema": "Optional JSON schema object accepted by the host adapter.",
+                        "schemaIdentifier": "Preferred host-defined schema identifier.",
+                        "instructions": "Optional task-specific instructions.",
+                        "timeoutMs": "Maximum extraction wait time in milliseconds.",
+                    ],
+                    resultSummary: "Object with values/classification/confidence/schemaIdentifier."
+                ),
+                handler: { args, _ in
+                    try foundationModels.extract(arguments: args)
+                }
+            ),
+        ]
+    }
+
+    private func activityRegistrations() -> [CapabilityRegistration] {
+        [
+            CapabilityRegistration(
+                descriptor: .init(
+                    id: .activityList,
+                    title: "List Live Activities",
+                    summary: "List host-registered ActivityKit Live Activities visible to CodeMode.",
+                    tags: ["activitykit", "live-activities", "host-adapter"],
+                    example: "await apple.activity.list()",
+                    optionalArguments: ["activityType", "limit"],
+                    resultSummary: "Array of activities with identifier/activityType/state/contentState/attributes."
+                ),
+                handler: { args, _ in
+                    try activity.listActivities(arguments: args)
+                }
+            ),
+            CapabilityRegistration(
+                descriptor: .init(
+                    id: .activityStart,
+                    title: "Start Live Activity",
+                    summary: "Start a host-registered ActivityKit Live Activity adapter.",
+                    tags: ["activitykit", "live-activities", "host-adapter"],
+                    example: "await apple.activity.start({ activityType: 'delivery', attributes: {}, contentState: {} })",
+                    requiredArguments: ["activityType", "attributes"],
+                    optionalArguments: ["contentState", "pushType", "staleDate"],
+                    argumentHints: [
+                        "activityType": "Host-registered activity adapter type.",
+                        "attributes": "Adapter-defined immutable attributes.",
+                        "contentState": "Adapter-defined mutable content state.",
+                        "pushType": "Optional push token request mode when the adapter supports remote updates.",
+                        "staleDate": "Optional ISO8601 stale date.",
+                    ],
+                    resultSummary: "Object with identifier/activityType/state/pushToken when available."
+                ),
+                handler: { args, _ in
+                    try activity.startActivity(arguments: args)
+                }
+            ),
+            CapabilityRegistration(
+                descriptor: .init(
+                    id: .activityUpdate,
+                    title: "Update Live Activity",
+                    summary: "Update an existing host-registered Live Activity content state.",
+                    tags: ["activitykit", "live-activities", "host-adapter"],
+                    example: "await apple.activity.update({ identifier: 'activity-1', contentState: { progress: 0.7 } })",
+                    requiredArguments: ["identifier", "contentState"],
+                    optionalArguments: ["alert", "staleDate"],
+                    resultSummary: "Object with identifier/updated/state."
+                ),
+                handler: { args, _ in
+                    try activity.updateActivity(arguments: args)
+                }
+            ),
+            CapabilityRegistration(
+                descriptor: .init(
+                    id: .activityEnd,
+                    title: "End Live Activity",
+                    summary: "End a host-registered Live Activity, optionally with final content state.",
+                    tags: ["activitykit", "live-activities", "host-adapter"],
+                    example: "await apple.activity.end({ identifier: 'activity-1', dismissalPolicy: 'immediate' })",
+                    requiredArguments: ["identifier"],
+                    optionalArguments: ["contentState", "dismissalPolicy"],
+                    resultSummary: "Object with identifier/ended/state."
+                ),
+                handler: { args, _ in
+                    try activity.endActivity(arguments: args)
+                }
+            ),
+            CapabilityRegistration(
+                descriptor: .init(
+                    id: .activityPushTokenRead,
+                    title: "Read Live Activity push token",
+                    summary: "Read a Live Activity push token when the host adapter supports push updates.",
+                    tags: ["activitykit", "live-activities", "push-token"],
+                    example: "await apple.activity.getPushToken({ identifier: 'activity-1' })",
+                    requiredArguments: ["identifier"],
+                    resultSummary: "Object with identifier/pushToken/environment."
+                ),
+                handler: { args, _ in
+                    try activity.readPushToken(arguments: args)
+                }
+            ),
+        ]
+    }
+
+    private func mapsRegistrations() -> [CapabilityRegistration] {
+        [
+            CapabilityRegistration(
+                descriptor: .init(
+                    id: .mapsGeocode,
+                    title: "Geocode address",
+                    summary: "Resolve an address or place text to coordinate candidates through MapKit.",
+                    tags: ["maps", "mapkit", "geocode", "location"],
+                    example: "await apple.maps.geocode({ address: '1 Infinite Loop, Cupertino', limit: 3 })",
+                    requiredArguments: ["address"],
+                    optionalArguments: ["region", "limit"],
+                    argumentHints: [
+                        "address": "Address or place text to geocode.",
+                        "region": "Optional search bias region object.",
+                        "limit": "Maximum coordinate candidates.",
+                    ],
+                    resultSummary: "Array of placemarks with name/address/latitude/longitude."
+                ),
+                handler: { args, _ in
+                    try maps.geocode(arguments: args)
+                }
+            ),
+            CapabilityRegistration(
+                descriptor: .init(
+                    id: .mapsReverseGeocode,
+                    title: "Reverse geocode coordinates",
+                    summary: "Resolve latitude/longitude into address candidates through MapKit.",
+                    tags: ["maps", "mapkit", "reverse-geocode", "location"],
+                    example: "await apple.maps.reverseGeocode({ latitude: 37.3318, longitude: -122.0312 })",
+                    requiredArguments: ["latitude", "longitude"],
+                    optionalArguments: ["locale"],
+                    resultSummary: "Array of placemarks with name/address/latitude/longitude."
+                ),
+                handler: { args, _ in
+                    try maps.reverseGeocode(arguments: args)
+                }
+            ),
+            CapabilityRegistration(
+                descriptor: .init(
+                    id: .mapsSearch,
+                    title: "Search local map items",
+                    summary: "Search for local businesses, addresses, or points of interest through MapKit.",
+                    tags: ["maps", "mapkit", "local-search", "places"],
+                    example: "await apple.maps.search({ query: 'coffee near me', limit: 5 })",
+                    requiredArguments: ["query"],
+                    optionalArguments: ["region", "resultTypes", "limit"],
+                    argumentHints: [
+                        "query": "Search query string.",
+                        "region": "Optional coordinate region object for local bias.",
+                        "resultTypes": "Optional host-supported result type filters.",
+                        "limit": "Maximum map items.",
+                    ],
+                    resultSummary: "Array of map items with name/address/category/latitude/longitude/url."
+                ),
+                handler: { args, _ in
+                    try maps.search(arguments: args)
+                }
+            ),
+            CapabilityRegistration(
+                descriptor: .init(
+                    id: .mapsRouteEstimate,
+                    title: "Estimate route",
+                    summary: "Estimate route distance and travel time between two coordinates or map items.",
+                    tags: ["maps", "mapkit", "directions", "route"],
+                    example: "await apple.maps.routeEstimate({ origin: { latitude: 37.33, longitude: -122.03 }, destination: { latitude: 37.77, longitude: -122.42 }, transportType: 'automobile' })",
+                    requiredArguments: ["origin", "destination"],
+                    optionalArguments: ["transportType", "departureDate", "arrivalDate"],
+                    argumentHints: [
+                        "origin": "Coordinate or map item object.",
+                        "destination": "Coordinate or map item object.",
+                        "transportType": "automobile (default), walking, or transit when supported.",
+                    ],
+                    resultSummary: "Object with distanceMeters/expectedTravelTimeSeconds/transportType."
+                ),
+                handler: { args, _ in
+                    try maps.routeEstimate(arguments: args)
+                }
+            ),
+            CapabilityRegistration(
+                descriptor: .init(
+                    id: .mapsOpen,
+                    title: "Open Maps",
+                    summary: "Open Apple Maps with coordinates, a query, URL, or directions in a user-mediated handoff.",
+                    tags: ["maps", "mapkit", "open", "directions"],
+                    example: "await apple.maps.open({ query: 'Apple Park' })",
+                    optionalArguments: ["query", "url", "latitude", "longitude", "destination", "transportType"],
+                    argumentHints: [
+                        "query": "Place/search query to open.",
+                        "url": "Optional maps URL to open.",
+                        "latitude": "Latitude when opening coordinates.",
+                        "longitude": "Longitude when opening coordinates.",
+                        "destination": "Optional destination object for directions.",
+                    ],
+                    resultSummary: "Object with opened/target."
+                ),
+                handler: { args, _ in
+                    try maps.open(arguments: args)
+                }
+            ),
+        ]
+    }
+
+    private func musicRegistrations() -> [CapabilityRegistration] {
+        [
+            CapabilityRegistration(
+                descriptor: .init(
+                    id: .musicPermissionRequest,
+                    title: "Request Music permission",
+                    summary: "Request Apple Music/media-library permission before library or playback actions.",
+                    tags: ["music", "musickit", "permission"],
+                    example: "await apple.music.requestPermission()",
+                    resultSummary: "Object with status/granted."
+                ),
+                handler: { _, context in
+                    try music.requestPermission(context: context)
+                }
+            ),
+            CapabilityRegistration(
+                descriptor: .init(
+                    id: .musicSubscriptionStatus,
+                    title: "Read Music subscription status",
+                    summary: "Read MusicKit subscription/capability status exposed by the host.",
+                    tags: ["music", "musickit", "subscription", "catalog"],
+                    example: "await apple.music.getSubscriptionStatus()",
+                    resultSummary: "Object with canPlayCatalogContent/hasCloudLibraryEnabled/status."
+                ),
+                handler: { args, _ in
+                    try music.subscriptionStatus(arguments: args)
+                }
+            ),
+            CapabilityRegistration(
+                descriptor: .init(
+                    id: .musicCatalogSearch,
+                    title: "Search Music catalog",
+                    summary: "Search the Apple Music catalog for songs, albums, artists, playlists, or stations.",
+                    tags: ["music", "musickit", "catalog", "search"],
+                    example: "await apple.music.search({ term: 'Miles Davis', types: ['artists', 'albums'], limit: 5 })",
+                    requiredArguments: ["term"],
+                    optionalArguments: ["types", "limit", "countryCode"],
+                    argumentHints: [
+                        "term": "Catalog search term.",
+                        "types": "Optional array such as songs, albums, artists, playlists, stations.",
+                        "limit": "Maximum results.",
+                        "countryCode": "Optional storefront country code.",
+                    ],
+                    resultSummary: "Object grouped by result type with catalog identifiers and metadata."
+                ),
+                handler: { args, _ in
+                    try music.searchCatalog(arguments: args)
+                }
+            ),
+            CapabilityRegistration(
+                descriptor: .init(
+                    id: .musicCatalogDetails,
+                    title: "Read Music catalog details",
+                    summary: "Read details for a catalog item identifier through MusicKit.",
+                    tags: ["music", "musickit", "catalog", "details"],
+                    example: "await apple.music.getDetails({ identifier: '123', type: 'albums' })",
+                    requiredArguments: ["identifier"],
+                    optionalArguments: ["type", "countryCode"],
+                    argumentHints: [
+                        "identifier": "Music catalog item identifier.",
+                        "type": "Catalog type such as songs, albums, artists, playlists, or stations.",
+                    ],
+                    resultSummary: "Catalog item details object."
+                ),
+                handler: { args, _ in
+                    try music.catalogDetails(arguments: args)
+                }
+            ),
+            CapabilityRegistration(
+                descriptor: .init(
+                    id: .musicLibraryRead,
+                    title: "Read Music library",
+                    summary: "Read the user's Music library playlists or items after Music permission is granted.",
+                    tags: ["music", "musickit", "library"],
+                    example: "await apple.music.readLibrary({ type: 'playlists', limit: 20 })",
+                    requiredPermissions: [.music],
+                    optionalArguments: ["type", "limit"],
+                    argumentHints: [
+                        "type": "Library type such as playlists, songs, albums, or artists.",
+                        "limit": "Maximum library items.",
+                    ],
+                    resultSummary: "Array of library items with identifiers and metadata."
+                ),
+                handler: { args, context in
+                    try music.readLibrary(arguments: args, context: context)
+                }
+            ),
+            CapabilityRegistration(
+                descriptor: .init(
+                    id: .musicPlaylistWrite,
+                    title: "Write Music playlist",
+                    summary: "Create or update a user-library playlist through a host MusicKit adapter.",
+                    tags: ["music", "musickit", "library", "playlist", "write"],
+                    example: "await apple.music.writePlaylist({ name: 'Focus', catalogIDs: ['song-id'] })",
+                    requiredPermissions: [.music],
+                    requiredArguments: ["name"],
+                    optionalArguments: ["playlistID", "catalogIDs", "libraryIDs", "description"],
+                    argumentHints: [
+                        "name": "Playlist name.",
+                        "playlistID": "Optional existing playlist identifier to update.",
+                        "catalogIDs": "Optional catalog song identifiers to add.",
+                        "libraryIDs": "Optional library song identifiers to add.",
+                    ],
+                    resultSummary: "Object with playlistID/name/written."
+                ),
+                handler: { args, context in
+                    try music.writePlaylist(arguments: args, context: context)
+                }
+            ),
+            CapabilityRegistration(
+                descriptor: .init(
+                    id: .musicPlaybackControl,
+                    title: "Control Music playback",
+                    summary: "Control Music playback queue through a user-authorized host adapter.",
+                    tags: ["music", "musickit", "playback", "queue"],
+                    example: "await apple.music.play({ action: 'playCatalog', catalogID: 'song-id' })",
+                    requiredPermissions: [.music],
+                    requiredArguments: ["action"],
+                    optionalArguments: ["catalogID", "libraryID", "queue", "startPlaying"],
+                    argumentHints: [
+                        "action": "Host-supported action such as play, pause, stop, skipToNext, playCatalog, or playLibrary.",
+                        "catalogID": "Optional catalog item identifier.",
+                        "libraryID": "Optional library item identifier.",
+                        "queue": "Optional queue definition approved by the host adapter.",
+                    ],
+                    resultSummary: "Object with action/status/currentItem when available."
+                ),
+                handler: { args, context in
+                    try music.controlPlayback(arguments: args, context: context)
+                }
+            ),
+        ]
+    }
+
+    private func passKitRegistrations() -> [CapabilityRegistration] {
+        [
+            CapabilityRegistration(
+                descriptor: .init(
+                    id: .passKitWalletStatus,
+                    title: "Read Wallet status",
+                    summary: "Read PassKit Wallet availability and pass-library access status.",
+                    tags: ["passkit", "wallet", "passes"],
+                    example: "await apple.wallet.getStatus()",
+                    resultSummary: "Object with available/canAddPasses/canPresentPasses."
+                ),
+                handler: { args, _ in
+                    try passKit.walletStatus(arguments: args)
+                }
+            ),
+            CapabilityRegistration(
+                descriptor: .init(
+                    id: .passKitPassesRead,
+                    title: "List Wallet passes",
+                    summary: "List Wallet passes accessible to the host app through PassKit.",
+                    tags: ["passkit", "wallet", "passes", "read"],
+                    example: "await apple.wallet.listPasses({ limit: 20 })",
+                    optionalArguments: ["passTypeIdentifier", "serialNumber", "limit"],
+                    argumentHints: [
+                        "passTypeIdentifier": "Optional pass type filter.",
+                        "serialNumber": "Optional serial number filter.",
+                        "limit": "Maximum accessible passes.",
+                    ],
+                    resultSummary: "Array of passes with passTypeIdentifier/serialNumber/organizationName/description."
+                ),
+                handler: { args, _ in
+                    try passKit.listPasses(arguments: args)
+                }
+            ),
+            CapabilityRegistration(
+                descriptor: .init(
+                    id: .passKitPassAdd,
+                    title: "Add Wallet pass",
+                    summary: "Present user-mediated UI to add a sandbox .pkpass file to Wallet.",
+                    tags: ["passkit", "wallet", "passes", "add", "system-ui"],
+                    example: "await apple.wallet.addPass({ path: 'tmp:ticket.pkpass' })",
+                    requiredArguments: ["path"],
+                    optionalArguments: ["timeoutMs"],
+                    argumentHints: [
+                        "path": "Sandbox path to a .pkpass file.",
+                        "timeoutMs": "Optional timeout for user-mediated add-pass UI.",
+                    ],
+                    resultSummary: "Object with action/added/passTypeIdentifier/serialNumber."
+                ),
+                handler: { args, context in
+                    try passKit.addPass(arguments: args, context: context)
+                }
+            ),
+            CapabilityRegistration(
+                descriptor: .init(
+                    id: .passKitPassPresent,
+                    title: "Present Wallet pass",
+                    summary: "Present user-mediated details for an accessible Wallet pass.",
+                    tags: ["passkit", "wallet", "passes", "system-ui"],
+                    example: "await apple.wallet.presentPass({ identifier: 'pass-id' })",
+                    requiredArguments: ["identifier"],
+                    optionalArguments: ["timeoutMs"],
+                    resultSummary: "Object with action/presented/identifier."
+                ),
+                handler: { args, _ in
+                    try passKit.presentPass(arguments: args)
+                }
+            ),
+            CapabilityRegistration(
+                descriptor: .init(
+                    id: .passKitApplePayStatus,
+                    title: "Read Apple Pay status",
+                    summary: "Read Apple Pay capability using host merchant configuration; no merchant setup is accepted from JavaScript.",
+                    tags: ["passkit", "apple-pay", "payments", "safety"],
+                    example: "await apple.wallet.canMakePayments()",
+                    optionalArguments: ["networks"],
+                    argumentHints: [
+                        "networks": "Optional supported payment networks to test against host merchant configuration.",
+                    ],
+                    resultSummary: "Object with canMakePayments/canMakePaymentsUsingNetworks."
+                ),
+                handler: { args, _ in
+                    try passKit.applePayStatus(arguments: args)
+                }
+            ),
+            CapabilityRegistration(
+                descriptor: .init(
+                    id: .passKitApplePayPresent,
+                    title: "Present Apple Pay request",
+                    summary: "Present a host-defined Apple Pay payment request using host merchant configuration after explicit user-visible confirmation.",
+                    tags: ["passkit", "apple-pay", "payments", "system-ui", "safety"],
+                    example: "await apple.wallet.presentPayment({ paymentRequestID: 'checkout-123', confirmed: true })",
+                    requiredArguments: ["paymentRequestID", "confirmed"],
+                    optionalArguments: ["timeoutMs"],
+                    argumentHints: [
+                        "paymentRequestID": "Host-defined payment request identifier using host merchant configuration; arbitrary merchant setup is not accepted from JavaScript.",
+                        "confirmed": "Must be true after explicit user-visible confirmation before presenting Apple Pay.",
+                    ],
+                    resultSummary: "Object with action/authorized/paymentRequestID/status."
+                ),
+                handler: { args, _ in
+                    try passKit.presentApplePay(arguments: args)
+                }
+            ),
+        ]
+    }
+
+    private func storeKitRegistrations() -> [CapabilityRegistration] {
+        [
+            CapabilityRegistration(
+                descriptor: .init(
+                    id: .storeKitProductsRead,
+                    title: "Read StoreKit products",
+                    summary: "Read StoreKit product metadata for host-configured product identifiers.",
+                    tags: ["storekit", "commerce", "products"],
+                    example: "await apple.storekit.listProducts({ productIDs: ['pro.monthly'] })",
+                    requiredArguments: ["productIDs"],
+                    argumentHints: [
+                        "productIDs": "Array of host-configured StoreKit product identifiers.",
+                    ],
+                    resultSummary: "Array of products with id/displayName/description/price/type."
+                ),
+                handler: { args, _ in
+                    try storeKit.products(arguments: args)
+                }
+            ),
+            CapabilityRegistration(
+                descriptor: .init(
+                    id: .storeKitEntitlementsRead,
+                    title: "Read StoreKit entitlements",
+                    summary: "Read current StoreKit entitlements and verified transaction state.",
+                    tags: ["storekit", "commerce", "entitlements"],
+                    example: "await apple.storekit.listEntitlements()",
+                    resultSummary: "Array of current entitlements with productID/transactionID/expirationDate."
+                ),
+                handler: { args, _ in
+                    try storeKit.currentEntitlements(arguments: args)
+                }
+            ),
+            CapabilityRegistration(
+                descriptor: .init(
+                    id: .storeKitPurchase,
+                    title: "Purchase StoreKit product",
+                    summary: "Present StoreKit purchase UI for a host-configured product after explicit user-visible confirmation.",
+                    tags: ["storekit", "commerce", "purchase", "safety"],
+                    example: "await apple.storekit.purchase({ productID: 'pro.monthly', confirmed: true })",
+                    requiredArguments: ["productID", "confirmed"],
+                    optionalArguments: ["appAccountToken"],
+                    argumentHints: [
+                        "productID": "Host-configured StoreKit product identifier.",
+                        "confirmed": "Must be true after explicit user-visible confirmation before purchase UI is presented.",
+                        "appAccountToken": "Optional UUID string for StoreKit appAccountToken.",
+                    ],
+                    resultSummary: "Object with status/productID/transactionID when completed."
+                ),
+                handler: { args, _ in
+                    try storeKit.purchase(arguments: args)
+                }
+            ),
+            CapabilityRegistration(
+                descriptor: .init(
+                    id: .storeKitRestore,
+                    title: "Restore StoreKit purchases",
+                    summary: "Trigger StoreKit restore/sync after explicit user-visible confirmation.",
+                    tags: ["storekit", "commerce", "restore", "safety"],
+                    example: "await apple.storekit.restore({ confirmed: true })",
+                    requiredArguments: ["confirmed"],
+                    argumentHints: [
+                        "confirmed": "Must be true after explicit user-visible confirmation before restore starts.",
+                    ],
+                    resultSummary: "Object with restored/status."
+                ),
+                handler: { args, _ in
+                    try storeKit.restore(arguments: args)
+                }
+            ),
+            CapabilityRegistration(
+                descriptor: .init(
+                    id: .storeKitTransactionsRead,
+                    title: "Read StoreKit transaction inbox",
+                    summary: "Read bounded transaction updates captured by the host StoreKit adapter.",
+                    tags: ["storekit", "commerce", "transactions", "inbox", "events"],
+                    example: "await apple.storekit.listTransactions({ limit: 20 })",
+                    optionalArguments: ["limit", "productID", "afterCursor"],
+                    argumentHints: [
+                        "limit": "Maximum transaction updates to return.",
+                        "productID": "Optional product filter.",
+                        "afterCursor": "Optional host-provided cursor for incremental reads.",
+                    ],
+                    resultSummary: "Array of transaction events with cursor/productID/transactionID/status/date."
+                ),
+                handler: { args, _ in
+                    try storeKit.transactionUpdates(arguments: args)
                 }
             ),
         ]

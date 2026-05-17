@@ -11,6 +11,9 @@ public enum PermissionKind: String, Sendable, Codable, CaseIterable {
     case alarmKit = "alarmKit"
     case healthKit = "healthKit"
     case homeKit = "homeKit"
+    case speechRecognition = "speech.recognition"
+    case microphone = "microphone"
+    case music = "music"
 }
 
 public enum PermissionStatus: String, Sendable, Codable, Equatable {

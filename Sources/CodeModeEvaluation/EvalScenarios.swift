@@ -36,6 +36,12 @@ public enum CodeModeEvalScenarios {
         networkBase64TimeoutCatalogDiscovery,
         notificationsDeliveredContentCatalogDiscovery,
         systemUIParameterCatalogDiscovery,
+        cloudKitBigTicketCatalogDiscovery,
+        notificationsRemoteCatalogDiscovery,
+        speechBigTicketCatalogDiscovery,
+        mapsBigTicketCatalogDiscovery,
+        foundationModelsAppIntentsActivityCatalogDiscovery,
+        walletMusicStoreKitSafetyCatalogDiscovery,
         calendarWritePermissionDenied,
         homeWriteValidation,
         mediaMetadataValidation,
@@ -706,6 +712,8 @@ public enum CodeModeEvalScenarios {
                 return [name, ref ? {
                     capability: ref.capability,
                     jsNames: ref.jsNames,
+                    summary: ref.summary,
+                    tags: ref.tags,
                     requiredArguments: ref.requiredArguments,
                     optionalArguments: ref.optionalArguments,
                     argumentHints: ref.argumentHints,
@@ -755,6 +763,8 @@ public enum CodeModeEvalScenarios {
                 return [name, ref ? {
                     capability: ref.capability,
                     jsNames: ref.jsNames,
+                    summary: ref.summary,
+                    tags: ref.tags,
                     requiredArguments: ref.requiredArguments,
                     optionalArguments: ref.optionalArguments,
                     argumentHints: ref.argumentHints,
@@ -805,6 +815,8 @@ public enum CodeModeEvalScenarios {
                 return [name, ref ? {
                     capability: ref.capability,
                     jsNames: ref.jsNames,
+                    summary: ref.summary,
+                    tags: ref.tags,
                     requiredArguments: ref.requiredArguments,
                     optionalArguments: ref.optionalArguments,
                     argumentHints: ref.argumentHints,
@@ -848,6 +860,8 @@ public enum CodeModeEvalScenarios {
                 return [name, ref ? {
                     capability: ref.capability,
                     jsNames: ref.jsNames,
+                    summary: ref.summary,
+                    tags: ref.tags,
                     requiredArguments: ref.requiredArguments,
                     optionalArguments: ref.optionalArguments,
                     argumentHints: ref.argumentHints,
@@ -1076,6 +1090,8 @@ public enum CodeModeEvalScenarios {
                 return [name, ref ? {
                     capability: ref.capability,
                     jsNames: ref.jsNames,
+                    summary: ref.summary,
+                    tags: ref.tags,
                     requiredArguments: ref.requiredArguments,
                     optionalArguments: ref.optionalArguments,
                     argumentHints: ref.argumentHints,
@@ -1154,6 +1170,8 @@ public enum CodeModeEvalScenarios {
                 return [name, ref ? {
                     capability: ref.capability,
                     jsNames: ref.jsNames,
+                    summary: ref.summary,
+                    tags: ref.tags,
                     requiredArguments: ref.requiredArguments,
                     optionalArguments: ref.optionalArguments,
                     argumentHints: ref.argumentHints,
@@ -1196,6 +1214,8 @@ public enum CodeModeEvalScenarios {
                 return [name, ref ? {
                     capability: ref.capability,
                     jsNames: ref.jsNames,
+                    summary: ref.summary,
+                    tags: ref.tags,
                     requiredArguments: ref.requiredArguments,
                     optionalArguments: ref.optionalArguments,
                     argumentHints: ref.argumentHints,
@@ -1222,6 +1242,299 @@ public enum CodeModeEvalScenarios {
                 "sourceRect",
                 "timeoutMs",
                 "videoQuality",
+            ]
+        )
+    )
+
+    public static let cloudKitBigTicketCatalogDiscovery = CodeModeEvalScenario(
+        id: "cloudkit.big-ticket-catalog",
+        title: "CloudKit serverless catalog discovery",
+        task: "Search for CloudKit account, query, write, delete, subscription, and subscription-inbox helpers. Return capability names, JavaScript names, arguments, hints, and result summaries for serverless synced state.",
+        searchCode: """
+        async () => {
+            const names = [
+                "apple.cloudkit.getAccountStatus",
+                "apple.cloudkit.queryRecords",
+                "apple.cloudkit.saveRecord",
+                "apple.cloudkit.deleteRecord",
+                "apple.cloudkit.subscribe",
+                "apple.cloudkit.listEvents"
+            ];
+            return Object.fromEntries(names.map(name => {
+                const ref = api.byJSName[name];
+                return [name, ref ? {
+                    capability: ref.capability,
+                    jsNames: ref.jsNames,
+                    requiredArguments: ref.requiredArguments,
+                    optionalArguments: ref.optionalArguments,
+                    argumentHints: ref.argumentHints,
+                    resultSummary: ref.resultSummary
+                } : null];
+            }));
+        }
+        """,
+        expectation: CodeModeEvalExpectation(
+            toolOrder: [.searchJavaScriptAPI],
+            requiredSearchResultFragments: [
+                "apple.cloudkit.queryRecords",
+                "apple.cloudkit.saveRecord",
+                "apple.cloudkit.subscribe",
+                "cloudkit.records.query",
+                "cloudkit.record.save",
+                "cloudkit.subscription.save",
+                "cloudkit.subscriptionEvents.read",
+                "containerIdentifier",
+                "database",
+                "private",
+                "public",
+                "shared",
+                "recordType",
+                "inbox",
+            ]
+        )
+    )
+
+    public static let notificationsRemoteCatalogDiscovery = CodeModeEvalScenario(
+        id: "notifications.remote-catalog",
+        title: "APNs remote notification catalog discovery",
+        task: "Search for client-side APNs registration, token, settings, categories/actions, and response inbox helpers. Return arguments, hints, and result summaries; do not include APNs provider-send APIs.",
+        searchCode: """
+        async () => {
+            const names = [
+                "apple.notifications.registerRemote",
+                "apple.notifications.getRemoteToken",
+                "apple.notifications.getSettings",
+                "apple.notifications.setCategories",
+                "apple.notifications.listResponses"
+            ];
+            return Object.fromEntries(names.map(name => {
+                const ref = api.byJSName[name];
+                return [name, ref ? {
+                    capability: ref.capability,
+                    jsNames: ref.jsNames,
+                    summary: ref.summary,
+                    tags: ref.tags,
+                    requiredArguments: ref.requiredArguments,
+                    optionalArguments: ref.optionalArguments,
+                    argumentHints: ref.argumentHints,
+                    resultSummary: ref.resultSummary
+                } : null];
+            }));
+        }
+        """,
+        expectation: CodeModeEvalExpectation(
+            toolOrder: [.searchJavaScriptAPI],
+            requiredSearchResultFragments: [
+                "APNs",
+                "apple.notifications.registerRemote",
+                "apple.notifications.getRemoteToken",
+                "apple.notifications.getSettings",
+                "apple.notifications.setCategories",
+                "apple.notifications.listResponses",
+                "notifications.remote.register",
+                "notifications.remote.token.read",
+                "notifications.settings.read",
+                "notifications.categories.set",
+                "notifications.responses.read",
+                "categories",
+                "actionIdentifier",
+                "inbox",
+            ]
+        )
+    )
+
+    public static let speechBigTicketCatalogDiscovery = CodeModeEvalScenario(
+        id: "speech.big-ticket-catalog",
+        title: "Speech transcription catalog discovery",
+        task: "Search for Speech permission/status, file transcription, and microphone transcription helpers. Return arguments, permissions, hints, and result summaries including timeout and locale options.",
+        searchCode: """
+        async () => {
+            const names = [
+                "apple.speech.requestPermission",
+                "apple.speech.getStatus",
+                "apple.speech.transcribeFile",
+                "apple.speech.transcribeMicrophone"
+            ];
+            return Object.fromEntries(names.map(name => {
+                const ref = api.byJSName[name];
+                return [name, ref ? {
+                    capability: ref.capability,
+                    jsNames: ref.jsNames,
+                    requiredArguments: ref.requiredArguments,
+                    optionalArguments: ref.optionalArguments,
+                    argumentHints: ref.argumentHints,
+                    resultSummary: ref.resultSummary
+                } : null];
+            }));
+        }
+        """,
+        expectation: CodeModeEvalExpectation(
+            toolOrder: [.searchJavaScriptAPI],
+            requiredSearchResultFragments: [
+                "apple.speech.requestPermission",
+                "apple.speech.transcribeFile",
+                "apple.speech.transcribeMicrophone",
+                "speech.file.transcribe",
+                "speech.microphone.transcribe",
+                "locale",
+                "microphone",
+                "requiresOnDeviceRecognition",
+                "timeoutMs",
+                "transcript",
+            ]
+        )
+    )
+
+    public static let mapsBigTicketCatalogDiscovery = CodeModeEvalScenario(
+        id: "maps.big-ticket-catalog",
+        title: "MapKit catalog discovery",
+        task: "Search for MapKit geocode, reverse-geocode, local search, route estimate, and open-Maps helpers. Return arguments, hints, and result summaries.",
+        searchCode: """
+        async () => {
+            const names = [
+                "apple.maps.geocode",
+                "apple.maps.reverseGeocode",
+                "apple.maps.search",
+                "apple.maps.routeEstimate",
+                "apple.maps.open"
+            ];
+            return Object.fromEntries(names.map(name => {
+                const ref = api.byJSName[name];
+                return [name, ref ? {
+                    capability: ref.capability,
+                    jsNames: ref.jsNames,
+                    requiredArguments: ref.requiredArguments,
+                    optionalArguments: ref.optionalArguments,
+                    argumentHints: ref.argumentHints,
+                    resultSummary: ref.resultSummary
+                } : null];
+            }));
+        }
+        """,
+        expectation: CodeModeEvalExpectation(
+            toolOrder: [.searchJavaScriptAPI],
+            requiredSearchResultFragments: [
+                "apple.maps.geocode",
+                "apple.maps.reverseGeocode",
+                "apple.maps.search",
+                "apple.maps.routeEstimate",
+                "apple.maps.open",
+                "maps.geocode",
+                "maps.search",
+                "address",
+                "latitude",
+                "longitude",
+                "origin",
+                "destination",
+                "transportType",
+            ]
+        )
+    )
+
+    public static let foundationModelsAppIntentsActivityCatalogDiscovery = CodeModeEvalScenario(
+        id: "foundation-appintents-activity.catalog",
+        title: "Foundation Models, App Intents, and Activity catalog discovery",
+        task: "Search for Foundation Models generation/extraction, host App Intents adapters, and iOS Live Activity adapter helpers. Return capability names, arguments, hints, and result summaries.",
+        catalogPlatform: .iOS,
+        searchCode: """
+        async () => {
+            const names = [
+                "apple.foundationModels.getStatus",
+                "apple.foundationModels.generate",
+                "apple.foundationModels.extract",
+                "apple.appIntents.list",
+                "apple.appIntents.run",
+                "apple.appIntents.listHandoffs",
+                "apple.activity.start",
+                "apple.activity.update",
+                "apple.activity.getPushToken"
+            ];
+            return Object.fromEntries(names.map(name => {
+                const ref = api.byJSName[name];
+                return [name, ref ? {
+                    capability: ref.capability,
+                    jsNames: ref.jsNames,
+                    summary: ref.summary,
+                    tags: ref.tags,
+                    requiredArguments: ref.requiredArguments,
+                    optionalArguments: ref.optionalArguments,
+                    argumentHints: ref.argumentHints,
+                    resultSummary: ref.resultSummary
+                } : null];
+            }));
+        }
+        """,
+        expectation: CodeModeEvalExpectation(
+            toolOrder: [.searchJavaScriptAPI],
+            requiredSearchResultFragments: [
+                "apple.foundationModels.generate",
+                "apple.foundationModels.extract",
+                "foundationModels.generate",
+                "schemaIdentifier",
+                "host-defined",
+                "apple.appIntents.run",
+                "appintents.run",
+                "host-registered",
+                "apple.appIntents.listHandoffs",
+                "apple.activity.start",
+                "activity.start",
+                "activityType",
+                "pushToken",
+            ]
+        )
+    )
+
+    public static let walletMusicStoreKitSafetyCatalogDiscovery = CodeModeEvalScenario(
+        id: "wallet-music-storekit.safety-catalog",
+        title: "Wallet, MusicKit, and StoreKit safety catalog discovery",
+        task: "Search the iOS catalog for Wallet/Apple Pay, MusicKit, and StoreKit helpers. Return capability names, arguments, hints, and result summaries, especially user-mediated and explicit-confirmation constraints.",
+        catalogPlatform: .iOS,
+        searchCode: """
+        async () => {
+            const names = [
+                "apple.wallet.getStatus",
+                "apple.wallet.addPass",
+                "apple.wallet.presentPayment",
+                "apple.music.getSubscriptionStatus",
+                "apple.music.search",
+                "apple.music.play",
+                "apple.storekit.listProducts",
+                "apple.storekit.purchase",
+                "apple.storekit.listTransactions"
+            ];
+            return Object.fromEntries(names.map(name => {
+                const ref = api.byJSName[name];
+                return [name, ref ? {
+                    capability: ref.capability,
+                    jsNames: ref.jsNames,
+                    summary: ref.summary,
+                    tags: ref.tags,
+                    requiredArguments: ref.requiredArguments,
+                    optionalArguments: ref.optionalArguments,
+                    argumentHints: ref.argumentHints,
+                    resultSummary: ref.resultSummary
+                } : null];
+            }));
+        }
+        """,
+        expectation: CodeModeEvalExpectation(
+            toolOrder: [.searchJavaScriptAPI],
+            requiredSearchResultFragments: [
+                "apple.wallet.addPass",
+                "apple.wallet.presentPayment",
+                "passkit.applePay.present",
+                "host merchant configuration",
+                "explicit user-visible confirmation",
+                "apple.music.search",
+                "apple.music.play",
+                "music.catalog.search",
+                "music.playback.control",
+                "subscription",
+                "apple.storekit.purchase",
+                "storekit.purchase",
+                "confirmed",
+                "apple.storekit.listTransactions",
+                "inbox",
             ]
         )
     )

@@ -220,7 +220,12 @@ enum RuntimeJavaScript {
         listPending: function(args) { return __invokeAsync('notifications.pending.read', args || {}); },
         cancelPending: function(args) { return __invokeAsync('notifications.pending.delete', args || {}); },
         listDelivered: function(args) { return __invokeAsync('notifications.delivered.read', args || {}); },
-        removeDelivered: function(args) { return __invokeAsync('notifications.delivered.delete', args || {}); }
+        removeDelivered: function(args) { return __invokeAsync('notifications.delivered.delete', args || {}); },
+        registerRemote: function(args) { return __invokeAsync('notifications.remote.register', args || {}); },
+        getRemoteToken: function(args) { return __invokeAsync('notifications.remote.token.read', args || {}); },
+        getSettings: function(args) { return __invokeAsync('notifications.settings.read', args || {}); },
+        setCategories: function(args) { return __invokeAsync('notifications.categories.set', args || {}); },
+        listResponses: function(args) { return __invokeAsync('notifications.responses.read', args || {}); }
     };
 
     globalThis.ios = globalThis.ios || {};
@@ -246,6 +251,79 @@ enum RuntimeJavaScript {
         metadata: function(args) { return __invokeAsync('media.metadata.read', args || {}); },
         extractFrame: function(args) { return __invokeAsync('media.frame.extract', args || {}); },
         transcode: function(args) { return __invokeAsync('media.transcode', args || {}); }
+    };
+
+    globalThis.apple.cloudkit = {
+        getAccountStatus: function(args) { return __invokeAsync('cloudkit.account.status', args || {}); },
+        queryRecords: function(args) { return __invokeAsync('cloudkit.records.query', args || {}); },
+        saveRecord: function(args) { return __invokeAsync('cloudkit.record.save', args || {}); },
+        deleteRecord: function(args) { return __invokeAsync('cloudkit.record.delete', args || {}); },
+        subscribe: function(args) { return __invokeAsync('cloudkit.subscription.save', args || {}); },
+        listEvents: function(args) { return __invokeAsync('cloudkit.subscriptionEvents.read', args || {}); }
+    };
+
+    globalThis.apple.speech = {
+        requestPermission: function() { return __invokeAsync('speech.permission.request', {}); },
+        getStatus: function() { return __invokeAsync('speech.status', {}); },
+        transcribeFile: function(args) { return __invokeAsync('speech.file.transcribe', args || {}); },
+        transcribeMicrophone: function(args) { return __invokeAsync('speech.microphone.transcribe', args || {}); }
+    };
+
+    globalThis.apple.appIntents = {
+        list: function(args) { return __invokeAsync('appintents.list', args || {}); },
+        run: function(args) { return __invokeAsync('appintents.run', args || {}); },
+        donate: function(args) { return __invokeAsync('appintents.donate', args || {}); },
+        open: function(args) { return __invokeAsync('appintents.open', args || {}); },
+        listHandoffs: function(args) { return __invokeAsync('appintents.handoffs.read', args || {}); }
+    };
+
+    globalThis.apple.foundationModels = {
+        getStatus: function(args) { return __invokeAsync('foundationModels.status', args || {}); },
+        generate: function(args) { return __invokeAsync('foundationModels.generate', args || {}); },
+        extract: function(args) { return __invokeAsync('foundationModels.extract', args || {}); }
+    };
+
+    globalThis.apple.activity = {
+        list: function(args) { return __invokeAsync('activity.list', args || {}); },
+        start: function(args) { return __invokeAsync('activity.start', args || {}); },
+        update: function(args) { return __invokeAsync('activity.update', args || {}); },
+        end: function(args) { return __invokeAsync('activity.end', args || {}); },
+        getPushToken: function(args) { return __invokeAsync('activity.pushToken.read', args || {}); }
+    };
+
+    globalThis.apple.maps = {
+        geocode: function(args) { return __invokeAsync('maps.geocode', args || {}); },
+        reverseGeocode: function(args) { return __invokeAsync('maps.reverseGeocode', args || {}); },
+        search: function(args) { return __invokeAsync('maps.search', args || {}); },
+        routeEstimate: function(args) { return __invokeAsync('maps.route.estimate', args || {}); },
+        open: function(args) { return __invokeAsync('maps.open', args || {}); }
+    };
+
+    globalThis.apple.music = {
+        requestPermission: function() { return __invokeAsync('music.permission.request', {}); },
+        getSubscriptionStatus: function(args) { return __invokeAsync('music.subscription.status', args || {}); },
+        search: function(args) { return __invokeAsync('music.catalog.search', args || {}); },
+        getDetails: function(args) { return __invokeAsync('music.catalog.details', args || {}); },
+        readLibrary: function(args) { return __invokeAsync('music.library.read', args || {}); },
+        writePlaylist: function(args) { return __invokeAsync('music.playlist.write', args || {}); },
+        play: function(args) { return __invokeAsync('music.playback.control', args || {}); }
+    };
+
+    globalThis.apple.wallet = {
+        getStatus: function(args) { return __invokeAsync('passkit.wallet.status', args || {}); },
+        listPasses: function(args) { return __invokeAsync('passkit.passes.read', args || {}); },
+        addPass: function(args) { return __invokeAsync('passkit.pass.add', args || {}); },
+        presentPass: function(args) { return __invokeAsync('passkit.pass.present', args || {}); },
+        canMakePayments: function(args) { return __invokeAsync('passkit.applePay.status', args || {}); },
+        presentPayment: function(args) { return __invokeAsync('passkit.applePay.present', args || {}); }
+    };
+
+    globalThis.apple.storekit = {
+        listProducts: function(args) { return __invokeAsync('storekit.products.read', args || {}); },
+        listEntitlements: function(args) { return __invokeAsync('storekit.entitlements.read', args || {}); },
+        purchase: function(args) { return __invokeAsync('storekit.purchase', args || {}); },
+        restore: function(args) { return __invokeAsync('storekit.restore', args || {}); },
+        listTransactions: function(args) { return __invokeAsync('storekit.transactions.read', args || {}); }
     };
 
     globalThis.apple.fs = {

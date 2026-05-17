@@ -157,3 +157,47 @@ import Testing
     #expect(issues.contains(where: { $0.key == "NSHealthUpdateUsageDescription" && $0.severity == .error }))
     #expect(issues.contains(where: { $0.key == "HealthKit capability" && $0.severity == .warning }))
 }
+
+@Test func validatorRequiresSpeechAndMusicPrivacyKeys() {
+    let keys = HostConfigurationValidator.requiredInfoPlistKeys(
+        for: [.speechFileTranscribe, .speechMicrophoneTranscribe, .musicLibraryRead, .musicPlaybackControl]
+    )
+
+    #expect(keys.contains("NSSpeechRecognitionUsageDescription"))
+    #expect(keys.contains("NSMicrophoneUsageDescription"))
+    #expect(keys.contains("NSAppleMusicUsageDescription"))
+}
+
+@Test func validatorAddsBigTicketConfigurationWarnings() {
+    let issues = HostConfigurationValidator.validate(
+        requiredCapabilities: [
+            .cloudKitRecordsQuery,
+            .cloudKitSubscriptionSave,
+            .notificationsRemoteRegister,
+            .notificationsCategoriesSet,
+            .speechMicrophoneTranscribe,
+            .appIntentsRun,
+            .foundationModelsGenerate,
+            .activityStart,
+            .musicCatalogSearch,
+            .passKitPassAdd,
+            .passKitApplePayPresent,
+            .storeKitPurchase,
+        ],
+        infoPlist: [
+            "NSSpeechRecognitionUsageDescription": "Need speech recognition",
+            "NSMicrophoneUsageDescription": "Need microphone",
+        ]
+    )
+
+    #expect(issues.contains(where: { $0.key == "CloudKit capability" && $0.severity == .warning }))
+    #expect(issues.contains(where: { $0.key == "APNs client configuration" && $0.severity == .warning }))
+    #expect(issues.contains(where: { $0.key == "Speech capability" && $0.severity == .warning }))
+    #expect(issues.contains(where: { $0.key == "App Intents adapters" && $0.severity == .warning }))
+    #expect(issues.contains(where: { $0.key == "Foundation Models availability" && $0.severity == .warning }))
+    #expect(issues.contains(where: { $0.key == "ActivityKit adapters" && $0.severity == .warning }))
+    #expect(issues.contains(where: { $0.key == "MusicKit capability" && $0.severity == .warning }))
+    #expect(issues.contains(where: { $0.key == "PassKit Wallet capability" && $0.severity == .warning }))
+    #expect(issues.contains(where: { $0.key == "Apple Pay merchant configuration" && $0.severity == .warning }))
+    #expect(issues.contains(where: { $0.key == "StoreKit configuration" && $0.severity == .warning }))
+}
