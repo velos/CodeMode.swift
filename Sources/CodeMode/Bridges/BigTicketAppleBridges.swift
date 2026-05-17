@@ -18,7 +18,6 @@ public final class CloudKitBridge: @unchecked Sendable {
 
     public func queryRecords(arguments: [String: JSONValue]) throws -> JSONValue {
         try requireNonEmptyString("recordType", in: arguments, capability: "cloudkit.records.query")
-        try validateOptionalCloudKitDatabase(arguments, capability: "cloudkit.records.query")
         try validateOptionalCloudKitPredicate(arguments, capability: "cloudkit.records.query")
         try validateOptionalLimit(arguments)
         return try client.queryRecords(arguments: arguments)
@@ -26,21 +25,18 @@ public final class CloudKitBridge: @unchecked Sendable {
 
     public func saveRecord(arguments: [String: JSONValue]) throws -> JSONValue {
         try requireNonEmptyString("recordType", in: arguments, capability: "cloudkit.record.save")
-        try validateOptionalCloudKitDatabase(arguments, capability: "cloudkit.record.save")
         try validateCloudKitFields(arguments, capability: "cloudkit.record.save")
         return try client.saveRecord(arguments: arguments)
     }
 
     public func deleteRecord(arguments: [String: JSONValue]) throws -> JSONValue {
         try requireNonEmptyString("recordName", in: arguments, capability: "cloudkit.record.delete")
-        try validateOptionalCloudKitDatabase(arguments, capability: "cloudkit.record.delete")
         return try client.deleteRecord(arguments: arguments)
     }
 
     public func saveSubscription(arguments: [String: JSONValue]) throws -> JSONValue {
         try requireNonEmptyString("subscriptionID", in: arguments, capability: "cloudkit.subscription.save")
         try requireNonEmptyString("recordType", in: arguments, capability: "cloudkit.subscription.save")
-        try validateOptionalCloudKitDatabase(arguments, capability: "cloudkit.subscription.save")
         try validateOptionalCloudKitPredicate(arguments, capability: "cloudkit.subscription.save")
         return try client.saveSubscription(arguments: arguments)
     }
@@ -224,12 +220,6 @@ public final class ActivityBridge: @unchecked Sendable {
 
     public func endActivity(arguments: [String: JSONValue]) throws -> JSONValue {
         try requireNonEmptyString("identifier", in: arguments, capability: "activity.end")
-        try validateOptionalStringEnum(
-            "dismissalPolicy",
-            in: arguments,
-            allowed: ["default", "immediate"],
-            capability: "activity.end"
-        )
         return try client.endActivity(arguments: arguments)
     }
 
@@ -274,7 +264,6 @@ public final class MapsBridge: @unchecked Sendable {
         }
         try validateCoordinateObject(origin, name: "origin", capability: "maps.route.estimate")
         try validateCoordinateObject(destination, name: "destination", capability: "maps.route.estimate")
-        try validateMapsTransportType(arguments, capability: "maps.route.estimate")
         return try client.routeEstimate(arguments: arguments)
     }
 
@@ -282,7 +271,6 @@ public final class MapsBridge: @unchecked Sendable {
         if let destination = arguments.object("destination") {
             try validateCoordinateObject(destination, name: "destination", capability: "maps.open")
         }
-        try validateMapsTransportType(arguments, capability: "maps.open")
         guard arguments.string("query") != nil ||
             arguments.string("url") != nil ||
             arguments.object("destination") != nil ||
@@ -336,12 +324,6 @@ public final class MusicBridge: @unchecked Sendable {
 
     public func controlPlayback(arguments: [String: JSONValue], context: BridgeInvocationContext) throws -> JSONValue {
         try requireNonEmptyString("action", in: arguments, capability: "music.playback.control")
-        try validateOptionalStringEnum(
-            "action",
-            in: arguments,
-            allowed: ["play", "pause", "stop", "skipToNext", "skipToPrevious", "playCatalog", "playLibrary"],
-            capability: "music.playback.control"
-        )
         try ensurePermission(.music, context: context)
         return try client.controlPlayback(arguments: arguments)
     }
@@ -453,10 +435,6 @@ private func requireCoordinateArguments(_ arguments: [String: JSONValue], capabi
     guard arguments.double("longitude") != nil else {
         throw BridgeError.invalidArguments("\(capability) requires longitude")
     }
-}
-
-private func validateOptionalCloudKitDatabase(_ arguments: [String: JSONValue], capability: String) throws {
-    try validateOptionalStringEnum("database", in: arguments, allowed: ["private", "shared", "public"], capability: capability)
 }
 
 private func validateCloudKitFields(_ arguments: [String: JSONValue], capability: String) throws {
@@ -582,24 +560,6 @@ private func validateOptionalMapsRegion(_ arguments: [String: JSONValue], capabi
     }
     guard let longitudeDelta = region.double("longitudeDelta"), longitudeDelta > 0 else {
         throw BridgeError.invalidArguments("\(capability) region.longitudeDelta must be greater than 0")
-    }
-}
-
-private func validateMapsTransportType(_ arguments: [String: JSONValue], capability: String) throws {
-    try validateOptionalStringEnum("transportType", in: arguments, allowed: ["automobile", "walking", "transit", "any"], capability: capability)
-}
-
-private func validateOptionalStringEnum(
-    _ name: String,
-    in arguments: [String: JSONValue],
-    allowed: Set<String>,
-    capability: String
-) throws {
-    guard let value = arguments.string(name) else {
-        return
-    }
-    guard allowed.contains(value) else {
-        throw BridgeError.invalidArguments("\(capability) \(name) must be one of \(allowed.sorted().joined(separator: ", "))")
     }
 }
 

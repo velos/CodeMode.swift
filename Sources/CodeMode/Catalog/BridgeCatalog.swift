@@ -105,6 +105,7 @@ struct BridgeCatalog: Sendable {
             optionalArguments: descriptor.optionalArguments,
             argumentTypes: descriptor.argumentTypes,
             argumentHints: descriptor.argumentHints,
+            argumentConstraints: descriptor.argumentConstraints,
             resultSummary: descriptor.resultSummary
         )
     }

@@ -1,7 +1,92 @@
 import Foundation
 
+public struct CodeModeInboxEvent: Sendable, Codable, Equatable {
+    public var id: String
+    public var source: String
+    public var timestamp: Date
+    public var payload: JSONValue
+    public var metadata: [String: JSONValue]
+
+    public init(
+        id: String = UUID().uuidString,
+        source: String,
+        timestamp: Date = Date(),
+        payload: JSONValue,
+        metadata: [String: JSONValue] = [:]
+    ) {
+        self.id = id
+        self.source = source
+        self.timestamp = timestamp
+        self.payload = payload
+        self.metadata = metadata
+    }
+
+    var jsonValue: JSONValue {
+        .object([
+            "id": .string(id),
+            "source": .string(source),
+            "timestamp": .string(ISO8601DateFormatter().string(from: timestamp)),
+            "payload": payload,
+            "metadata": .object(metadata),
+        ])
+    }
+}
+
 public protocol CodeModeEventInbox: Sendable {
+    func appendEvent(_ event: CodeModeInboxEvent) throws
     func readEvents(source: String, arguments: [String: JSONValue]) throws -> JSONValue
+}
+
+public extension CodeModeEventInbox {
+    func appendEvent(_ event: CodeModeInboxEvent) throws {
+        throw BridgeError.unsupportedPlatform("\(event.source) event inbox append; configure a host client on CodeModeConfiguration")
+    }
+}
+
+public final class BoundedCodeModeEventInbox: CodeModeEventInbox, @unchecked Sendable {
+    private let lock = NSLock()
+    private let maxEventsPerSource: Int
+    private var eventsBySource: [String: [CodeModeInboxEvent]] = [:]
+
+    public init(maxEventsPerSource: Int = 100) {
+        self.maxEventsPerSource = max(1, maxEventsPerSource)
+    }
+
+    public func appendEvent(_ event: CodeModeInboxEvent) throws {
+        let source = event.source.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard source.isEmpty == false else {
+            throw BridgeError.invalidArguments("event inbox source must not be empty")
+        }
+
+        var normalizedEvent = event
+        normalizedEvent.source = source
+
+        lock.lock()
+        defer { lock.unlock() }
+        var events = eventsBySource[source] ?? []
+        events.insert(normalizedEvent, at: 0)
+        if events.count > maxEventsPerSource {
+            events.removeSubrange(maxEventsPerSource..<events.count)
+        }
+        eventsBySource[source] = events
+    }
+
+    public func readEvents(source: String, arguments: [String: JSONValue]) throws -> JSONValue {
+        let source = source.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard source.isEmpty == false else {
+            throw BridgeError.invalidArguments("event inbox source must not be empty")
+        }
+        if let limit = arguments.int("limit"), limit <= 0 {
+            throw BridgeError.invalidArguments("event inbox limit must be greater than 0")
+        }
+        let limit = arguments.int("limit") ?? maxEventsPerSource
+
+        lock.lock()
+        defer { lock.unlock() }
+        let events = eventsBySource[source] ?? []
+
+        return .array(events.prefix(limit).map(\.jsonValue))
+    }
 }
 
 public struct UnavailableCodeModeEventInbox: CodeModeEventInbox {

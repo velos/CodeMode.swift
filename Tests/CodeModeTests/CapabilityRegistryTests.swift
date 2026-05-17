@@ -357,6 +357,60 @@ import Testing
     }
 }
 
+@Test func registryValidationRejectsDescriptorConstrainedValuesBeforePermissions() throws {
+    let descriptor = CapabilityDescriptor(
+        id: .musicPlaybackControl,
+        title: "Music Playback",
+        summary: "Test capability",
+        tags: ["test"],
+        example: "noop",
+        requiredPermissions: [.music],
+        requiredArguments: ["action"]
+    )
+
+    let registry = CapabilityRegistry(
+        registrations: [
+            CapabilityRegistration(descriptor: descriptor) { _, _ in
+                .string("ok")
+            }
+        ]
+    )
+
+    let broker = FixedPermissionBroker(statuses: [.music: .denied])
+    let (context, sandbox) = try makeInvocationContext(
+        permissionBroker: broker,
+        allowedCapabilities: [.musicPlaybackControl]
+    )
+    defer { cleanup(sandbox) }
+
+    do {
+        _ = try registry.invoke(
+            "music.playback.control",
+            arguments: ["action": .string("shuffleEverything")],
+            context: context
+        )
+        Issue.record("Expected descriptor constraint validation to throw")
+    } catch {
+        #expect(requireBridgeErrorCode(error) == "INVALID_ARGUMENTS")
+    }
+
+    #expect(context.allPermissionEvents().isEmpty)
+}
+
+@Test func descriptorConstraintsAreExposedThroughCatalogReferences() throws {
+    let registry = CapabilityRegistry(registrations: DefaultCapabilityLoader.loadAllRegistrations())
+    let catalog = BridgeCatalog(registry: registry)
+
+    let music = try #require(catalog.reference(for: .musicPlaybackControl))
+    #expect(music.argumentConstraints.allowedStringValues["action"]?.contains("playCatalog") == true)
+
+    let maps = try #require(catalog.reference(for: .mapsRouteEstimate))
+    #expect(maps.argumentConstraints.allowedStringValues["transportType"] == ["automobile", "walking", "transit", "any"])
+
+    let network = try #require(catalog.reference(for: .networkFetch))
+    #expect(network.argumentConstraints.allowedStringValues["options.responseEncoding"] == ["text", "base64"])
+}
+
 @Test func registryValidationRejectsUnknownArguments() throws {
     let descriptor = CapabilityDescriptor(
         id: .fsRead,

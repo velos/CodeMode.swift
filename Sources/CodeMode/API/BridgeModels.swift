@@ -79,6 +79,7 @@ public struct JavaScriptAPIReference: Sendable, Codable, Equatable {
     public var optionalArguments: [String]
     public var argumentTypes: [String: CapabilityArgumentType]
     public var argumentHints: [String: String]
+    public var argumentConstraints: CapabilityArgumentConstraints
     public var resultSummary: String
 
     public init(
@@ -91,6 +92,7 @@ public struct JavaScriptAPIReference: Sendable, Codable, Equatable {
         optionalArguments: [String],
         argumentTypes: [String: CapabilityArgumentType],
         argumentHints: [String: String],
+        argumentConstraints: CapabilityArgumentConstraints = .none,
         resultSummary: String
     ) {
         self.capability = capability
@@ -102,6 +104,7 @@ public struct JavaScriptAPIReference: Sendable, Codable, Equatable {
         self.optionalArguments = optionalArguments
         self.argumentTypes = argumentTypes
         self.argumentHints = argumentHints
+        self.argumentConstraints = argumentConstraints
         self.resultSummary = resultSummary
     }
 }

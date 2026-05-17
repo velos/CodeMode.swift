@@ -33,6 +33,147 @@ public enum CapabilityArgumentType: String, Sendable, Codable, Equatable {
     }
 }
 
+public struct CapabilityArgumentConstraints: Sendable, Codable, Equatable {
+    public var allowedStringValues: [String: [String]]
+
+    public init(allowedStringValues: [String: [String]] = [:]) {
+        self.allowedStringValues = allowedStringValues.mapValues(Self.uniqueValues)
+    }
+
+    public static let none = CapabilityArgumentConstraints()
+
+    public static func defaults(for capability: CapabilityID) -> CapabilityArgumentConstraints {
+        switch capability {
+        case .networkFetch:
+            return .init(allowedStringValues: [
+                "options.responseEncoding": ["text", "base64"],
+            ])
+        case .calendarWrite:
+            return .init(allowedStringValues: [
+                "operation": ["create", "update"],
+            ])
+        case .calendarDelete:
+            return .init(allowedStringValues: [
+                "span": ["thisEvent", "futureEvents"],
+            ])
+        case .calendarUIPickCalendar:
+            return .init(allowedStringValues: [
+                "selectionStyle": ["single", "multiple"],
+                "displayStyle": ["writable", "all"],
+            ])
+        case .remindersWrite:
+            return .init(allowedStringValues: [
+                "operation": ["create", "update", "complete"],
+            ])
+        case .photosRead:
+            return .init(allowedStringValues: [
+                "mediaType": ["any", "image", "photo", "video"],
+            ])
+        case .photosUIPick:
+            return .init(allowedStringValues: [
+                "mediaType": ["any", "image", "photo", "video"],
+            ])
+        case .contactsUIPick:
+            return .init(allowedStringValues: [
+                "mode": ["single", "multiple"],
+            ])
+        case .cameraUICapture:
+            return .init(allowedStringValues: [
+                "mediaType": ["any", "image", "photo", "video"],
+                "cameraDevice": ["rear", "front"],
+                "flashMode": ["auto", "on", "off"],
+                "videoQuality": ["high", "medium", "low", "640x480", "iFrame1280x720", "iFrame960x540", "iframe1280x720", "iframe960x540"],
+            ])
+        case .cameraUIScanData:
+            return .init(allowedStringValues: [
+                "mode": ["any", "text", "barcode"],
+                "qualityLevel": ["balanced", "fast", "accurate"],
+            ])
+        case .printUIPresent:
+            return .init(allowedStringValues: [
+                "outputType": ["general", "photo", "grayscale"],
+            ])
+        case .uiAlertPresent:
+            return .init(allowedStringValues: [
+                "preferredStyle": ["alert", "actionSheet", "actionsheet"],
+            ])
+        case .cloudKitRecordsQuery, .cloudKitRecordSave, .cloudKitRecordDelete, .cloudKitSubscriptionSave:
+            return .init(allowedStringValues: [
+                "database": ["private", "shared", "public"],
+            ])
+        case .activityEnd:
+            return .init(allowedStringValues: [
+                "dismissalPolicy": ["default", "immediate"],
+            ])
+        case .mapsRouteEstimate, .mapsOpen:
+            return .init(allowedStringValues: [
+                "transportType": ["automobile", "walking", "transit", "any"],
+            ])
+        case .musicPlaybackControl:
+            return .init(allowedStringValues: [
+                "action": ["play", "pause", "stop", "skipToNext", "skipToPrevious", "playCatalog", "playLibrary"],
+            ])
+        default:
+            return .none
+        }
+    }
+
+    func validate(arguments: [String: JSONValue], capability: CapabilityID) throws {
+        for (path, allowed) in allowedStringValues.sorted(by: { $0.key < $1.key }) {
+            guard let value = Self.value(atPath: path, in: arguments) else {
+                continue
+            }
+            guard let string = value.stringValue else {
+                throw BridgeError.invalidArguments("\(capability.rawValue) expected '\(path)' as string, received \(Self.jsonTypeName(for: value))")
+            }
+            guard allowed.contains(string) else {
+                throw BridgeError.invalidArguments("\(capability.rawValue) \(path) must be one of \(allowed.joined(separator: ", "))")
+            }
+        }
+    }
+
+    private static func uniqueValues(_ values: [String]) -> [String] {
+        var seen: Set<String> = []
+        var result: [String] = []
+        for value in values where seen.insert(value).inserted {
+            result.append(value)
+        }
+        return result
+    }
+
+    private static func value(atPath path: String, in root: [String: JSONValue]) -> JSONValue? {
+        let segments = path.split(separator: ".").map(String.init)
+        guard segments.isEmpty == false else { return nil }
+
+        var current: JSONValue = .object(root)
+        for segment in segments {
+            guard let object = current.objectValue, let next = object[segment] else {
+                return nil
+            }
+            current = next
+        }
+
+        return current
+    }
+
+    private static func jsonTypeName(for value: JSONValue) -> String {
+        switch value {
+        case .string:
+            return "string"
+        case .number:
+            return "number"
+        case .bool:
+            return "bool"
+        case .object:
+            return "object"
+        case .array:
+            return "array"
+        case .null:
+            return "null"
+        }
+    }
+}
+
 public struct CapabilityDescriptor: Sendable, Equatable {
     public var id: CapabilityID
     public var title: String
@@ -44,6 +185,7 @@ public struct CapabilityDescriptor: Sendable, Equatable {
     public var optionalArguments: [String]
     public var argumentTypes: [String: CapabilityArgumentType]
     public var argumentHints: [String: String]
+    public var argumentConstraints: CapabilityArgumentConstraints
     public var resultSummary: String
 
     public init(
@@ -57,6 +199,7 @@ public struct CapabilityDescriptor: Sendable, Equatable {
         optionalArguments: [String] = [],
         argumentTypes: [String: CapabilityArgumentType] = [:],
         argumentHints: [String: String] = [:],
+        argumentConstraints: CapabilityArgumentConstraints? = nil,
         resultSummary: String = "JSON value"
     ) {
         self.id = id
@@ -69,6 +212,7 @@ public struct CapabilityDescriptor: Sendable, Equatable {
         self.optionalArguments = optionalArguments
         self.argumentTypes = argumentTypes.isEmpty ? CapabilityDescriptor.inferArgumentTypes(required: requiredArguments, optional: optionalArguments) : argumentTypes
         self.argumentHints = argumentHints
+        self.argumentConstraints = argumentConstraints ?? CapabilityArgumentConstraints.defaults(for: id)
         self.resultSummary = resultSummary
     }
 
@@ -365,7 +509,7 @@ public final class CapabilityRegistry: @unchecked Sendable {
             }
         }
 
-        try validateKnownArgumentValues(arguments, for: capability)
+        try descriptor.argumentConstraints.validate(arguments: arguments, capability: capability)
 
         let allowedNames = Set(required + optional + Array(typed.keys))
         if allowedNames.isEmpty == false {
@@ -374,34 +518,6 @@ public final class CapabilityRegistry: @unchecked Sendable {
             if unknown.isEmpty == false {
                 throw BridgeError.invalidArguments("\(capability.rawValue) received unknown arguments: \(unknown.joined(separator: ", "))")
             }
-        }
-    }
-
-    private func validateKnownArgumentValues(_ arguments: [String: JSONValue], for capability: CapabilityID) throws {
-        switch capability {
-        case .musicPlaybackControl:
-            try validateStringValue(
-                "action",
-                in: arguments,
-                allowed: ["play", "pause", "stop", "skipToNext", "skipToPrevious", "playCatalog", "playLibrary"],
-                capability: capability
-            )
-        default:
-            return
-        }
-    }
-
-    private func validateStringValue(
-        _ name: String,
-        in arguments: [String: JSONValue],
-        allowed: Set<String>,
-        capability: CapabilityID
-    ) throws {
-        guard let value = arguments.string(name) else {
-            return
-        }
-        guard allowed.contains(value) else {
-            throw BridgeError.invalidArguments("\(capability.rawValue) \(name) must be one of \(allowed.sorted().joined(separator: ", "))")
         }
     }
 

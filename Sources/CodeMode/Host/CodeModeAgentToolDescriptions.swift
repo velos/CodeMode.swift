@@ -27,6 +27,7 @@ public enum CodeModeAgentToolDescriptions {
           optionalArguments: string[];
           argumentTypes: Record<string, string>;
           argumentHints: Record<string, string>;
+          argumentConstraints: { allowedStringValues: Record<string, string[]> };
           resultSummary: string;
         }
 
