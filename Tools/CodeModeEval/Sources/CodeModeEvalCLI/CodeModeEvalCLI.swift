@@ -71,6 +71,9 @@ struct Run: AsyncParsableCommand {
                 if let executeCode = scenario.executeCode {
                     printIndented(label: "execute", code: executeCode)
                 }
+                for (index, step) in (scenario.executeSteps ?? []).enumerated() {
+                    printIndented(label: "execute step \(index + 1)", code: step.code)
+                }
             }
 
             for failure in result.failures {

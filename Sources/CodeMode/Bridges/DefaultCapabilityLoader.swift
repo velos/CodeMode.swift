@@ -4,23 +4,66 @@ public enum DefaultCapabilityLoader {
     public static func loadAllRegistrations(
         fileSystem: any CodeModeFileSystem = LocalCodeModeFileSystem()
     ) -> [CapabilityRegistration] {
-        let fs = FileSystemBridge(fileSystem: fileSystem)
-        let network = NetworkBridge()
-        let keychain = KeychainBridge()
-        let location = LocationBridge()
-        let weather = WeatherBridge()
-        let eventKit = EventKitBridge()
-        let contacts = ContactsBridge()
-        let photos = PhotosBridge()
-        let vision = VisionBridge()
-        let notifications = NotificationsBridge()
-        let alarm = AlarmBridge()
-        let health = HealthBridge()
-        let home = HomeBridge()
-        let media = MediaBridge()
-        let systemUI = SystemUIBridge()
+        DefaultCapabilityRegistrationBuilder(fileSystem: fileSystem).loadAll()
+    }
+}
 
-        return [
+private struct DefaultCapabilityRegistrationBuilder {
+    private let fs: FileSystemBridge
+    private let network: NetworkBridge
+    private let keychain: KeychainBridge
+    private let location: LocationBridge
+    private let weather: WeatherBridge
+    private let eventKit: EventKitBridge
+    private let contacts: ContactsBridge
+    private let photos: PhotosBridge
+    private let vision: VisionBridge
+    private let notifications: NotificationsBridge
+    private let alarm: AlarmBridge
+    private let health: HealthBridge
+    private let home: HomeBridge
+    private let media: MediaBridge
+    private let systemUI: SystemUIBridge
+
+    init(fileSystem: any CodeModeFileSystem) {
+        self.fs = FileSystemBridge(fileSystem: fileSystem)
+        self.network = NetworkBridge()
+        self.keychain = KeychainBridge()
+        self.location = LocationBridge()
+        self.weather = WeatherBridge()
+        self.eventKit = EventKitBridge()
+        self.contacts = ContactsBridge()
+        self.photos = PhotosBridge()
+        self.vision = VisionBridge()
+        self.notifications = NotificationsBridge()
+        self.alarm = AlarmBridge()
+        self.health = HealthBridge()
+        self.home = HomeBridge()
+        self.media = MediaBridge()
+        self.systemUI = SystemUIBridge()
+    }
+
+    func loadAll() -> [CapabilityRegistration] {
+        [
+            networkRegistrations(),
+            keychainRegistrations(),
+            locationAndWeatherRegistrations(),
+            calendarAndReminderRegistrations(),
+            contactRegistrations(),
+            photoAndDocumentRegistrations(),
+            interactionUIRegistrations(),
+            visionRegistrations(),
+            notificationRegistrations(),
+            alarmRegistrations(),
+            healthRegistrations(),
+            homeRegistrations(),
+            mediaRegistrations(),
+            filesystemRegistrations(),
+        ].flatMap { $0 }
+    }
+
+    private func networkRegistrations() -> [CapabilityRegistration] {
+        [
             CapabilityRegistration(
                 descriptor: .init(
                     id: .networkFetch,
@@ -42,6 +85,11 @@ public enum DefaultCapabilityLoader {
                     try network.fetch(arguments: args, context: context)
                 }
             ),
+        ]
+    }
+
+    private func keychainRegistrations() -> [CapabilityRegistration] {
+        [
             CapabilityRegistration(
                 descriptor: .init(
                     id: .keychainRead,
@@ -95,6 +143,11 @@ public enum DefaultCapabilityLoader {
                     try keychain.delete(arguments: args)
                 }
             ),
+        ]
+    }
+
+    private func locationAndWeatherRegistrations() -> [CapabilityRegistration] {
+        [
             CapabilityRegistration(
                 descriptor: .init(
                     id: .locationRead,
@@ -144,6 +197,11 @@ public enum DefaultCapabilityLoader {
                     try weather.read(arguments: args)
                 }
             ),
+        ]
+    }
+
+    private func calendarAndReminderRegistrations() -> [CapabilityRegistration] {
+        [
             CapabilityRegistration(
                 descriptor: .init(
                     id: .calendarRead,
@@ -306,6 +364,11 @@ public enum DefaultCapabilityLoader {
                     try eventKit.writeReminder(arguments: args, context: context)
                 }
             ),
+        ]
+    }
+
+    private func contactRegistrations() -> [CapabilityRegistration] {
+        [
             CapabilityRegistration(
                 descriptor: .init(
                     id: .contactsRead,
@@ -430,6 +493,11 @@ public enum DefaultCapabilityLoader {
                     try systemUI.presentNewContact(arguments: args, context: context)
                 }
             ),
+        ]
+    }
+
+    private func photoAndDocumentRegistrations() -> [CapabilityRegistration] {
+        [
             CapabilityRegistration(
                 descriptor: .init(
                     id: .photosRead,
@@ -616,6 +684,11 @@ public enum DefaultCapabilityLoader {
                     try systemUI.scanDocuments(arguments: args, context: context)
                 }
             ),
+        ]
+    }
+
+    private func interactionUIRegistrations() -> [CapabilityRegistration] {
+        [
             CapabilityRegistration(
                 descriptor: .init(
                     id: .shareUIPresent,
@@ -948,6 +1021,11 @@ public enum DefaultCapabilityLoader {
                     try systemUI.openSettings(arguments: args, context: context)
                 }
             ),
+        ]
+    }
+
+    private func visionRegistrations() -> [CapabilityRegistration] {
+        [
             CapabilityRegistration(
                 descriptor: .init(
                     id: .visionImageAnalyze,
@@ -968,6 +1046,11 @@ public enum DefaultCapabilityLoader {
                     try vision.analyzeImage(arguments: args, context: context)
                 }
             ),
+        ]
+    }
+
+    private func notificationRegistrations() -> [CapabilityRegistration] {
+        [
             CapabilityRegistration(
                 descriptor: .init(
                     id: .notificationsPermissionRequest,
@@ -1041,6 +1124,11 @@ public enum DefaultCapabilityLoader {
                     try notifications.deletePending(arguments: args, context: context)
                 }
             ),
+        ]
+    }
+
+    private func alarmRegistrations() -> [CapabilityRegistration] {
+        [
             CapabilityRegistration(
                 descriptor: .init(
                     id: .alarmPermissionRequest,
@@ -1113,6 +1201,11 @@ public enum DefaultCapabilityLoader {
                     try alarm.cancel(arguments: args, context: context)
                 }
             ),
+        ]
+    }
+
+    private func healthRegistrations() -> [CapabilityRegistration] {
+        [
             CapabilityRegistration(
                 descriptor: .init(
                     id: .healthPermissionRequest,
@@ -1193,6 +1286,11 @@ public enum DefaultCapabilityLoader {
                     try health.write(arguments: args, context: context)
                 }
             ),
+        ]
+    }
+
+    private func homeRegistrations() -> [CapabilityRegistration] {
+        [
             CapabilityRegistration(
                 descriptor: .init(
                     id: .homeRead,
@@ -1240,6 +1338,11 @@ public enum DefaultCapabilityLoader {
                     try home.write(arguments: args, context: context)
                 }
             ),
+        ]
+    }
+
+    private func mediaRegistrations() -> [CapabilityRegistration] {
+        [
             CapabilityRegistration(
                 descriptor: .init(
                     id: .mediaMetadataRead,
@@ -1297,6 +1400,11 @@ public enum DefaultCapabilityLoader {
                     try media.transcode(arguments: args, context: context)
                 }
             ),
+        ]
+    }
+
+    private func filesystemRegistrations() -> [CapabilityRegistration] {
+        [
             CapabilityRegistration(
                 descriptor: .init(
                     id: .fsList,

@@ -387,6 +387,9 @@ enum LLMEvalSuite: String, CaseIterable, Codable, ExpressibleByArgument, Sendabl
                 "catalog.console-diagnostics",
                 "catalog.alias-platform-pruning",
                 "weather.argument-validation",
+                "keychain.round-trip",
+                "notifications.permission-request",
+                "location.permission-status",
                 "fs.bad-helper-suggestion",
             ]
         case .failures:
@@ -397,6 +400,10 @@ enum LLMEvalSuite: String, CaseIterable, Codable, ExpressibleByArgument, Sendabl
                 "execution.timeout",
                 "catalog.rejects-non-function",
                 "contacts.permission-denied",
+                "network.invalid-url",
+                "calendar.write-permission-denied",
+                "home.write-validation",
+                "media.metadata-validation",
             ]
         case .all:
             return []

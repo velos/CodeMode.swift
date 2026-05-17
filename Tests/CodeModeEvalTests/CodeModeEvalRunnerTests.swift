@@ -68,6 +68,41 @@ import Testing
     #expect(pathPolicyLogCount == 1)
 }
 
+@Test func expandedNonFilesystemScenariosLockValidationSignals() {
+    let runner = CodeModeEvalRunner()
+    let scenarios = [
+        CodeModeEvalScenarios.keychainRoundTrip,
+        CodeModeEvalScenarios.notificationsPermissionRequest,
+        CodeModeEvalScenarios.locationPermissionStatus,
+        CodeModeEvalScenarios.networkInvalidURL,
+        CodeModeEvalScenarios.calendarWritePermissionDenied,
+        CodeModeEvalScenarios.homeWriteValidation,
+        CodeModeEvalScenarios.mediaMetadataValidation,
+    ]
+
+    for scenario in scenarios {
+        let calls = scenario.expectation.toolOrder.map { tool in
+            CodeModeEvalToolCall(tool: tool, code: "", allowedCapabilities: [])
+        }
+        let failures = runner.validateTranscript(
+            scenario: scenario,
+            toolCalls: calls,
+            searchResult: .null,
+            executionOutput: nil,
+            error: nil
+        )
+
+        #expect(failures.contains(where: { $0.contains("Search result") }))
+        #expect(failures.contains(where: { $0.contains("Allowed capabilities") }))
+        if scenario.expectation.expectedOutput != nil {
+            #expect(failures.contains(where: { $0.contains("Execution output") }))
+        }
+        if scenario.expectation.expectedErrorCode != nil {
+            #expect(failures.contains(where: { $0.contains("Error code") }))
+        }
+    }
+}
+
 private func failureSummary(_ results: [CodeModeEvalResult]) -> String {
     results
         .filter { $0.passed == false }

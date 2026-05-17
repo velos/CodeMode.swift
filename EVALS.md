@@ -7,7 +7,7 @@ This project has two eval layers:
 
 ## Local Checks
 
-Run deterministic checks before PRs:
+Run deterministic checks before PRs with the single supported eval CLI:
 
 ```sh
 swift test

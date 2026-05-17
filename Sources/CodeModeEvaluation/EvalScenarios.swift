@@ -28,6 +28,13 @@ public enum CodeModeEvalScenarios {
         catalogIOSOnlySystemUIDiscovery,
         contactsPermissionDenied,
         weatherArgumentValidation,
+        keychainRoundTrip,
+        notificationsPermissionRequest,
+        locationPermissionStatus,
+        networkInvalidURL,
+        calendarWritePermissionDenied,
+        homeWriteValidation,
+        mediaMetadataValidation,
         badFileSystemHelperSuggestion,
     ]
 
@@ -907,6 +914,223 @@ public enum CodeModeEvalScenarios {
             requiredSearchResultFragments: ["weather.read", "longitude"],
             requiredErrorSuggestionFragments: ["longitude:number", "Example:"],
             requiredExecuteCodeFragments: ["apple.weather.getCurrentWeather"],
+            expectedErrorCode: "INVALID_ARGUMENTS"
+        )
+    )
+
+    public static let keychainRoundTrip = CodeModeEvalScenario(
+        id: "keychain.round-trip",
+        title: "Keychain round trip",
+        task: "First search for the keychain get, set, and delete helpers. Then write the exact value \"eval-secret\" to a temporary keychain key, read it back, delete it, read the key again, and return exactly { value, missing } where value is the string you read before deletion and missing is the post-delete read result, which should be null.",
+        searchCode: """
+        async () => {
+            return {
+                get: api.byJSName["apple.keychain.get"],
+                set: api.byJSName["apple.keychain.set"],
+                delete: api.byJSName["apple.keychain.delete"]
+            };
+        }
+        """,
+        executeCode: """
+        const key = "codemode-eval-keychain-" + String(Date.now());
+        await apple.keychain.set(key, "eval-secret");
+        const read = await apple.keychain.get(key);
+        await apple.keychain.delete(key);
+        const missing = await apple.keychain.get(key);
+        return {
+            value: read ? read.value : null,
+            missing
+        };
+        """,
+        allowedCapabilities: [.keychainWrite, .keychainRead, .keychainDelete],
+        expectation: CodeModeEvalExpectation(
+            toolOrder: [.searchJavaScriptAPI, .executeJavaScript],
+            exactAllowedCapabilities: [.keychainWrite, .keychainRead, .keychainDelete],
+            requiredSearchResultFragments: [
+                "keychain.read",
+                "keychain.write",
+                "keychain.delete",
+                "apple.keychain.get",
+                "apple.keychain.set",
+                "apple.keychain.delete",
+            ],
+            requiredExecuteCodeFragments: [
+                "apple.keychain.set",
+                "apple.keychain.get",
+                "apple.keychain.delete",
+            ],
+            expectedOutput: .object([
+                "missing": .null,
+                "value": .string("eval-secret"),
+            ])
+        )
+    )
+
+    public static let notificationsPermissionRequest = CodeModeEvalScenario(
+        id: "notifications.permission-request",
+        title: "Notifications permission request",
+        task: "First search for apple.notifications.requestPermission, then request notification permission and return the status payload.",
+        searchCode: """
+        async () => {
+            return api.byJSName["apple.notifications.requestPermission"];
+        }
+        """,
+        executeCode: """
+        return await apple.notifications.requestPermission();
+        """,
+        allowedCapabilities: [.notificationsPermissionRequest],
+        permissions: CodeModeEvalPermissions(
+            statuses: [.notifications: .notDetermined],
+            requestStatuses: [.notifications: .granted]
+        ),
+        expectation: CodeModeEvalExpectation(
+            toolOrder: [.searchJavaScriptAPI, .executeJavaScript],
+            exactAllowedCapabilities: [.notificationsPermissionRequest],
+            requiredSearchResultFragments: [
+                "notifications.permission.request",
+                "apple.notifications.requestPermission",
+            ],
+            requiredExecuteCodeFragments: ["apple.notifications.requestPermission"],
+            expectedOutput: .object([
+                "granted": .bool(true),
+                "status": .string("granted"),
+            ])
+        )
+    )
+
+    public static let locationPermissionStatus = CodeModeEvalScenario(
+        id: "location.permission-status",
+        title: "Location permission status",
+        task: "First search for apple.location.getPermissionStatus, then read the current location permission status without requesting location coordinates and return exactly { status }.",
+        searchCode: """
+        async () => {
+            return api.byJSName["apple.location.getPermissionStatus"];
+        }
+        """,
+        executeCode: """
+        const status = await apple.location.getPermissionStatus();
+        return { status };
+        """,
+        allowedCapabilities: [.locationRead],
+        permissions: CodeModeEvalPermissions(statuses: [.locationWhenInUse: .restricted]),
+        expectation: CodeModeEvalExpectation(
+            toolOrder: [.searchJavaScriptAPI, .executeJavaScript],
+            exactAllowedCapabilities: [.locationRead],
+            forbiddenCapabilities: [.locationPermissionRequest],
+            requiredSearchResultFragments: [
+                "location.read",
+                "apple.location.getPermissionStatus",
+            ],
+            requiredExecuteCodeFragments: ["apple.location.getPermissionStatus"],
+            expectedOutput: .object(["status": .string("restricted")])
+        )
+    )
+
+    public static let networkInvalidURL = CodeModeEvalScenario(
+        id: "network.invalid-url",
+        title: "Network invalid URL",
+        task: "First search for fetch. Then call fetch with the invalid URL string \"http://%zz\" and let executeJavaScript surface the structured invalid-arguments error.",
+        searchCode: """
+        async () => {
+            return api.byJSName["fetch"];
+        }
+        """,
+        executeCode: """
+        return await fetch("http://%zz");
+        """,
+        allowedCapabilities: [.networkFetch],
+        expectation: CodeModeEvalExpectation(
+            toolOrder: [.searchJavaScriptAPI, .executeJavaScript],
+            exactAllowedCapabilities: [.networkFetch],
+            requiredSearchResultFragments: ["network.fetch", "fetch"],
+            requiredErrorSuggestionFragments: ["url", "Example:"],
+            requiredExecuteCodeFragments: ["fetch", "http://%zz"],
+            expectedErrorCode: "INVALID_ARGUMENTS"
+        )
+    )
+
+    public static let calendarWritePermissionDenied = CodeModeEvalScenario(
+        id: "calendar.write-permission-denied",
+        title: "Calendar write permission denied",
+        task: "First search for apple.calendar.createEvent. Then call executeJavaScript with exactly the calendar.write allowed capability and try to create a valid event titled \"Eval Standup\" from 2026-02-22T16:00:00Z to 2026-02-22T16:15:00Z while calendar write-only privacy permission is denied. Do not omit the capability and do not catch the error in JavaScript; let executeJavaScript surface the structured PERMISSION_DENIED error.",
+        searchCode: """
+        async () => {
+            return api.byJSName["apple.calendar.createEvent"];
+        }
+        """,
+        executeCode: """
+        return await apple.calendar.createEvent({
+            title: "Eval Standup",
+            start: "2026-02-22T16:00:00Z",
+            end: "2026-02-22T16:15:00Z"
+        });
+        """,
+        allowedCapabilities: [.calendarWrite],
+        permissions: CodeModeEvalPermissions(statuses: [.calendarWriteOnly: .denied]),
+        expectation: CodeModeEvalExpectation(
+            toolOrder: [.searchJavaScriptAPI, .executeJavaScript],
+            exactAllowedCapabilities: [.calendarWrite],
+            requiredSearchResultFragments: [
+                "calendar.write",
+                "apple.calendar.createEvent",
+            ],
+            requiredExecuteCodeFragments: ["apple.calendar.createEvent", "Eval Standup"],
+            expectedErrorCode: "PERMISSION_DENIED"
+        )
+    )
+
+    public static let homeWriteValidation = CodeModeEvalScenario(
+        id: "home.write-validation",
+        title: "Home write validation",
+        task: "First search for apple.home.writeCharacteristic. Then call it with only accessoryIdentifier set exactly to \"accessory-1\" and let executeJavaScript surface the structured missing-arguments error before any HomeKit permission flow.",
+        searchCode: """
+        async () => {
+            return api.byJSName["apple.home.writeCharacteristic"];
+        }
+        """,
+        executeCode: """
+        return await apple.home.writeCharacteristic({ accessoryIdentifier: "accessory-1" });
+        """,
+        allowedCapabilities: [.homeWrite],
+        permissions: CodeModeEvalPermissions(statuses: [.homeKit: .granted]),
+        expectation: CodeModeEvalExpectation(
+            toolOrder: [.searchJavaScriptAPI, .executeJavaScript],
+            exactAllowedCapabilities: [.homeWrite],
+            requiredSearchResultFragments: [
+                "home.write",
+                "apple.home.writeCharacteristic",
+                "characteristicType",
+                "value",
+            ],
+            requiredErrorSuggestionFragments: ["characteristicType:string", "value", "Example:"],
+            requiredExecuteCodeFragments: ["apple.home.writeCharacteristic", "accessory-1"],
+            expectedErrorCode: "INVALID_ARGUMENTS"
+        )
+    )
+
+    public static let mediaMetadataValidation = CodeModeEvalScenario(
+        id: "media.metadata-validation",
+        title: "Media metadata validation",
+        task: "First search for apple.media.metadata. Then call it without a path and let executeJavaScript surface the structured missing-arguments error.",
+        searchCode: """
+        async () => {
+            return api.byJSName["apple.media.metadata"];
+        }
+        """,
+        executeCode: """
+        return await apple.media.metadata({});
+        """,
+        allowedCapabilities: [.mediaMetadataRead],
+        expectation: CodeModeEvalExpectation(
+            toolOrder: [.searchJavaScriptAPI, .executeJavaScript],
+            exactAllowedCapabilities: [.mediaMetadataRead],
+            requiredSearchResultFragments: [
+                "media.metadata.read",
+                "apple.media.metadata",
+                "path",
+            ],
+            requiredErrorSuggestionFragments: ["path", "Example:"],
+            requiredExecuteCodeFragments: ["apple.media.metadata"],
             expectedErrorCode: "INVALID_ARGUMENTS"
         )
     )

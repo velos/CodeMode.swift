@@ -17,7 +17,8 @@ let package = Package(
     dependencies: [
         .package(name: "codemode-ios", path: "../.."),
         .package(url: "https://github.com/apple/swift-argument-parser", from: "1.7.0"),
-        .package(url: "https://github.com/velos/wavelike-ios.git", branch: "main"),
+        .package(url: "https://github.com/velos/wavelike-ios.git", revision: "dafbb0e3dff69cd9d5346387d29774b73881800c"),
+        // Wavelike currently requires CallableFunction by branch; Package.resolved locks the revision.
         .package(url: "https://github.com/velos/CallableFunction.git", branch: "feature/function-updates"),
     ],
     targets: [
