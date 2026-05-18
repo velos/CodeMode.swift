@@ -8,16 +8,17 @@ struct BridgeCatalog: Sendable {
     }
 
     private let references: [JavaScriptAPIReference]
-    private let referencesByCapability: [CapabilityID: JavaScriptAPIReference]
+    private let referencesByCapability: [CodeModeCapabilityKey: JavaScriptAPIReference]
     private let searchCatalog: JSONValue
     private let allJavaScriptNames: [String]
 
     init(registry: CapabilityRegistry) {
-        let descriptors = registry.allDescriptors().sorted { $0.id.rawValue < $1.id.rawValue }
-        let references = descriptors.map(Self.reference(from:))
+        let builtInRegistrations = registry.allCapabilityRegistrations().sorted { $0.descriptor.id.rawValue < $1.descriptor.id.rawValue }
+        let customRegistrations = registry.allCodeModeRegistrations().sorted { $0.capabilityKey.rawValue < $1.capabilityKey.rawValue }
+        let references = builtInRegistrations.map(Self.reference(from:)) + customRegistrations.map(Self.reference(from:))
 
         self.references = references
-        self.referencesByCapability = Dictionary(uniqueKeysWithValues: references.map { ($0.capability, $0) })
+        self.referencesByCapability = Dictionary(uniqueKeysWithValues: references.map { ($0.capabilityKey, $0) })
         self.allJavaScriptNames = Array(Set(references.flatMap(\.jsNames))).sorted()
 
         var byJSName: [String: JavaScriptAPIReference] = [:]
@@ -30,14 +31,18 @@ struct BridgeCatalog: Sendable {
         self.searchCatalog = Self.jsonValue(
             from: SearchCatalogPayload(
                 references: references,
-                byCapability: Dictionary(uniqueKeysWithValues: references.map { ($0.capability.rawValue, $0) }),
+                byCapability: Dictionary(uniqueKeysWithValues: references.map { ($0.capability, $0) }),
                 byJSName: byJSName
             )
         )
     }
 
     func reference(for capability: CapabilityID) -> JavaScriptAPIReference? {
-        referencesByCapability[capability]
+        referencesByCapability[capability.codeModeKey]
+    }
+
+    func reference(for capabilityKey: CodeModeCapabilityKey) -> JavaScriptAPIReference? {
+        referencesByCapability[capabilityKey]
     }
 
     func allReferences() -> [JavaScriptAPIReference] {
@@ -94,10 +99,13 @@ struct BridgeCatalog: Sendable {
         }
     }
 
-    private static func reference(from descriptor: CapabilityDescriptor) -> JavaScriptAPIReference {
-        JavaScriptAPIReference(
-            capability: descriptor.id,
-            jsNames: JavaScriptBindingCatalog.names(for: descriptor.id),
+    private static func reference(from registration: CapabilityRegistration) -> JavaScriptAPIReference {
+        let descriptor = registration.descriptor
+        return JavaScriptAPIReference(
+            capability: descriptor.id.rawValue,
+            capabilityKey: descriptor.id.codeModeKey,
+            builtInCapability: descriptor.id,
+            jsNames: registration.jsNames,
             summary: descriptor.summary,
             tags: descriptor.tags,
             example: descriptor.example,
@@ -107,6 +115,24 @@ struct BridgeCatalog: Sendable {
             argumentHints: descriptor.argumentHints,
             argumentConstraints: descriptor.argumentConstraints,
             resultSummary: descriptor.resultSummary
+        )
+    }
+
+    private static func reference(from registration: CodeModeRegistration) -> JavaScriptAPIReference {
+        JavaScriptAPIReference(
+            capability: registration.capabilityKey.rawValue,
+            capabilityKey: registration.capabilityKey,
+            builtInCapability: nil,
+            jsNames: [registration.jsPath],
+            summary: registration.summary,
+            tags: registration.tags,
+            example: registration.example,
+            requiredArguments: registration.requiredArguments,
+            optionalArguments: registration.optionalArguments,
+            argumentTypes: registration.argumentTypes,
+            argumentHints: registration.argumentHints,
+            argumentConstraints: registration.argumentConstraints,
+            resultSummary: registration.resultSummary
         )
     }
 

@@ -119,15 +119,19 @@ public struct CapabilityArgumentConstraints: Sendable, Codable, Equatable {
     }
 
     func validate(arguments: [String: JSONValue], capability: CapabilityID) throws {
+        try validate(arguments: arguments, capabilityName: capability.rawValue)
+    }
+
+    func validate(arguments: [String: JSONValue], capabilityName: String) throws {
         for (path, allowed) in allowedStringValues.sorted(by: { $0.key < $1.key }) {
             guard let value = Self.value(atPath: path, in: arguments) else {
                 continue
             }
             guard let string = value.stringValue else {
-                throw BridgeError.invalidArguments("\(capability.rawValue) expected '\(path)' as string, received \(Self.jsonTypeName(for: value))")
+                throw BridgeError.invalidArguments("\(capabilityName) expected '\(path)' as string, received \(Self.jsonTypeName(for: value))")
             }
             guard allowed.contains(string) else {
-                throw BridgeError.invalidArguments("\(capability.rawValue) \(path) must be one of \(allowed.joined(separator: ", "))")
+                throw BridgeError.invalidArguments("\(capabilityName) \(path) must be one of \(allowed.joined(separator: ", "))")
             }
         }
     }
@@ -396,10 +400,12 @@ public struct CapabilityDescriptor: Sendable, Equatable {
 
 public struct CapabilityRegistration: Sendable {
     public var descriptor: CapabilityDescriptor
+    public var jsNames: [String]
     public var handler: CapabilityHandler
 
-    public init(descriptor: CapabilityDescriptor, handler: @escaping CapabilityHandler) {
+    public init(descriptor: CapabilityDescriptor, jsNames: [String]? = nil, handler: @escaping CapabilityHandler) {
         self.descriptor = descriptor
+        self.jsNames = jsNames ?? JavaScriptBindingCatalog.names(for: descriptor.id)
         self.handler = handler
     }
 }
@@ -407,10 +413,14 @@ public struct CapabilityRegistration: Sendable {
 public final class CapabilityRegistry: @unchecked Sendable {
     private let lock = NSLock()
     private var registrations: [CapabilityID: CapabilityRegistration] = [:]
+    private var codeModeRegistrations: [CodeModeCapabilityKey: CodeModeRegistration] = [:]
 
-    public init(registrations: [CapabilityRegistration] = []) {
+    public init(registrations: [CapabilityRegistration] = [], codeModeRegistrations: [CodeModeRegistration] = []) {
         for registration in registrations {
             self.registrations[registration.descriptor.id] = registration
+        }
+        for registration in codeModeRegistrations {
+            self.codeModeRegistrations[registration.capabilityKey] = registration
         }
     }
 
@@ -428,10 +438,36 @@ public final class CapabilityRegistry: @unchecked Sendable {
         lock.unlock()
     }
 
+    public func register(_ registration: CodeModeRegistration) {
+        lock.lock()
+        codeModeRegistrations[registration.capabilityKey] = registration
+        lock.unlock()
+    }
+
+    public func register(_ registrations: [CodeModeRegistration]) {
+        lock.lock()
+        for registration in registrations {
+            self.codeModeRegistrations[registration.capabilityKey] = registration
+        }
+        lock.unlock()
+    }
+
     public func descriptor(for capability: CapabilityID) -> CapabilityDescriptor? {
         lock.lock()
         defer { lock.unlock() }
         return registrations[capability]?.descriptor
+    }
+
+    public func registration(for capability: CapabilityID) -> CapabilityRegistration? {
+        lock.lock()
+        defer { lock.unlock() }
+        return registrations[capability]
+    }
+
+    public func allCapabilityRegistrations() -> [CapabilityRegistration] {
+        lock.lock()
+        defer { lock.unlock() }
+        return registrations.values.map { $0 }
     }
 
     public func allDescriptors() -> [CapabilityDescriptor] {
@@ -440,14 +476,24 @@ public final class CapabilityRegistry: @unchecked Sendable {
         return registrations.values.map(\.descriptor)
     }
 
+    public func allCodeModeRegistrations() -> [CodeModeRegistration] {
+        lock.lock()
+        defer { lock.unlock() }
+        return codeModeRegistrations.values.map { $0 }
+    }
+
     public func invoke(_ capabilityID: String, arguments: [String: JSONValue], context: BridgeInvocationContext) throws -> JSONValue {
         try context.checkCancellation()
 
-        guard let capability = CapabilityID(rawValue: capabilityID) else {
-            throw BridgeError.capabilityNotFound(capabilityID)
+        if let capability = CapabilityID(rawValue: capabilityID) {
+            return try invokeBuiltIn(capability, arguments: arguments, context: context)
         }
 
-        guard context.allowedCapabilities.contains(capability) else {
+        return try invokeCodeMode(CodeModeCapabilityKey(rawValue: capabilityID), arguments: arguments, context: context)
+    }
+
+    private func invokeBuiltIn(_ capability: CapabilityID, arguments: [String: JSONValue], context: BridgeInvocationContext) throws -> JSONValue {
+        guard context.allowedCapabilities.contains(capability) || context.allowedCapabilityKeys.contains(capability.codeModeKey) else {
             throw BridgeError.capabilityDenied(capability)
         }
 
@@ -456,7 +502,7 @@ public final class CapabilityRegistry: @unchecked Sendable {
         lock.unlock()
 
         guard let registration else {
-            throw BridgeError.capabilityNotFound(capabilityID)
+            throw BridgeError.capabilityNotFound(capability.rawValue)
         }
 
         try validateArguments(arguments, for: capability, descriptor: registration.descriptor)
@@ -483,7 +529,46 @@ public final class CapabilityRegistry: @unchecked Sendable {
         }
 
         try context.checkCancellation()
-        return try registration.handler(arguments, context)
+        return try mapCodeModeFunctionError {
+            try registration.handler(arguments, context)
+        }
+    }
+
+    private func invokeCodeMode(_ capabilityKey: CodeModeCapabilityKey, arguments: [String: JSONValue], context: BridgeInvocationContext) throws -> JSONValue {
+        guard context.allowedCapabilityKeys.contains(capabilityKey) else {
+            throw BridgeError.capabilityKeyDenied(capabilityKey)
+        }
+
+        lock.lock()
+        let registration = codeModeRegistrations[capabilityKey]
+        lock.unlock()
+
+        guard let registration else {
+            throw BridgeError.capabilityNotFound(capabilityKey.rawValue)
+        }
+
+        try validateArguments(arguments, for: registration)
+        try context.checkCancellation()
+        return try mapCodeModeFunctionError {
+            try registration.handler(arguments, context)
+        }
+    }
+
+    private func mapCodeModeFunctionError(_ body: () throws -> JSONValue) throws -> JSONValue {
+        do {
+            return try body()
+        } catch let error as CodeModeFunctionError {
+            switch error {
+            case let .invalidArguments(message):
+                throw BridgeError.invalidArguments(message)
+            case let .unsupportedPlatform(feature):
+                throw BridgeError.unsupportedPlatform(feature)
+            case let .permissionDenied(message):
+                throw BridgeError.customPermissionDenied(message)
+            case let .nativeFailure(message):
+                throw BridgeError.nativeFailure(message)
+            }
+        }
     }
 
     private func validateArguments(_ arguments: [String: JSONValue], for capability: CapabilityID, descriptor: CapabilityDescriptor) throws {
@@ -517,6 +602,41 @@ public final class CapabilityRegistry: @unchecked Sendable {
             let unknown = arguments.keys.sorted().filter { allowedTopLevel.contains($0) == false }
             if unknown.isEmpty == false {
                 throw BridgeError.invalidArguments("\(capability.rawValue) received unknown arguments: \(unknown.joined(separator: ", "))")
+            }
+        }
+    }
+
+    private func validateArguments(_ arguments: [String: JSONValue], for registration: CodeModeRegistration) throws {
+        let required = registration.requiredArguments
+        let optional = registration.optionalArguments
+        let typed = registration.argumentTypes
+        let name = registration.capabilityKey.rawValue
+
+        let missing = required.filter { value(atPath: $0, in: arguments) == nil }
+        if missing.isEmpty == false {
+            throw BridgeError.invalidArguments("\(name) missing required arguments: \(missing.joined(separator: ", "))")
+        }
+
+        for (path, expectedType) in typed.sorted(by: { $0.key < $1.key }) {
+            guard let value = value(atPath: path, in: arguments) else {
+                continue
+            }
+
+            guard expectedType.matches(value) else {
+                throw BridgeError.invalidArguments(
+                    "\(name) expected '\(path)' as \(expectedType.rawValue), received \(jsonTypeName(for: value))"
+                )
+            }
+        }
+
+        try registration.argumentConstraints.validate(arguments: arguments, capabilityName: name)
+
+        let allowedNames = Set(required + optional + Array(typed.keys))
+        if allowedNames.isEmpty == false {
+            let allowedTopLevel = Set(allowedNames.map(firstPathSegment))
+            let unknown = arguments.keys.sorted().filter { allowedTopLevel.contains($0) == false }
+            if unknown.isEmpty == false {
+                throw BridgeError.invalidArguments("\(name) received unknown arguments: \(unknown.joined(separator: ", "))")
             }
         }
     }

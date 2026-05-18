@@ -13,17 +13,25 @@ final class BridgeRuntime: @unchecked Sendable {
         var code: String?
         var message: String
         var capability: CapabilityID?
+        var capabilityKey: CodeModeCapabilityKey?
         var functionName: String?
     }
 
     private let registry: CapabilityRegistry
     private let catalog: BridgeCatalog
     private let config: CodeModeConfiguration
+    private let unsupportedBuiltInJavaScriptNames: [String]
 
-    init(registry: CapabilityRegistry, catalog: BridgeCatalog, config: CodeModeConfiguration) {
+    init(
+        registry: CapabilityRegistry,
+        catalog: BridgeCatalog,
+        config: CodeModeConfiguration,
+        unsupportedBuiltInJavaScriptNames: [String] = []
+    ) {
         self.registry = registry
         self.catalog = catalog
         self.config = config
+        self.unsupportedBuiltInJavaScriptNames = unsupportedBuiltInJavaScriptNames
     }
 
     func search(_ request: JavaScriptAPISearchRequest) throws -> JavaScriptAPISearchResponse {
@@ -40,6 +48,7 @@ final class BridgeRuntime: @unchecked Sendable {
         let invocationContext = BridgeInvocationContext(
             executionContext: .init(),
             allowedCapabilities: [],
+            allowedCapabilityKeys: [],
             pathPolicy: config.pathPolicy,
             artifactStore: config.artifactStore,
             permissionBroker: config.permissionBroker,
@@ -148,6 +157,7 @@ final class BridgeRuntime: @unchecked Sendable {
         let invocationContext = BridgeInvocationContext(
             executionContext: request.context,
             allowedCapabilities: Set(request.allowedCapabilities),
+            allowedCapabilityKeys: Set(request.allowedCapabilityKeys),
             pathPolicy: config.pathPolicy,
             artifactStore: config.artifactStore,
             permissionBroker: config.permissionBroker,
@@ -214,9 +224,11 @@ final class BridgeRuntime: @unchecked Sendable {
             } catch {
                 let bridgeError = (error as? BridgeError) ?? BridgeError.nativeFailure(error.localizedDescription)
                 let capabilityID = CapabilityID(rawValue: capability)
+                let capabilityKey = CodeModeCapabilityKey(rawValue: capability)
                 let errorPayload = self.bridgeFailurePayload(
                     for: bridgeError,
-                    capability: capabilityID
+                    capability: capabilityID,
+                    capabilityKey: capabilityKey
                 )
                 invocationContext.log(.error, message: "Capability failed \(capability): \(errorPayload.message)")
                 invocationContext.auditLogger.log(AuditEvent(capability: capability, message: "failed: \(errorPayload.message)"))
@@ -226,7 +238,7 @@ final class BridgeRuntime: @unchecked Sendable {
                     "error": .object([
                         "code": .string(errorPayload.code),
                         "message": .string(errorPayload.message),
-                        "capability": capabilityID.map { .string($0.rawValue) } ?? .null,
+                        "capability": .string(capabilityKey.rawValue),
                     ]),
                 ])
                 let encoded = try? JSONEncoder.codeModeBridge.encode(envelope)
@@ -256,9 +268,9 @@ final class BridgeRuntime: @unchecked Sendable {
             )
         }
 
-        let supportedCapabilities = Set(registry.allDescriptors().map(\.id))
-        let unsupportedCapabilities = CapabilityID.allCases.filter { supportedCapabilities.contains($0) == false }
-        let pruningScript = JavaScriptBindingCatalog.pruningScript(removing: unsupportedCapabilities)
+        let pruningScript = JavaScriptBindingCatalog.pruningScript(
+            removingJavaScriptNames: unsupportedBuiltInJavaScriptNames
+        )
 
         if pruningScript.isEmpty == false, context.evaluateScript(pruningScript) == nil {
             let message = lastException.get()?.message ?? "Failed to prune unsupported JavaScript bindings"
@@ -269,6 +281,40 @@ final class BridgeRuntime: @unchecked Sendable {
                     ToolDiagnostic(
                         severity: .error,
                         code: "JS_BOOTSTRAP",
+                        message: message,
+                        category: "internal"
+                    )
+                ]
+            )
+        }
+
+        let builtInScript = RuntimeJavaScript.builtInBootstrap(for: registry.allCapabilityRegistrations())
+        if builtInScript.isEmpty == false, context.evaluateScript(builtInScript) == nil {
+            let message = lastException.get()?.message ?? "Failed to install built-in JavaScript bindings"
+            throw CodeModeToolError(
+                code: "INTERNAL_FAILURE",
+                message: message,
+                diagnostics: [
+                    ToolDiagnostic(
+                        severity: .error,
+                        code: "JS_BUILTIN_BOOTSTRAP",
+                        message: message,
+                        category: "internal"
+                    )
+                ]
+            )
+        }
+
+        let providerScript = RuntimeJavaScript.providerBootstrap(for: registry.allCodeModeRegistrations())
+        if providerScript.isEmpty == false, context.evaluateScript(providerScript) == nil {
+            let message = lastException.get()?.message ?? "Failed to install provider JavaScript bindings"
+            throw CodeModeToolError(
+                code: "INTERNAL_FAILURE",
+                message: message,
+                diagnostics: [
+                    ToolDiagnostic(
+                        severity: .error,
+                        code: "JS_PROVIDER_BOOTSTRAP",
                         message: message,
                         category: "internal"
                     )
@@ -344,7 +390,7 @@ final class BridgeRuntime: @unchecked Sendable {
         .catch(function(error){
             globalThis.__codemode.state = 'rejected';
             globalThis.__codemode.error = {
-                message: String(error),
+                message: error && error.code && error.message ? String(error.message) : String(error),
                 code: error && error.code ? String(error.code) : null,
                 capability: error && error.capability ? String(error.capability) : null,
                 functionName: error && error.functionName ? String(error.functionName) : null
@@ -533,12 +579,17 @@ final class BridgeRuntime: @unchecked Sendable {
         return try JSONDecoder.codeModeBridge.decode(JSONValue.self, from: data)
     }
 
-    private func bridgeFailurePayload(for error: BridgeError, capability: CapabilityID?) -> CodeModeToolError {
-        let (message, suggestions) = enrichedBridgeFailure(for: error, capability: capability)
+    private func bridgeFailurePayload(
+        for error: BridgeError,
+        capability: CapabilityID?,
+        capabilityKey: CodeModeCapabilityKey?
+    ) -> CodeModeToolError {
+        let (message, suggestions) = enrichedBridgeFailure(for: error, capability: capability, capabilityKey: capabilityKey)
         return CodeModeToolError(
             code: error.diagnosticCode,
             message: message,
             capability: capability,
+            capabilityKey: capabilityKey,
             suggestions: suggestions
         )
     }
@@ -557,12 +608,13 @@ final class BridgeRuntime: @unchecked Sendable {
         )
 
         if isToolFailureCode(code) {
-            let suggestions = bridgeSuggestions(for: payload.capability)
+            let suggestions = bridgeSuggestions(for: payload.capability, capabilityKey: payload.capabilityKey)
             return CodeModeToolError(
                 code: code,
                 message: payload.message,
                 functionName: payload.functionName,
                 capability: payload.capability,
+                capabilityKey: payload.capabilityKey,
                 suggestions: suggestions,
                 diagnostics: result.diagnostics,
                 logs: result.logs,
@@ -629,9 +681,11 @@ final class BridgeRuntime: @unchecked Sendable {
     }
 
     private func rejectionPayload(from context: JSContext) -> RejectionPayload {
-        let capability = normalizedOptionalString(
+        let capabilityString = normalizedOptionalString(
             context.evaluateScript("globalThis.__codemode.error?.capability ?? null")?.toString()
-        ).flatMap(CapabilityID.init(rawValue:))
+        )
+        let capability = capabilityString.flatMap(CapabilityID.init(rawValue:))
+        let capabilityKey = capabilityString.map(CodeModeCapabilityKey.init(rawValue:))
 
         return RejectionPayload(
             code: normalizedOptionalString(
@@ -641,6 +695,7 @@ final class BridgeRuntime: @unchecked Sendable {
                 context.evaluateScript("globalThis.__codemode.error?.message ?? null")?.toString()
             ) ?? "JavaScript promise rejected",
             capability: capability,
+            capabilityKey: capabilityKey,
             functionName: normalizedOptionalString(
                 context.evaluateScript("globalThis.__codemode.error?.functionName ?? null")?.toString()
             )
@@ -666,6 +721,7 @@ final class BridgeRuntime: @unchecked Sendable {
         transcript: BridgeInvocationContext,
         functionName: String? = nil,
         capability: CapabilityID? = nil,
+        capabilityKey: CodeModeCapabilityKey? = nil,
         suggestions: [String] = []
     ) -> CodeModeToolError {
         CodeModeToolError(
@@ -673,6 +729,7 @@ final class BridgeRuntime: @unchecked Sendable {
             message: message,
             functionName: functionName,
             capability: capability,
+            capabilityKey: capabilityKey,
             suggestions: suggestions,
             diagnostics: transcript.allDiagnostics(),
             logs: transcript.allLogs(),
@@ -681,7 +738,19 @@ final class BridgeRuntime: @unchecked Sendable {
     }
 
     private func bridgeSuggestions(for capability: CapabilityID?) -> [String] {
-        guard let capability, let reference = catalog.reference(for: capability) else {
+        bridgeSuggestions(for: capability, capabilityKey: capability?.codeModeKey)
+    }
+
+    private func bridgeSuggestions(for capability: CapabilityID?, capabilityKey: CodeModeCapabilityKey?) -> [String] {
+        let reference: JavaScriptAPIReference?
+        if let capability {
+            reference = catalog.reference(for: capability)
+        } else if let capabilityKey {
+            reference = catalog.reference(for: capabilityKey)
+        } else {
+            reference = nil
+        }
+        guard let reference else {
             return []
         }
 
@@ -696,12 +765,16 @@ final class BridgeRuntime: @unchecked Sendable {
         return suggestions
     }
 
-    private func enrichedBridgeFailure(for error: BridgeError, capability: CapabilityID?) -> (String, [String]) {
+    private func enrichedBridgeFailure(
+        for error: BridgeError,
+        capability: CapabilityID?,
+        capabilityKey: CodeModeCapabilityKey?
+    ) -> (String, [String]) {
         guard case .invalidArguments = error else {
-            return (error.localizedDescription, bridgeSuggestions(for: capability))
+            return (error.localizedDescription, bridgeSuggestions(for: capability, capabilityKey: capabilityKey))
         }
 
-        return (error.localizedDescription, bridgeSuggestions(for: capability))
+        return (error.localizedDescription, bridgeSuggestions(for: capability, capabilityKey: capabilityKey))
     }
 
     private func formatArguments(_ names: [String], types: [String: CapabilityArgumentType]) -> String {
@@ -776,6 +849,7 @@ final class BridgeRuntime: @unchecked Sendable {
             || normalized.hasPrefix("ios.")
             || normalized.hasPrefix("fs.")
             || normalized.hasPrefix("path.")
+            || catalog.closestFunctionNames(to: name).isEmpty == false
         {
             return true
         }

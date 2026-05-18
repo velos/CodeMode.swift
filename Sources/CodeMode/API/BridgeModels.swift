@@ -18,6 +18,7 @@ public struct CodeModeConfiguration: Sendable {
     public var musicClient: any MusicClient
     public var passKitClient: any PassKitClient
     public var storeKitClient: any StoreKitClient
+    public var codeModeProviders: [any CodeModeProvider]
     public var hostPlatform: HostPlatform
 
     public init(
@@ -38,6 +39,7 @@ public struct CodeModeConfiguration: Sendable {
         musicClient: any MusicClient = UnavailableMusicClient(),
         passKitClient: any PassKitClient = UnavailablePassKitClient(),
         storeKitClient: any StoreKitClient = UnavailableStoreKitClient(),
+        codeModeProviders: [any CodeModeProvider] = [],
         hostPlatform: HostPlatform = .current
     ) {
         self.pathPolicy = pathPolicy
@@ -57,6 +59,7 @@ public struct CodeModeConfiguration: Sendable {
         self.musicClient = musicClient
         self.passKitClient = passKitClient
         self.storeKitClient = storeKitClient
+        self.codeModeProviders = codeModeProviders
         self.hostPlatform = hostPlatform
     }
 }
@@ -70,7 +73,9 @@ public struct JavaScriptAPISearchRequest: Sendable, Codable, Equatable {
 }
 
 public struct JavaScriptAPIReference: Sendable, Codable, Equatable {
-    public var capability: CapabilityID
+    public var capability: String
+    public var capabilityKey: CodeModeCapabilityKey
+    public var builtInCapability: CapabilityID?
     public var jsNames: [String]
     public var summary: String
     public var tags: [String]
@@ -83,7 +88,9 @@ public struct JavaScriptAPIReference: Sendable, Codable, Equatable {
     public var resultSummary: String
 
     public init(
-        capability: CapabilityID,
+        capability: String,
+        capabilityKey: CodeModeCapabilityKey? = nil,
+        builtInCapability: CapabilityID? = nil,
         jsNames: [String],
         summary: String,
         tags: [String],
@@ -96,6 +103,8 @@ public struct JavaScriptAPIReference: Sendable, Codable, Equatable {
         resultSummary: String
     ) {
         self.capability = capability
+        self.capabilityKey = capabilityKey ?? CodeModeCapabilityKey(rawValue: capability)
+        self.builtInCapability = builtInCapability
         self.jsNames = jsNames
         self.summary = summary
         self.tags = tags
@@ -122,17 +131,20 @@ public struct JavaScriptAPISearchResponse: Sendable, Codable, Equatable {
 public struct JavaScriptExecutionRequest: Sendable, Codable, Equatable {
     public var code: String
     public var allowedCapabilities: [CapabilityID]
+    public var allowedCapabilityKeys: [CodeModeCapabilityKey]
     public var timeoutMs: Int
     public var context: ExecutionContext
 
     public init(
         code: String,
         allowedCapabilities: [CapabilityID],
+        allowedCapabilityKeys: [CodeModeCapabilityKey] = [],
         timeoutMs: Int = 10_000,
         context: ExecutionContext = .init()
     ) {
         self.code = code
         self.allowedCapabilities = allowedCapabilities
+        self.allowedCapabilityKeys = allowedCapabilityKeys
         self.timeoutMs = timeoutMs
         self.context = context
     }
@@ -172,6 +184,7 @@ public struct CodeModeToolError: Error, Sendable, Codable, Equatable {
     public var message: String
     public var functionName: String?
     public var capability: CapabilityID?
+    public var capabilityKey: CodeModeCapabilityKey?
     public var line: Int?
     public var column: Int?
     public var suggestions: [String]
@@ -184,6 +197,7 @@ public struct CodeModeToolError: Error, Sendable, Codable, Equatable {
         message: String,
         functionName: String? = nil,
         capability: CapabilityID? = nil,
+        capabilityKey: CodeModeCapabilityKey? = nil,
         line: Int? = nil,
         column: Int? = nil,
         suggestions: [String] = [],
@@ -195,6 +209,7 @@ public struct CodeModeToolError: Error, Sendable, Codable, Equatable {
         self.message = message
         self.functionName = functionName
         self.capability = capability
+        self.capabilityKey = capabilityKey ?? capability?.codeModeKey
         self.line = line
         self.column = column
         self.suggestions = suggestions

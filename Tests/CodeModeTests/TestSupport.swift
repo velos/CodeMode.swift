@@ -48,6 +48,7 @@ func makeTools(
     musicClient: any MusicClient = UnavailableMusicClient(),
     passKitClient: any PassKitClient = UnavailablePassKitClient(),
     storeKitClient: any StoreKitClient = UnavailableStoreKitClient(),
+    codeModeProviders: [any CodeModeProvider] = [],
     hostPlatform: HostPlatform = .current
 ) throws -> (CodeModeAgentTools, TestSandbox) {
     let sandbox = try makeTestSandbox()
@@ -74,6 +75,7 @@ func makeTools(
         musicClient: musicClient,
         passKitClient: passKitClient,
         storeKitClient: storeKitClient,
+        codeModeProviders: codeModeProviders,
         hostPlatform: hostPlatform
     )
 

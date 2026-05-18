@@ -40,6 +40,13 @@ enum CapabilityPlatformSupport {
         return registrations.filter { supported.contains($0.descriptor.id) }
     }
 
+    static func unsupportedJavaScriptNames(from registrations: [CapabilityRegistration], for platform: HostPlatform = .current) -> [String] {
+        let supported = supportedCapabilities(for: platform)
+        return registrations
+            .filter { supported.contains($0.descriptor.id) == false }
+            .flatMap(\.jsNames)
+    }
+
     private static let crossAppleCapabilities: Set<CapabilityID> = [
         .locationRead,
         .weatherRead,

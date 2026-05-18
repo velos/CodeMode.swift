@@ -1,6 +1,41 @@
 import Foundation
 
 enum RuntimeJavaScript {
+    static func builtInBootstrap(for registrations: [CapabilityRegistration]) -> String {
+        let commands = registrations
+            .sorted { $0.descriptor.id.rawValue < $1.descriptor.id.rawValue }
+            .flatMap { registration in
+                registration.jsNames.sorted().map { jsName in
+                    "__codemodeInstallBindingIfMissing(\(jsonString(jsName)), \(jsonString(registration.descriptor.id.codeModeKey.rawValue)));"
+                }
+            }
+        guard commands.isEmpty == false else {
+            return ""
+        }
+        return commands.joined(separator: "\n")
+    }
+
+    static func providerBootstrap(for registrations: [CodeModeRegistration]) -> String {
+        let commands = registrations
+            .sorted { $0.jsPath < $1.jsPath }
+            .map { registration in
+                "__codemodeInstallBinding(\(jsonString(registration.jsPath)), \(jsonString(registration.capabilityKey.rawValue)));"
+            }
+        guard commands.isEmpty == false else {
+            return ""
+        }
+        return commands.joined(separator: "\n")
+    }
+
+    private static func jsonString(_ value: String) -> String {
+        guard let data = try? JSONEncoder.codeModeBridge.encode(value),
+              let string = String(data: data, encoding: .utf8)
+        else {
+            return "\"\""
+        }
+        return string
+    }
+
     static let searchBootstrap = """
     globalThis.__codemode = globalThis.__codemode || {};
     globalThis.__codemode.state = 'idle';
@@ -44,6 +79,39 @@ enum RuntimeJavaScript {
 
     function __invokeAsync(capability, args) {
         return Promise.resolve().then(function(){ return __invoke(capability, args); });
+    }
+
+    function __codemodeResolveBinding(jsPath) {
+        const segments = String(jsPath).split('.').filter(function(segment){ return segment.length > 0; });
+        if (segments.length === 0) {
+            throw new Error('Invalid CodeMode JS path');
+        }
+        let target = globalThis;
+        for (let i = 0; i < segments.length - 1; i++) {
+            const segment = segments[i];
+            if (!target[segment] || typeof target[segment] !== 'object') {
+                target[segment] = {};
+            }
+            target = target[segment];
+        }
+        return { target: target, property: segments[segments.length - 1] };
+    }
+
+    function __codemodeInstallResolvedBinding(binding, capability) {
+        binding.target[binding.property] = function(args) {
+            return __invokeAsync(capability, args || {});
+        };
+    }
+
+    function __codemodeInstallBinding(jsPath, capability) {
+        __codemodeInstallResolvedBinding(__codemodeResolveBinding(jsPath), capability);
+    }
+
+    function __codemodeInstallBindingIfMissing(jsPath, capability) {
+        const binding = __codemodeResolveBinding(jsPath);
+        if (typeof binding.target[binding.property] === 'undefined') {
+            __codemodeInstallResolvedBinding(binding, capability);
+        }
     }
 
     globalThis.console = {

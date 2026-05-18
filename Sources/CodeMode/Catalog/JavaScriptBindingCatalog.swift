@@ -14,6 +14,12 @@ enum JavaScriptBindingCatalog {
             .flatMap { names(for: $0) }
             .sorted()
 
+        return pruningScript(removingJavaScriptNames: bindingsToRemove)
+    }
+
+    static func pruningScript(removingJavaScriptNames names: some Sequence<String>) -> String {
+        let bindingsToRemove = Array(Set(names)).sorted()
+
         guard bindingsToRemove.isEmpty == false else {
             return ""
         }
