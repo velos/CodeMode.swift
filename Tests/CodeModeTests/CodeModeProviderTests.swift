@@ -131,6 +131,99 @@ private struct ManualProvider: CodeModeProvider {
     #expect(output["ok"] == .bool(true))
 }
 
+@Test func metadataOnlyBuiltInHelpersInstallFromRegistrationMetadata() async throws {
+    let metadataOnlyPrefixes = [
+        "apple.vision.",
+        "apple.notifications.",
+        "ios.alarm.",
+        "apple.health.",
+        "apple.home.",
+        "apple.media.",
+        "apple.cloudkit.",
+        "apple.speech.",
+        "apple.appIntents.",
+        "apple.foundationModels.",
+        "apple.activity.",
+        "apple.maps.",
+        "apple.music.",
+        "apple.wallet.",
+        "apple.storekit.",
+        "apple.fs.",
+    ]
+    func isMetadataOnly(_ jsName: String) -> Bool {
+        metadataOnlyPrefixes.contains { jsName.hasPrefix($0) }
+    }
+
+    let registrations = DefaultCapabilityLoader.loadAllRegistrations()
+        .compactMap { registration -> CapabilityRegistration? in
+            let jsNames = registration.jsNames.filter(isMetadataOnly)
+            guard jsNames.isEmpty == false else {
+                return nil
+            }
+            return CapabilityRegistration(
+                jsNames: jsNames,
+                descriptor: registration.descriptor
+            ) { _, _ in
+                .object(["capability": .string(registration.descriptor.id.rawValue)])
+            }
+        }
+    let jsNames = registrations.flatMap(\.jsNames).sorted()
+
+    #expect(jsNames.isEmpty == false)
+    for jsName in jsNames {
+        #expect(RuntimeJavaScript.bootstrap.contains(jsName) == false)
+    }
+
+    let registry = CapabilityRegistry(registrations: registrations)
+    let catalog = BridgeCatalog(registry: registry)
+    let runtime = BridgeRuntime(registry: registry, catalog: catalog, config: .init(hostPlatform: .iOS))
+    let checks = jsNames
+        .map { name in "\(jsonString(name)): typeof \(name) === 'function'" }
+        .joined(separator: ",\n")
+
+    let call = runtime.makeExecutionCall(
+        JavaScriptExecutionRequest(
+            code: """
+            return {
+            \(checks)
+            };
+            """,
+            allowedCapabilities: []
+        )
+    )
+    let observed = await observe(call)
+    let output = try #require(observed.result?.output?.objectValue)
+
+    for jsName in jsNames {
+        #expect(output[jsName] == .bool(true))
+    }
+
+    let macRuntime = BridgeRuntime(
+        registry: registry,
+        catalog: catalog,
+        config: .init(hostPlatform: .macOS),
+        unsupportedBuiltInJavaScriptNames: CapabilityPlatformSupport.unsupportedJavaScriptNames(
+            from: registrations,
+            for: .macOS
+        )
+    )
+    let macCall = macRuntime.makeExecutionCall(
+        JavaScriptExecutionRequest(
+            code: """
+            return {
+                alarm: (typeof ios === 'undefined' || typeof ios.alarm === 'undefined') ? 'undefined' : typeof ios.alarm.schedule,
+                cloudkit: typeof apple.cloudkit.queryRecords
+            };
+            """,
+            allowedCapabilities: []
+        )
+    )
+    let macObserved = await observe(macCall)
+    let macOutput = try #require(macObserved.result?.output?.objectValue)
+    #expect(macOutput["alarm"] == .string("undefined"))
+    #expect(macOutput["cloudkit"] == .string("function"))
+}
+
 @Test func platformPruningCanUseRegistrationJavaScriptNames() throws {
     let descriptor = CapabilityDescriptor(
         id: .calendarUIPresentNewEvent,
@@ -158,6 +251,15 @@ private struct ManualProvider: CodeModeProvider {
             for: .iOS
         ).isEmpty
     )
+}
+
+private func jsonString(_ value: String) -> String {
+    guard let data = try? JSONEncoder.codeModeBridge.encode(value),
+          let string = String(data: data, encoding: .utf8)
+    else {
+        return "\"\""
+    }
+    return string
 }
 
 @Test func customProviderRequiresAllowedCapabilityKey() async throws {

@@ -268,7 +268,24 @@ final class BridgeRuntime: @unchecked Sendable {
             )
         }
 
-        let pruningScript = JavaScriptBindingCatalog.pruningScript(
+        let builtInScript = RuntimeJavaScript.builtInBootstrap(for: registry.allCapabilityRegistrations())
+        if builtInScript.isEmpty == false, context.evaluateScript(builtInScript) == nil {
+            let message = lastException.get()?.message ?? "Failed to install built-in JavaScript bindings"
+            throw CodeModeToolError(
+                code: "INTERNAL_FAILURE",
+                message: message,
+                diagnostics: [
+                    ToolDiagnostic(
+                        severity: .error,
+                        code: "JS_BUILTIN_BOOTSTRAP",
+                        message: message,
+                        category: "internal"
+                    )
+                ]
+            )
+        }
+
+        let pruningScript = RuntimeJavaScript.pruningScript(
             removingJavaScriptNames: unsupportedBuiltInJavaScriptNames
         )
 
@@ -281,23 +298,6 @@ final class BridgeRuntime: @unchecked Sendable {
                     ToolDiagnostic(
                         severity: .error,
                         code: "JS_BOOTSTRAP",
-                        message: message,
-                        category: "internal"
-                    )
-                ]
-            )
-        }
-
-        let builtInScript = RuntimeJavaScript.builtInBootstrap(for: registry.allCapabilityRegistrations())
-        if builtInScript.isEmpty == false, context.evaluateScript(builtInScript) == nil {
-            let message = lastException.get()?.message ?? "Failed to install built-in JavaScript bindings"
-            throw CodeModeToolError(
-                code: "INTERNAL_FAILURE",
-                message: message,
-                diagnostics: [
-                    ToolDiagnostic(
-                        severity: .error,
-                        code: "JS_BUILTIN_BOOTSTRAP",
                         message: message,
                         category: "internal"
                     )

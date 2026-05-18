@@ -1,6 +1,73 @@
 import Foundation
 
 enum RuntimeJavaScript {
+    static func pruningScript(removingJavaScriptNames names: some Sequence<String>) -> String {
+        let bindingsToRemove = Array(Set(names)).sorted()
+
+        guard bindingsToRemove.isEmpty == false else {
+            return ""
+        }
+
+        let deleteCalls = bindingsToRemove.map { name in
+            "__codemodeDeletePath(\(jsonString(name)));"
+        }
+
+        let groupPaths = Set(
+            bindingsToRemove.compactMap { name -> String? in
+                let components = name.split(separator: ".")
+                guard components.count >= 2 else {
+                    return nil
+                }
+                return components.dropLast().joined(separator: ".")
+            }
+        )
+
+        let groupCleanupCalls = groupPaths.sorted(by: { lhs, rhs in
+            lhs.components(separatedBy: ".").count > rhs.components(separatedBy: ".").count
+        }).map { path in
+            "__codemodeDeleteIfEmpty(\(jsonString(path)));"
+        }
+
+        let rootCleanupCalls = ["apple", "ios", "fs"].map { root in
+            "__codemodeDeleteIfEmpty(\(jsonString(root)));"
+        }
+
+        return """
+        (function(){
+            function __codemodeResolveParent(path) {
+                const segments = String(path).split('.').filter(function(segment){ return segment.length > 0; });
+                if (segments.length === 0) return null;
+                let target = globalThis;
+                for (let i = 0; i < segments.length - 1; i++) {
+                    if (!target || typeof target[segments[i]] === 'undefined') return null;
+                    target = target[segments[i]];
+                }
+                return { target: target, property: segments[segments.length - 1] };
+            }
+            function __codemodeDeletePath(path) {
+                const binding = __codemodeResolveParent(path);
+                if (binding && binding.target) delete binding.target[binding.property];
+            }
+            function __codemodeResolvePath(path) {
+                const segments = String(path).split('.').filter(function(segment){ return segment.length > 0; });
+                let target = globalThis;
+                for (let i = 0; i < segments.length; i++) {
+                    if (!target || typeof target[segments[i]] === 'undefined') return undefined;
+                    target = target[segments[i]];
+                }
+                return target;
+            }
+            function __codemodeDeleteIfEmpty(path) {
+                const value = __codemodeResolvePath(path);
+                if (value && typeof value === 'object' && Object.keys(value).length === 0) {
+                    __codemodeDeletePath(path);
+                }
+            }
+        \(indent((deleteCalls + groupCleanupCalls + rootCleanupCalls).joined(separator: "\n"), prefix: "    "))
+        })();
+        """
+    }
+
     static func builtInBootstrap(for registrations: [CapabilityRegistration]) -> String {
         let commands = registrations
             .sorted { $0.descriptor.id.rawValue < $1.descriptor.id.rawValue }
@@ -34,6 +101,13 @@ enum RuntimeJavaScript {
             return "\"\""
         }
         return string
+    }
+
+    private static func indent(_ value: String, prefix: String) -> String {
+        value
+            .split(separator: "\n", omittingEmptySubsequences: false)
+            .map { $0.isEmpty ? "" : prefix + $0 }
+            .joined(separator: "\n")
     }
 
     static let searchBootstrap = """
@@ -272,135 +346,6 @@ enum RuntimeJavaScript {
 
     globalThis.apple.settings = {
         open: function(args) { return __invokeAsync('settings.ui.open', args || {}); }
-    };
-
-    globalThis.apple.vision = {
-        analyzeImage: function(args) { return __invokeAsync('vision.image.analyze', args || {}); }
-    };
-
-    globalThis.apple.notifications = {
-        requestPermission: function() { return __invokeAsync('notifications.permission.request', {}); },
-        schedule: function(args) { return __invokeAsync('notifications.schedule', args || {}); },
-        listPending: function(args) { return __invokeAsync('notifications.pending.read', args || {}); },
-        cancelPending: function(args) { return __invokeAsync('notifications.pending.delete', args || {}); },
-        listDelivered: function(args) { return __invokeAsync('notifications.delivered.read', args || {}); },
-        removeDelivered: function(args) { return __invokeAsync('notifications.delivered.delete', args || {}); },
-        registerRemote: function(args) { return __invokeAsync('notifications.remote.register', args || {}); },
-        getRemoteToken: function(args) { return __invokeAsync('notifications.remote.token.read', args || {}); },
-        getSettings: function(args) { return __invokeAsync('notifications.settings.read', args || {}); },
-        setCategories: function(args) { return __invokeAsync('notifications.categories.set', args || {}); },
-        listResponses: function(args) { return __invokeAsync('notifications.responses.read', args || {}); }
-    };
-
-    globalThis.ios = globalThis.ios || {};
-    globalThis.ios.alarm = {
-        requestPermission: function() { return __invokeAsync('alarm.permission.request', {}); },
-        list: function(args) { return __invokeAsync('alarm.read', args || {}); },
-        schedule: function(args) { return __invokeAsync('alarm.schedule', args || {}); },
-        cancel: function(args) { return __invokeAsync('alarm.cancel', args || {}); }
-    };
-
-    globalThis.apple.health = {
-        requestPermission: function(args) { return __invokeAsync('health.permission.request', args || {}); },
-        read: function(args) { return __invokeAsync('health.read', args || {}); },
-        write: function(args) { return __invokeAsync('health.write', args || {}); }
-    };
-
-    globalThis.apple.home = {
-        list: function(args) { return __invokeAsync('home.read', args || {}); },
-        writeCharacteristic: function(args) { return __invokeAsync('home.write', args || {}); }
-    };
-
-    globalThis.apple.media = {
-        metadata: function(args) { return __invokeAsync('media.metadata.read', args || {}); },
-        extractFrame: function(args) { return __invokeAsync('media.frame.extract', args || {}); },
-        transcode: function(args) { return __invokeAsync('media.transcode', args || {}); }
-    };
-
-    globalThis.apple.cloudkit = {
-        getAccountStatus: function(args) { return __invokeAsync('cloudkit.account.status', args || {}); },
-        queryRecords: function(args) { return __invokeAsync('cloudkit.records.query', args || {}); },
-        saveRecord: function(args) { return __invokeAsync('cloudkit.record.save', args || {}); },
-        deleteRecord: function(args) { return __invokeAsync('cloudkit.record.delete', args || {}); },
-        subscribe: function(args) { return __invokeAsync('cloudkit.subscription.save', args || {}); },
-        listEvents: function(args) { return __invokeAsync('cloudkit.subscriptionEvents.read', args || {}); }
-    };
-
-    globalThis.apple.speech = {
-        requestPermission: function() { return __invokeAsync('speech.permission.request', {}); },
-        getStatus: function() { return __invokeAsync('speech.status', {}); },
-        transcribeFile: function(args) { return __invokeAsync('speech.file.transcribe', args || {}); },
-        transcribeMicrophone: function(args) { return __invokeAsync('speech.microphone.transcribe', args || {}); }
-    };
-
-    globalThis.apple.appIntents = {
-        list: function(args) { return __invokeAsync('appintents.list', args || {}); },
-        run: function(args) { return __invokeAsync('appintents.run', args || {}); },
-        donate: function(args) { return __invokeAsync('appintents.donate', args || {}); },
-        open: function(args) { return __invokeAsync('appintents.open', args || {}); },
-        listHandoffs: function(args) { return __invokeAsync('appintents.handoffs.read', args || {}); }
-    };
-
-    globalThis.apple.foundationModels = {
-        getStatus: function(args) { return __invokeAsync('foundationModels.status', args || {}); },
-        generate: function(args) { return __invokeAsync('foundationModels.generate', args || {}); },
-        extract: function(args) { return __invokeAsync('foundationModels.extract', args || {}); }
-    };
-
-    globalThis.apple.activity = {
-        list: function(args) { return __invokeAsync('activity.list', args || {}); },
-        start: function(args) { return __invokeAsync('activity.start', args || {}); },
-        update: function(args) { return __invokeAsync('activity.update', args || {}); },
-        end: function(args) { return __invokeAsync('activity.end', args || {}); },
-        getPushToken: function(args) { return __invokeAsync('activity.pushToken.read', args || {}); }
-    };
-
-    globalThis.apple.maps = {
-        geocode: function(args) { return __invokeAsync('maps.geocode', args || {}); },
-        reverseGeocode: function(args) { return __invokeAsync('maps.reverseGeocode', args || {}); },
-        search: function(args) { return __invokeAsync('maps.search', args || {}); },
-        routeEstimate: function(args) { return __invokeAsync('maps.route.estimate', args || {}); },
-        open: function(args) { return __invokeAsync('maps.open', args || {}); }
-    };
-
-    globalThis.apple.music = {
-        requestPermission: function() { return __invokeAsync('music.permission.request', {}); },
-        getSubscriptionStatus: function(args) { return __invokeAsync('music.subscription.status', args || {}); },
-        search: function(args) { return __invokeAsync('music.catalog.search', args || {}); },
-        getDetails: function(args) { return __invokeAsync('music.catalog.details', args || {}); },
-        readLibrary: function(args) { return __invokeAsync('music.library.read', args || {}); },
-        writePlaylist: function(args) { return __invokeAsync('music.playlist.write', args || {}); },
-        play: function(args) { return __invokeAsync('music.playback.control', args || {}); }
-    };
-
-    globalThis.apple.wallet = {
-        getStatus: function(args) { return __invokeAsync('passkit.wallet.status', args || {}); },
-        listPasses: function(args) { return __invokeAsync('passkit.passes.read', args || {}); },
-        addPass: function(args) { return __invokeAsync('passkit.pass.add', args || {}); },
-        presentPass: function(args) { return __invokeAsync('passkit.pass.present', args || {}); },
-        canMakePayments: function(args) { return __invokeAsync('passkit.applePay.status', args || {}); },
-        presentPayment: function(args) { return __invokeAsync('passkit.applePay.present', args || {}); }
-    };
-
-    globalThis.apple.storekit = {
-        listProducts: function(args) { return __invokeAsync('storekit.products.read', args || {}); },
-        listEntitlements: function(args) { return __invokeAsync('storekit.entitlements.read', args || {}); },
-        purchase: function(args) { return __invokeAsync('storekit.purchase', args || {}); },
-        restore: function(args) { return __invokeAsync('storekit.restore', args || {}); },
-        listTransactions: function(args) { return __invokeAsync('storekit.transactions.read', args || {}); }
-    };
-
-    globalThis.apple.fs = {
-        list: function(args) { return __invokeAsync('fs.list', args || {}); },
-        read: function(args) { return __invokeAsync('fs.read', args || {}); },
-        write: function(args) { return __invokeAsync('fs.write', args || {}); },
-        move: function(args) { return __invokeAsync('fs.move', args || {}); },
-        copy: function(args) { return __invokeAsync('fs.copy', args || {}); },
-        delete: function(args) { return __invokeAsync('fs.delete', args || {}); },
-        stat: function(args) { return __invokeAsync('fs.stat', args || {}); },
-        mkdir: function(args) { return __invokeAsync('fs.mkdir', args || {}); },
-        exists: function(args) { return __invokeAsync('fs.exists', args || {}); },
-        access: function(args) { return __invokeAsync('fs.access', args || {}); }
     };
 
     globalThis.fs = {
