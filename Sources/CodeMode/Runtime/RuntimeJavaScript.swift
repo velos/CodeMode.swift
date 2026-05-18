@@ -191,10 +191,6 @@ enum RuntimeJavaScript {
         getCurrentPosition: function() { return __invokeAsync('location.read', { mode: 'current' }); }
     };
 
-    globalThis.apple.weather = {
-        getCurrentWeather: function(coords) { return __invokeAsync('weather.read', coords || {}); }
-    };
-
     globalThis.apple.calendar = {
         listEvents: function(args) { return __invokeAsync('calendar.read', args || {}); },
         createEvent: function(args) { return __invokeAsync('calendar.write', Object.assign({}, args || {}, { operation: 'create' })); },

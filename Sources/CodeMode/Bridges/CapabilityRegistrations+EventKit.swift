@@ -4,6 +4,7 @@ extension DefaultCapabilityRegistrationBuilder {
     func calendarAndReminderRegistrations() -> [CapabilityRegistration] {
         [
             CapabilityRegistration(
+                jsNames: ["apple.calendar.listEvents"],
                 descriptor: .init(
                     id: .calendarRead,
                     title: "Read calendar events",
@@ -26,6 +27,7 @@ extension DefaultCapabilityRegistrationBuilder {
                 }
             ),
             CapabilityRegistration(
+                jsNames: ["apple.calendar.createEvent", "apple.calendar.updateEvent"],
                 descriptor: .init(
                     id: .calendarWrite,
                     title: "Create or update calendar event",
@@ -64,6 +66,7 @@ extension DefaultCapabilityRegistrationBuilder {
                 }
             ),
             CapabilityRegistration(
+                jsNames: ["apple.calendar.deleteEvent"],
                 descriptor: .init(
                     id: .calendarDelete,
                     title: "Delete calendar event",
@@ -84,6 +87,7 @@ extension DefaultCapabilityRegistrationBuilder {
                 }
             ),
             CapabilityRegistration(
+                jsNames: ["apple.calendar.pickCalendar"],
                 descriptor: .init(
                     id: .calendarUIPickCalendar,
                     title: "Pick calendar with system UI",
@@ -109,6 +113,7 @@ extension DefaultCapabilityRegistrationBuilder {
                 }
             ),
             CapabilityRegistration(
+                jsNames: ["apple.calendar.presentEvent"],
                 descriptor: .init(
                     id: .calendarUIPresentEvent,
                     title: "Present calendar event details",
@@ -137,6 +142,7 @@ extension DefaultCapabilityRegistrationBuilder {
                 }
             ),
             CapabilityRegistration(
+                jsNames: ["apple.calendar.presentNewEvent"],
                 descriptor: .init(
                     id: .calendarUIPresentNewEvent,
                     title: "Present calendar event editor",
@@ -168,6 +174,7 @@ extension DefaultCapabilityRegistrationBuilder {
                 }
             ),
             CapabilityRegistration(
+                jsNames: ["apple.reminders.listReminders"],
                 descriptor: .init(
                     id: .remindersRead,
                     title: "Read reminders",
@@ -191,6 +198,7 @@ extension DefaultCapabilityRegistrationBuilder {
                 }
             ),
             CapabilityRegistration(
+                jsNames: ["apple.reminders.createReminder", "apple.reminders.updateReminder", "apple.reminders.completeReminder"],
                 descriptor: .init(
                     id: .remindersWrite,
                     title: "Create or update reminder",
@@ -216,6 +224,7 @@ extension DefaultCapabilityRegistrationBuilder {
                 }
             ),
             CapabilityRegistration(
+                jsNames: ["apple.reminders.deleteReminder"],
                 descriptor: .init(
                     id: .remindersDelete,
                     title: "Delete reminder",

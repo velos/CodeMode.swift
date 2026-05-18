@@ -4,6 +4,7 @@ extension DefaultCapabilityRegistrationBuilder {
     func interactionUIRegistrations() -> [CapabilityRegistration] {
         [
             CapabilityRegistration(
+                jsNames: ["apple.share.present"],
                 descriptor: .init(
                     id: .shareUIPresent,
                     title: "Present share sheet",
@@ -36,6 +37,7 @@ extension DefaultCapabilityRegistrationBuilder {
                 }
             ),
             CapabilityRegistration(
+                jsNames: ["apple.quicklook.preview"],
                 descriptor: .init(
                     id: .quickLookUIPreview,
                     title: "Preview files with Quick Look",
@@ -60,6 +62,7 @@ extension DefaultCapabilityRegistrationBuilder {
                 }
             ),
             CapabilityRegistration(
+                jsNames: ["apple.camera.capture"],
                 descriptor: .init(
                     id: .cameraUICapture,
                     title: "Capture photo or video with camera UI",
@@ -103,6 +106,7 @@ extension DefaultCapabilityRegistrationBuilder {
                 }
             ),
             CapabilityRegistration(
+                jsNames: ["apple.camera.scanData"],
                 descriptor: .init(
                     id: .cameraUIScanData,
                     title: "Scan text or barcodes with camera UI",
@@ -155,6 +159,7 @@ extension DefaultCapabilityRegistrationBuilder {
                 }
             ),
             CapabilityRegistration(
+                jsNames: ["apple.mail.compose"],
                 descriptor: .init(
                     id: .mailUICompose,
                     title: "Compose mail with system UI",
@@ -189,6 +194,7 @@ extension DefaultCapabilityRegistrationBuilder {
                 }
             ),
             CapabilityRegistration(
+                jsNames: ["apple.messages.compose"],
                 descriptor: .init(
                     id: .messagesUICompose,
                     title: "Compose message with system UI",
@@ -217,6 +223,7 @@ extension DefaultCapabilityRegistrationBuilder {
                 }
             ),
             CapabilityRegistration(
+                jsNames: ["apple.print.present"],
                 descriptor: .init(
                     id: .printUIPresent,
                     title: "Present print UI",
@@ -247,6 +254,7 @@ extension DefaultCapabilityRegistrationBuilder {
                 }
             ),
             CapabilityRegistration(
+                jsNames: ["apple.web.present"],
                 descriptor: .init(
                     id: .webUIPresent,
                     title: "Present web page with system UI",
@@ -272,6 +280,7 @@ extension DefaultCapabilityRegistrationBuilder {
                 }
             ),
             CapabilityRegistration(
+                jsNames: ["apple.auth.webAuthenticate"],
                 descriptor: .init(
                     id: .authUIWebAuthenticate,
                     title: "Authenticate with system web UI",
@@ -299,6 +308,7 @@ extension DefaultCapabilityRegistrationBuilder {
                 }
             ),
             CapabilityRegistration(
+                jsNames: ["apple.ui.presentAlert"],
                 descriptor: .init(
                     id: .uiAlertPresent,
                     title: "Present alert with custom buttons",
@@ -330,6 +340,7 @@ extension DefaultCapabilityRegistrationBuilder {
                 }
             ),
             CapabilityRegistration(
+                jsNames: ["apple.ui.presentPrompt"],
                 descriptor: .init(
                     id: .uiPromptPresent,
                     title: "Present prompt with text fields",
@@ -357,6 +368,7 @@ extension DefaultCapabilityRegistrationBuilder {
                 }
             ),
             CapabilityRegistration(
+                jsNames: ["apple.settings.open"],
                 descriptor: .init(
                     id: .settingsUIOpen,
                     title: "Open app settings",

@@ -4,6 +4,7 @@ extension DefaultCapabilityRegistrationBuilder {
     func contactRegistrations() -> [CapabilityRegistration] {
         [
             CapabilityRegistration(
+                jsNames: ["apple.contacts.list"],
                 descriptor: .init(
                     id: .contactsRead,
                     title: "Read contacts",
@@ -23,6 +24,7 @@ extension DefaultCapabilityRegistrationBuilder {
                 }
             ),
             CapabilityRegistration(
+                jsNames: ["apple.contacts.search"],
                 descriptor: .init(
                     id: .contactsSearch,
                     title: "Search contacts",
@@ -43,6 +45,7 @@ extension DefaultCapabilityRegistrationBuilder {
                 }
             ),
             CapabilityRegistration(
+                jsNames: ["apple.contacts.pick"],
                 descriptor: .init(
                     id: .contactsUIPick,
                     title: "Pick contacts with system UI",
@@ -67,6 +70,7 @@ extension DefaultCapabilityRegistrationBuilder {
                 }
             ),
             CapabilityRegistration(
+                jsNames: ["apple.contacts.presentContact"],
                 descriptor: .init(
                     id: .contactsUIPresentContact,
                     title: "Present contact card",
@@ -97,6 +101,7 @@ extension DefaultCapabilityRegistrationBuilder {
                 }
             ),
             CapabilityRegistration(
+                jsNames: ["apple.contacts.presentNewContact"],
                 descriptor: .init(
                     id: .contactsUIPresentNewContact,
                     title: "Present new contact editor",
@@ -134,6 +139,7 @@ extension DefaultCapabilityRegistrationBuilder {
     func photoAndDocumentRegistrations() -> [CapabilityRegistration] {
         [
             CapabilityRegistration(
+                jsNames: ["apple.photos.list"],
                 descriptor: .init(
                     id: .photosRead,
                     title: "List photo library assets",
@@ -153,6 +159,7 @@ extension DefaultCapabilityRegistrationBuilder {
                 }
             ),
             CapabilityRegistration(
+                jsNames: ["apple.photos.export"],
                 descriptor: .init(
                     id: .photosExport,
                     title: "Export photo library asset",
@@ -173,6 +180,7 @@ extension DefaultCapabilityRegistrationBuilder {
                 }
             ),
             CapabilityRegistration(
+                jsNames: ["apple.photos.pick"],
                 descriptor: .init(
                     id: .photosUIPick,
                     title: "Pick photos with system UI",
@@ -199,6 +207,7 @@ extension DefaultCapabilityRegistrationBuilder {
                 }
             ),
             CapabilityRegistration(
+                jsNames: ["apple.photos.presentLimitedLibraryPicker"],
                 descriptor: .init(
                     id: .photosUIPresentLimitedLibraryPicker,
                     title: "Present limited Photos picker",
@@ -219,6 +228,7 @@ extension DefaultCapabilityRegistrationBuilder {
                 }
             ),
             CapabilityRegistration(
+                jsNames: ["apple.documents.pick"],
                 descriptor: .init(
                     id: .documentsUIPick,
                     title: "Pick documents with system UI",
@@ -245,6 +255,7 @@ extension DefaultCapabilityRegistrationBuilder {
                 }
             ),
             CapabilityRegistration(
+                jsNames: ["apple.documents.export", "apple.documents.save"],
                 descriptor: .init(
                     id: .documentsUIExport,
                     title: "Export documents with system UI",
@@ -271,6 +282,7 @@ extension DefaultCapabilityRegistrationBuilder {
                 }
             ),
             CapabilityRegistration(
+                jsNames: ["apple.documents.openIn"],
                 descriptor: .init(
                     id: .documentsUIOpenIn,
                     title: "Open document in another app",
@@ -298,6 +310,7 @@ extension DefaultCapabilityRegistrationBuilder {
                 }
             ),
             CapabilityRegistration(
+                jsNames: ["apple.documents.scan"],
                 descriptor: .init(
                     id: .documentsUIScan,
                     title: "Scan documents with system UI",

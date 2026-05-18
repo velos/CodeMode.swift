@@ -13,9 +13,8 @@ struct BridgeCatalog: Sendable {
     private let allJavaScriptNames: [String]
 
     init(registry: CapabilityRegistry) {
-        let builtInRegistrations = registry.allCapabilityRegistrations().sorted { $0.descriptor.id.rawValue < $1.descriptor.id.rawValue }
-        let customRegistrations = registry.allCodeModeRegistrations().sorted { $0.capabilityKey.rawValue < $1.capabilityKey.rawValue }
-        let references = builtInRegistrations.map(Self.reference(from:)) + customRegistrations.map(Self.reference(from:))
+        let functions = registry.allRegisteredFunctions().sorted { $0.catalogCapability < $1.catalogCapability }
+        let references = functions.map(Self.reference(from:))
 
         self.references = references
         self.referencesByCapability = Dictionary(uniqueKeysWithValues: references.map { ($0.capabilityKey, $0) })
@@ -99,40 +98,21 @@ struct BridgeCatalog: Sendable {
         }
     }
 
-    private static func reference(from registration: CapabilityRegistration) -> JavaScriptAPIReference {
-        let descriptor = registration.descriptor
+    private static func reference(from function: RegisteredCodeModeFunction) -> JavaScriptAPIReference {
         return JavaScriptAPIReference(
-            capability: descriptor.id.rawValue,
-            capabilityKey: descriptor.id.codeModeKey,
-            builtInCapability: descriptor.id,
-            jsNames: registration.jsNames,
-            summary: descriptor.summary,
-            tags: descriptor.tags,
-            example: descriptor.example,
-            requiredArguments: descriptor.requiredArguments,
-            optionalArguments: descriptor.optionalArguments,
-            argumentTypes: descriptor.argumentTypes,
-            argumentHints: descriptor.argumentHints,
-            argumentConstraints: descriptor.argumentConstraints,
-            resultSummary: descriptor.resultSummary
-        )
-    }
-
-    private static func reference(from registration: CodeModeRegistration) -> JavaScriptAPIReference {
-        JavaScriptAPIReference(
-            capability: registration.capabilityKey.rawValue,
-            capabilityKey: registration.capabilityKey,
-            builtInCapability: nil,
-            jsNames: [registration.jsPath],
-            summary: registration.summary,
-            tags: registration.tags,
-            example: registration.example,
-            requiredArguments: registration.requiredArguments,
-            optionalArguments: registration.optionalArguments,
-            argumentTypes: registration.argumentTypes,
-            argumentHints: registration.argumentHints,
-            argumentConstraints: registration.argumentConstraints,
-            resultSummary: registration.resultSummary
+            capability: function.catalogCapability,
+            capabilityKey: function.capabilityKey,
+            builtInCapability: function.builtInCapability,
+            jsNames: function.jsNames,
+            summary: function.summary,
+            tags: function.tags,
+            example: function.example,
+            requiredArguments: function.requiredArguments,
+            optionalArguments: function.optionalArguments,
+            argumentTypes: function.argumentTypes,
+            argumentHints: function.argumentHints,
+            argumentConstraints: function.argumentConstraints,
+            resultSummary: function.resultSummary
         )
     }
 

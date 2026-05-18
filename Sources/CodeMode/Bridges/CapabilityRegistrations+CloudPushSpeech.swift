@@ -20,6 +20,7 @@ extension DefaultCapabilityRegistrationBuilder {
     func cloudKitRegistrations() -> [CapabilityRegistration] {
         [
             CapabilityRegistration(
+                jsNames: ["apple.cloudkit.getAccountStatus"],
                 descriptor: .init(
                     id: .cloudKitAccountStatus,
                     title: "Read CloudKit account status",
@@ -37,6 +38,7 @@ extension DefaultCapabilityRegistrationBuilder {
                 }
             ),
             CapabilityRegistration(
+                jsNames: ["apple.cloudkit.queryRecords"],
                 descriptor: .init(
                     id: .cloudKitRecordsQuery,
                     title: "Query CloudKit records",
@@ -62,6 +64,7 @@ extension DefaultCapabilityRegistrationBuilder {
                 }
             ),
             CapabilityRegistration(
+                jsNames: ["apple.cloudkit.saveRecord"],
                 descriptor: .init(
                     id: .cloudKitRecordSave,
                     title: "Save CloudKit record",
@@ -86,6 +89,7 @@ extension DefaultCapabilityRegistrationBuilder {
                 }
             ),
             CapabilityRegistration(
+                jsNames: ["apple.cloudkit.deleteRecord"],
                 descriptor: .init(
                     id: .cloudKitRecordDelete,
                     title: "Delete CloudKit record",
@@ -107,6 +111,7 @@ extension DefaultCapabilityRegistrationBuilder {
                 }
             ),
             CapabilityRegistration(
+                jsNames: ["apple.cloudkit.subscribe"],
                 descriptor: .init(
                     id: .cloudKitSubscriptionSave,
                     title: "Save CloudKit subscription",
@@ -131,6 +136,7 @@ extension DefaultCapabilityRegistrationBuilder {
                 }
             ),
             CapabilityRegistration(
+                jsNames: ["apple.cloudkit.listEvents"],
                 descriptor: .init(
                     id: .cloudKitSubscriptionEventsRead,
                     title: "Read CloudKit subscription inbox",
@@ -156,6 +162,7 @@ extension DefaultCapabilityRegistrationBuilder {
     func remoteNotificationRegistrations() -> [CapabilityRegistration] {
         [
             CapabilityRegistration(
+                jsNames: ["apple.notifications.registerRemote"],
                 descriptor: .init(
                     id: .notificationsRemoteRegister,
                     title: "Register for remote notifications",
@@ -173,6 +180,7 @@ extension DefaultCapabilityRegistrationBuilder {
                 }
             ),
             CapabilityRegistration(
+                jsNames: ["apple.notifications.getRemoteToken"],
                 descriptor: .init(
                     id: .notificationsRemoteTokenRead,
                     title: "Read APNs device token",
@@ -186,6 +194,7 @@ extension DefaultCapabilityRegistrationBuilder {
                 }
             ),
             CapabilityRegistration(
+                jsNames: ["apple.notifications.getSettings"],
                 descriptor: .init(
                     id: .notificationsSettingsRead,
                     title: "Read notification settings",
@@ -199,6 +208,7 @@ extension DefaultCapabilityRegistrationBuilder {
                 }
             ),
             CapabilityRegistration(
+                jsNames: ["apple.notifications.setCategories"],
                 descriptor: .init(
                     id: .notificationsCategoriesSet,
                     title: "Set notification categories",
@@ -216,6 +226,7 @@ extension DefaultCapabilityRegistrationBuilder {
                 }
             ),
             CapabilityRegistration(
+                jsNames: ["apple.notifications.listResponses"],
                 descriptor: .init(
                     id: .notificationsResponsesRead,
                     title: "Read notification response inbox",
@@ -242,6 +253,7 @@ extension DefaultCapabilityRegistrationBuilder {
     func speechRegistrations() -> [CapabilityRegistration] {
         [
             CapabilityRegistration(
+                jsNames: ["apple.speech.requestPermission"],
                 descriptor: .init(
                     id: .speechPermissionRequest,
                     title: "Request speech recognition permission",
@@ -255,6 +267,7 @@ extension DefaultCapabilityRegistrationBuilder {
                 }
             ),
             CapabilityRegistration(
+                jsNames: ["apple.speech.getStatus"],
                 descriptor: .init(
                     id: .speechStatus,
                     title: "Read speech recognition permission status",
@@ -268,6 +281,7 @@ extension DefaultCapabilityRegistrationBuilder {
                 }
             ),
             CapabilityRegistration(
+                jsNames: ["apple.speech.transcribeFile"],
                 descriptor: .init(
                     id: .speechFileTranscribe,
                     title: "Transcribe audio file",
@@ -291,6 +305,7 @@ extension DefaultCapabilityRegistrationBuilder {
                 }
             ),
             CapabilityRegistration(
+                jsNames: ["apple.speech.transcribeMicrophone"],
                 descriptor: .init(
                     id: .speechMicrophoneTranscribe,
                     title: "Transcribe microphone audio",

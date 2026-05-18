@@ -2,12 +2,28 @@ import Foundation
 import Testing
 @testable import CodeMode
 
+
+private func jsNames(for capability: CapabilityID) -> [String] {
+    DefaultCapabilityLoader.loadAllRegistrations()
+        .first { $0.descriptor.id == capability }?
+        .jsNames ?? []
+}
+
 @Test func defaultCapabilityLoaderCoversAllCapabilityIDs() {
     let registrations = DefaultCapabilityLoader.loadAllRegistrations()
     let loaded = Set(registrations.map { $0.descriptor.id })
     let expected = Set(CapabilityID.allCases)
 
     #expect(loaded == expected)
+}
+
+@Test func defaultCapabilityRegistrationsOwnJavaScriptNames() {
+    let registrations = DefaultCapabilityLoader.loadAllRegistrations()
+    let missingNames = registrations
+        .filter { $0.jsNames.isEmpty }
+        .map(\.descriptor.id.rawValue)
+
+    #expect(missingNames.isEmpty)
 }
 
 @Test func platformSupportFilterMatchesCurrentPlatform() {
@@ -64,44 +80,44 @@ import Testing
 
     let calendar = try #require(descriptors[.calendarUIPresentNewEvent])
     #expect(calendar.requiredPermissions == [.calendarWriteOnly])
-    #expect(JavaScriptBindingCatalog.names(for: .calendarUIPresentNewEvent) == ["apple.calendar.presentNewEvent"])
+    #expect(jsNames(for: .calendarUIPresentNewEvent) == ["apple.calendar.presentNewEvent"])
 
     let contacts = try #require(descriptors[.contactsUIPick])
     #expect(contacts.requiredPermissions.isEmpty)
-    #expect(JavaScriptBindingCatalog.names(for: .contactsUIPick) == ["apple.contacts.pick"])
+    #expect(jsNames(for: .contactsUIPick) == ["apple.contacts.pick"])
 
     let photos = try #require(descriptors[.photosUIPick])
     #expect(photos.requiredPermissions.isEmpty)
-    #expect(JavaScriptBindingCatalog.names(for: .photosUIPick) == ["apple.photos.pick"])
+    #expect(jsNames(for: .photosUIPick) == ["apple.photos.pick"])
 
     #expect(descriptors[.documentsUIPick]?.requiredPermissions.isEmpty == true)
-    #expect(JavaScriptBindingCatalog.names(for: .documentsUIPick) == ["apple.documents.pick"])
-    #expect(JavaScriptBindingCatalog.names(for: .documentsUIExport) == ["apple.documents.export", "apple.documents.save"])
-    #expect(JavaScriptBindingCatalog.names(for: .documentsUIOpenIn) == ["apple.documents.openIn"])
-    #expect(JavaScriptBindingCatalog.names(for: .documentsUIScan) == ["apple.documents.scan"])
-    #expect(JavaScriptBindingCatalog.names(for: .shareUIPresent) == ["apple.share.present"])
-    #expect(JavaScriptBindingCatalog.names(for: .quickLookUIPreview) == ["apple.quicklook.preview"])
-    #expect(JavaScriptBindingCatalog.names(for: .cameraUICapture) == ["apple.camera.capture"])
-    #expect(JavaScriptBindingCatalog.names(for: .cameraUIScanData) == ["apple.camera.scanData"])
-    #expect(JavaScriptBindingCatalog.names(for: .mailUICompose) == ["apple.mail.compose"])
-    #expect(JavaScriptBindingCatalog.names(for: .messagesUICompose) == ["apple.messages.compose"])
-    #expect(JavaScriptBindingCatalog.names(for: .printUIPresent) == ["apple.print.present"])
-    #expect(JavaScriptBindingCatalog.names(for: .webUIPresent) == ["apple.web.present"])
-    #expect(JavaScriptBindingCatalog.names(for: .authUIWebAuthenticate) == ["apple.auth.webAuthenticate"])
-    #expect(JavaScriptBindingCatalog.names(for: .uiAlertPresent) == ["apple.ui.presentAlert"])
-    #expect(JavaScriptBindingCatalog.names(for: .uiPromptPresent) == ["apple.ui.presentPrompt"])
-    #expect(JavaScriptBindingCatalog.names(for: .photosUIPresentLimitedLibraryPicker) == ["apple.photos.presentLimitedLibraryPicker"])
-    #expect(JavaScriptBindingCatalog.names(for: .settingsUIOpen) == ["apple.settings.open"])
+    #expect(jsNames(for: .documentsUIPick) == ["apple.documents.pick"])
+    #expect(jsNames(for: .documentsUIExport) == ["apple.documents.export", "apple.documents.save"])
+    #expect(jsNames(for: .documentsUIOpenIn) == ["apple.documents.openIn"])
+    #expect(jsNames(for: .documentsUIScan) == ["apple.documents.scan"])
+    #expect(jsNames(for: .shareUIPresent) == ["apple.share.present"])
+    #expect(jsNames(for: .quickLookUIPreview) == ["apple.quicklook.preview"])
+    #expect(jsNames(for: .cameraUICapture) == ["apple.camera.capture"])
+    #expect(jsNames(for: .cameraUIScanData) == ["apple.camera.scanData"])
+    #expect(jsNames(for: .mailUICompose) == ["apple.mail.compose"])
+    #expect(jsNames(for: .messagesUICompose) == ["apple.messages.compose"])
+    #expect(jsNames(for: .printUIPresent) == ["apple.print.present"])
+    #expect(jsNames(for: .webUIPresent) == ["apple.web.present"])
+    #expect(jsNames(for: .authUIWebAuthenticate) == ["apple.auth.webAuthenticate"])
+    #expect(jsNames(for: .uiAlertPresent) == ["apple.ui.presentAlert"])
+    #expect(jsNames(for: .uiPromptPresent) == ["apple.ui.presentPrompt"])
+    #expect(jsNames(for: .photosUIPresentLimitedLibraryPicker) == ["apple.photos.presentLimitedLibraryPicker"])
+    #expect(jsNames(for: .settingsUIOpen) == ["apple.settings.open"])
 
     #expect(descriptors[.calendarUIPickCalendar]?.requiredPermissions == [.calendarWriteOnly])
     #expect(descriptors[.calendarUIPresentEvent]?.requiredPermissions == [.calendar])
-    #expect(JavaScriptBindingCatalog.names(for: .calendarUIPickCalendar) == ["apple.calendar.pickCalendar"])
-    #expect(JavaScriptBindingCatalog.names(for: .calendarUIPresentEvent) == ["apple.calendar.presentEvent"])
+    #expect(jsNames(for: .calendarUIPickCalendar) == ["apple.calendar.pickCalendar"])
+    #expect(jsNames(for: .calendarUIPresentEvent) == ["apple.calendar.presentEvent"])
 
     #expect(descriptors[.contactsUIPresentContact]?.requiredPermissions == [.contacts])
     #expect(descriptors[.contactsUIPresentNewContact]?.requiredPermissions == [.contacts])
-    #expect(JavaScriptBindingCatalog.names(for: .contactsUIPresentContact) == ["apple.contacts.presentContact"])
-    #expect(JavaScriptBindingCatalog.names(for: .contactsUIPresentNewContact) == ["apple.contacts.presentNewContact"])
+    #expect(jsNames(for: .contactsUIPresentContact) == ["apple.contacts.presentContact"])
+    #expect(jsNames(for: .contactsUIPresentNewContact) == ["apple.contacts.presentNewContact"])
 }
 
 @Test func expandedAPIDescriptorsExposeExpectedJavaScriptNames() throws {
@@ -112,16 +128,16 @@ import Testing
     let calendarWrite = try #require(descriptors[.calendarWrite])
     #expect(calendarWrite.requiredPermissions.isEmpty)
     #expect(calendarWrite.optionalArguments.contains("calendarIdentifier"))
-    #expect(JavaScriptBindingCatalog.names(for: .calendarWrite) == ["apple.calendar.createEvent", "apple.calendar.updateEvent"])
+    #expect(jsNames(for: .calendarWrite) == ["apple.calendar.createEvent", "apple.calendar.updateEvent"])
 
     let calendarDelete = try #require(descriptors[.calendarDelete])
     #expect(calendarDelete.requiredPermissions == [.calendar])
     #expect(calendarDelete.requiredArguments == ["identifier"])
-    #expect(JavaScriptBindingCatalog.names(for: .calendarDelete) == ["apple.calendar.deleteEvent"])
+    #expect(jsNames(for: .calendarDelete) == ["apple.calendar.deleteEvent"])
 
     let remindersWrite = try #require(descriptors[.remindersWrite])
     #expect(remindersWrite.optionalArguments.contains("isCompleted"))
-    #expect(JavaScriptBindingCatalog.names(for: .remindersWrite) == [
+    #expect(jsNames(for: .remindersWrite) == [
         "apple.reminders.createReminder",
         "apple.reminders.updateReminder",
         "apple.reminders.completeReminder",
@@ -129,7 +145,7 @@ import Testing
 
     let remindersDelete = try #require(descriptors[.remindersDelete])
     #expect(remindersDelete.requiredArguments == ["identifier"])
-    #expect(JavaScriptBindingCatalog.names(for: .remindersDelete) == ["apple.reminders.deleteReminder"])
+    #expect(jsNames(for: .remindersDelete) == ["apple.reminders.deleteReminder"])
 
     let networkFetch = try #require(descriptors[.networkFetch])
     #expect(networkFetch.optionalArguments.contains("options.timeoutMs"))
@@ -139,8 +155,8 @@ import Testing
     let notificationsSchedule = try #require(descriptors[.notificationsSchedule])
     #expect(notificationsSchedule.optionalArguments.contains("userInfo"))
     #expect(notificationsSchedule.optionalArguments.contains("threadIdentifier"))
-    #expect(JavaScriptBindingCatalog.names(for: .notificationsDeliveredRead) == ["apple.notifications.listDelivered"])
-    #expect(JavaScriptBindingCatalog.names(for: .notificationsDeliveredDelete) == ["apple.notifications.removeDelivered"])
+    #expect(jsNames(for: .notificationsDeliveredRead) == ["apple.notifications.listDelivered"])
+    #expect(jsNames(for: .notificationsDeliveredDelete) == ["apple.notifications.removeDelivered"])
 
     let cameraCapture = try #require(descriptors[.cameraUICapture])
     #expect(cameraCapture.optionalArguments.contains("cameraDevice"))
@@ -161,47 +177,47 @@ import Testing
     let cloudKit = try #require(descriptors[.cloudKitRecordsQuery])
     #expect(cloudKit.requiredArguments == ["recordType"])
     #expect(cloudKit.optionalArguments.contains("database"))
-    #expect(JavaScriptBindingCatalog.names(for: .cloudKitRecordsQuery) == ["apple.cloudkit.queryRecords"])
-    #expect(JavaScriptBindingCatalog.names(for: .cloudKitSubscriptionEventsRead) == ["apple.cloudkit.listEvents"])
+    #expect(jsNames(for: .cloudKitRecordsQuery) == ["apple.cloudkit.queryRecords"])
+    #expect(jsNames(for: .cloudKitSubscriptionEventsRead) == ["apple.cloudkit.listEvents"])
 
     let remote = try #require(descriptors[.notificationsRemoteRegister])
     #expect(remote.summary.contains("APNs"))
-    #expect(JavaScriptBindingCatalog.names(for: .notificationsRemoteTokenRead) == ["apple.notifications.getRemoteToken"])
-    #expect(JavaScriptBindingCatalog.names(for: .notificationsResponsesRead) == ["apple.notifications.listResponses"])
+    #expect(jsNames(for: .notificationsRemoteTokenRead) == ["apple.notifications.getRemoteToken"])
+    #expect(jsNames(for: .notificationsResponsesRead) == ["apple.notifications.listResponses"])
 
     let speechFile = try #require(descriptors[.speechFileTranscribe])
     #expect(speechFile.requiredPermissions == [.speechRecognition])
     #expect(speechFile.optionalArguments.contains("locale"))
-    #expect(JavaScriptBindingCatalog.names(for: .speechMicrophoneTranscribe) == ["apple.speech.transcribeMicrophone"])
+    #expect(jsNames(for: .speechMicrophoneTranscribe) == ["apple.speech.transcribeMicrophone"])
 
     let appIntentRun = try #require(descriptors[.appIntentsRun])
     #expect(appIntentRun.requiredArguments == ["identifier"])
-    #expect(JavaScriptBindingCatalog.names(for: .appIntentsHandoffsRead) == ["apple.appIntents.listHandoffs"])
+    #expect(jsNames(for: .appIntentsHandoffsRead) == ["apple.appIntents.listHandoffs"])
 
     let foundationGenerate = try #require(descriptors[.foundationModelsGenerate])
     #expect(foundationGenerate.requiredArguments == ["prompt"])
-    #expect(JavaScriptBindingCatalog.names(for: .foundationModelsExtract) == ["apple.foundationModels.extract"])
+    #expect(jsNames(for: .foundationModelsExtract) == ["apple.foundationModels.extract"])
 
     let activityStart = try #require(descriptors[.activityStart])
     #expect(activityStart.requiredArguments == ["activityType", "attributes"])
-    #expect(JavaScriptBindingCatalog.names(for: .activityPushTokenRead) == ["apple.activity.getPushToken"])
+    #expect(jsNames(for: .activityPushTokenRead) == ["apple.activity.getPushToken"])
 
     let mapsSearch = try #require(descriptors[.mapsSearch])
     #expect(mapsSearch.requiredArguments == ["query"])
-    #expect(JavaScriptBindingCatalog.names(for: .mapsRouteEstimate) == ["apple.maps.routeEstimate"])
+    #expect(jsNames(for: .mapsRouteEstimate) == ["apple.maps.routeEstimate"])
 
     let musicLibrary = try #require(descriptors[.musicLibraryRead])
     #expect(musicLibrary.requiredPermissions == [.music])
-    #expect(JavaScriptBindingCatalog.names(for: .musicPlaybackControl) == ["apple.music.play"])
+    #expect(jsNames(for: .musicPlaybackControl) == ["apple.music.play"])
 
     let walletPayment = try #require(descriptors[.passKitApplePayPresent])
     #expect(walletPayment.argumentHints["confirmed"]?.contains("explicit user-visible confirmation") == true)
-    #expect(JavaScriptBindingCatalog.names(for: .passKitPassAdd) == ["apple.wallet.addPass"])
+    #expect(jsNames(for: .passKitPassAdd) == ["apple.wallet.addPass"])
 
     let storePurchase = try #require(descriptors[.storeKitPurchase])
     #expect(storePurchase.requiredArguments == ["productID", "confirmed"])
     #expect(storePurchase.argumentHints["confirmed"]?.contains("explicit user-visible confirmation") == true)
-    #expect(JavaScriptBindingCatalog.names(for: .storeKitTransactionsRead) == ["apple.storekit.listTransactions"])
+    #expect(jsNames(for: .storeKitTransactionsRead) == ["apple.storekit.listTransactions"])
 }
 
 @Test func bigTicketCapabilitiesHaveExpectedPlatformScope() {

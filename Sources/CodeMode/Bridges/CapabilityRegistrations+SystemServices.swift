@@ -4,6 +4,7 @@ extension DefaultCapabilityRegistrationBuilder {
     func visionRegistrations() -> [CapabilityRegistration] {
         [
             CapabilityRegistration(
+                jsNames: ["apple.vision.analyzeImage"],
                 descriptor: .init(
                     id: .visionImageAnalyze,
                     title: "Analyze image with Vision",
@@ -30,6 +31,7 @@ extension DefaultCapabilityRegistrationBuilder {
     func notificationRegistrations() -> [CapabilityRegistration] {
         [
             CapabilityRegistration(
+                jsNames: ["apple.notifications.requestPermission"],
                 descriptor: .init(
                     id: .notificationsPermissionRequest,
                     title: "Request notification permission",
@@ -43,6 +45,7 @@ extension DefaultCapabilityRegistrationBuilder {
                 }
             ),
             CapabilityRegistration(
+                jsNames: ["apple.notifications.schedule"],
                 descriptor: .init(
                     id: .notificationsSchedule,
                     title: "Schedule local notification",
@@ -85,6 +88,7 @@ extension DefaultCapabilityRegistrationBuilder {
                 }
             ),
             CapabilityRegistration(
+                jsNames: ["apple.notifications.listPending"],
                 descriptor: .init(
                     id: .notificationsPendingRead,
                     title: "List pending local notifications",
@@ -103,6 +107,7 @@ extension DefaultCapabilityRegistrationBuilder {
                 }
             ),
             CapabilityRegistration(
+                jsNames: ["apple.notifications.cancelPending"],
                 descriptor: .init(
                     id: .notificationsPendingDelete,
                     title: "Delete pending local notifications",
@@ -122,6 +127,7 @@ extension DefaultCapabilityRegistrationBuilder {
                 }
             ),
             CapabilityRegistration(
+                jsNames: ["apple.notifications.listDelivered"],
                 descriptor: .init(
                     id: .notificationsDeliveredRead,
                     title: "List delivered local notifications",
@@ -140,6 +146,7 @@ extension DefaultCapabilityRegistrationBuilder {
                 }
             ),
             CapabilityRegistration(
+                jsNames: ["apple.notifications.removeDelivered"],
                 descriptor: .init(
                     id: .notificationsDeliveredDelete,
                     title: "Delete delivered local notifications",
@@ -165,6 +172,7 @@ extension DefaultCapabilityRegistrationBuilder {
     func alarmRegistrations() -> [CapabilityRegistration] {
         [
             CapabilityRegistration(
+                jsNames: ["ios.alarm.requestPermission"],
                 descriptor: .init(
                     id: .alarmPermissionRequest,
                     title: "Request AlarmKit permission",
@@ -178,6 +186,7 @@ extension DefaultCapabilityRegistrationBuilder {
                 }
             ),
             CapabilityRegistration(
+                jsNames: ["ios.alarm.list"],
                 descriptor: .init(
                     id: .alarmRead,
                     title: "List scheduled alarms",
@@ -196,6 +205,7 @@ extension DefaultCapabilityRegistrationBuilder {
                 }
             ),
             CapabilityRegistration(
+                jsNames: ["ios.alarm.schedule"],
                 descriptor: .init(
                     id: .alarmSchedule,
                     title: "Schedule AlarmKit alarm",
@@ -218,6 +228,7 @@ extension DefaultCapabilityRegistrationBuilder {
                 }
             ),
             CapabilityRegistration(
+                jsNames: ["ios.alarm.cancel"],
                 descriptor: .init(
                     id: .alarmCancel,
                     title: "Cancel scheduled alarms",
@@ -243,6 +254,7 @@ extension DefaultCapabilityRegistrationBuilder {
     func healthRegistrations() -> [CapabilityRegistration] {
         [
             CapabilityRegistration(
+                jsNames: ["apple.health.requestPermission"],
                 descriptor: .init(
                     id: .healthPermissionRequest,
                     title: "Request HealthKit permission",
@@ -265,6 +277,7 @@ extension DefaultCapabilityRegistrationBuilder {
                 }
             ),
             CapabilityRegistration(
+                jsNames: ["apple.health.read"],
                 descriptor: .init(
                     id: .healthRead,
                     title: "Read HealthKit samples",
@@ -294,6 +307,7 @@ extension DefaultCapabilityRegistrationBuilder {
                 }
             ),
             CapabilityRegistration(
+                jsNames: ["apple.health.write"],
                 descriptor: .init(
                     id: .healthWrite,
                     title: "Write HealthKit quantity sample",
@@ -329,6 +343,7 @@ extension DefaultCapabilityRegistrationBuilder {
     func homeRegistrations() -> [CapabilityRegistration] {
         [
             CapabilityRegistration(
+                jsNames: ["apple.home.list"],
                 descriptor: .init(
                     id: .homeRead,
                     title: "Read HomeKit graph",
@@ -348,6 +363,7 @@ extension DefaultCapabilityRegistrationBuilder {
                 }
             ),
             CapabilityRegistration(
+                jsNames: ["apple.home.writeCharacteristic"],
                 descriptor: .init(
                     id: .homeWrite,
                     title: "Write HomeKit characteristic",
@@ -382,6 +398,7 @@ extension DefaultCapabilityRegistrationBuilder {
     func mediaRegistrations() -> [CapabilityRegistration] {
         [
             CapabilityRegistration(
+                jsNames: ["apple.media.metadata"],
                 descriptor: .init(
                     id: .mediaMetadataRead,
                     title: "Read media metadata",
@@ -399,6 +416,7 @@ extension DefaultCapabilityRegistrationBuilder {
                 }
             ),
             CapabilityRegistration(
+                jsNames: ["apple.media.extractFrame"],
                 descriptor: .init(
                     id: .mediaFrameExtract,
                     title: "Extract video frame",
@@ -419,6 +437,7 @@ extension DefaultCapabilityRegistrationBuilder {
                 }
             ),
             CapabilityRegistration(
+                jsNames: ["apple.media.transcode"],
                 descriptor: .init(
                     id: .mediaTranscode,
                     title: "Transcode media",

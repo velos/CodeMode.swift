@@ -4,6 +4,7 @@ extension DefaultCapabilityRegistrationBuilder {
     func appIntentsRegistrations() -> [CapabilityRegistration] {
         [
             CapabilityRegistration(
+                jsNames: ["apple.appIntents.list"],
                 descriptor: .init(
                     id: .appIntentsList,
                     title: "List host App Intent adapters",
@@ -22,6 +23,7 @@ extension DefaultCapabilityRegistrationBuilder {
                 }
             ),
             CapabilityRegistration(
+                jsNames: ["apple.appIntents.run"],
                 descriptor: .init(
                     id: .appIntentsRun,
                     title: "Run host App Intent adapter",
@@ -42,6 +44,7 @@ extension DefaultCapabilityRegistrationBuilder {
                 }
             ),
             CapabilityRegistration(
+                jsNames: ["apple.appIntents.donate"],
                 descriptor: .init(
                     id: .appIntentsDonate,
                     title: "Donate host App Intent action",
@@ -61,6 +64,7 @@ extension DefaultCapabilityRegistrationBuilder {
                 }
             ),
             CapabilityRegistration(
+                jsNames: ["apple.appIntents.open"],
                 descriptor: .init(
                     id: .appIntentsOpen,
                     title: "Open host App Intent surface",
@@ -80,6 +84,7 @@ extension DefaultCapabilityRegistrationBuilder {
                 }
             ),
             CapabilityRegistration(
+                jsNames: ["apple.appIntents.listHandoffs"],
                 descriptor: .init(
                     id: .appIntentsHandoffsRead,
                     title: "Read App Intent handoff inbox",
@@ -105,6 +110,7 @@ extension DefaultCapabilityRegistrationBuilder {
     func foundationModelsRegistrations() -> [CapabilityRegistration] {
         [
             CapabilityRegistration(
+                jsNames: ["apple.foundationModels.getStatus"],
                 descriptor: .init(
                     id: .foundationModelsStatus,
                     title: "Read Foundation Models availability",
@@ -118,6 +124,7 @@ extension DefaultCapabilityRegistrationBuilder {
                 }
             ),
             CapabilityRegistration(
+                jsNames: ["apple.foundationModels.generate"],
                 descriptor: .init(
                     id: .foundationModelsGenerate,
                     title: "Generate text with Foundation Models",
@@ -141,6 +148,7 @@ extension DefaultCapabilityRegistrationBuilder {
                 }
             ),
             CapabilityRegistration(
+                jsNames: ["apple.foundationModels.extract"],
                 descriptor: .init(
                     id: .foundationModelsExtract,
                     title: "Extract structured data with Foundation Models",
@@ -169,6 +177,7 @@ extension DefaultCapabilityRegistrationBuilder {
     func activityRegistrations() -> [CapabilityRegistration] {
         [
             CapabilityRegistration(
+                jsNames: ["apple.activity.list"],
                 descriptor: .init(
                     id: .activityList,
                     title: "List Live Activities",
@@ -183,6 +192,7 @@ extension DefaultCapabilityRegistrationBuilder {
                 }
             ),
             CapabilityRegistration(
+                jsNames: ["apple.activity.start"],
                 descriptor: .init(
                     id: .activityStart,
                     title: "Start Live Activity",
@@ -205,6 +215,7 @@ extension DefaultCapabilityRegistrationBuilder {
                 }
             ),
             CapabilityRegistration(
+                jsNames: ["apple.activity.update"],
                 descriptor: .init(
                     id: .activityUpdate,
                     title: "Update Live Activity",
@@ -220,6 +231,7 @@ extension DefaultCapabilityRegistrationBuilder {
                 }
             ),
             CapabilityRegistration(
+                jsNames: ["apple.activity.end"],
                 descriptor: .init(
                     id: .activityEnd,
                     title: "End Live Activity",
@@ -235,6 +247,7 @@ extension DefaultCapabilityRegistrationBuilder {
                 }
             ),
             CapabilityRegistration(
+                jsNames: ["apple.activity.getPushToken"],
                 descriptor: .init(
                     id: .activityPushTokenRead,
                     title: "Read Live Activity push token",
@@ -255,6 +268,7 @@ extension DefaultCapabilityRegistrationBuilder {
     func mapsRegistrations() -> [CapabilityRegistration] {
         [
             CapabilityRegistration(
+                jsNames: ["apple.maps.geocode"],
                 descriptor: .init(
                     id: .mapsGeocode,
                     title: "Geocode address",
@@ -275,6 +289,7 @@ extension DefaultCapabilityRegistrationBuilder {
                 }
             ),
             CapabilityRegistration(
+                jsNames: ["apple.maps.reverseGeocode"],
                 descriptor: .init(
                     id: .mapsReverseGeocode,
                     title: "Reverse geocode coordinates",
@@ -290,6 +305,7 @@ extension DefaultCapabilityRegistrationBuilder {
                 }
             ),
             CapabilityRegistration(
+                jsNames: ["apple.maps.search"],
                 descriptor: .init(
                     id: .mapsSearch,
                     title: "Search local map items",
@@ -311,6 +327,7 @@ extension DefaultCapabilityRegistrationBuilder {
                 }
             ),
             CapabilityRegistration(
+                jsNames: ["apple.maps.routeEstimate"],
                 descriptor: .init(
                     id: .mapsRouteEstimate,
                     title: "Estimate route",
@@ -331,6 +348,7 @@ extension DefaultCapabilityRegistrationBuilder {
                 }
             ),
             CapabilityRegistration(
+                jsNames: ["apple.maps.open"],
                 descriptor: .init(
                     id: .mapsOpen,
                     title: "Open Maps",

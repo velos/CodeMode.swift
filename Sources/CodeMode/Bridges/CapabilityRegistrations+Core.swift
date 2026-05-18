@@ -4,6 +4,7 @@ extension DefaultCapabilityRegistrationBuilder {
     func networkRegistrations() -> [CapabilityRegistration] {
         [
             CapabilityRegistration(
+                jsNames: ["fetch"],
                 descriptor: .init(
                     id: .networkFetch,
                     title: "Fetch HTTP resource",
@@ -39,67 +40,14 @@ extension DefaultCapabilityRegistrationBuilder {
 
 
     func keychainRegistrations() -> [CapabilityRegistration] {
-        [
-            CapabilityRegistration(
-                descriptor: .init(
-                    id: .keychainRead,
-                    title: "Read Keychain value",
-                    summary: "Read a string value from app-scoped Keychain storage.",
-                    tags: ["security", "token", "keychain"],
-                    example: "await apple.keychain.get('auth_token')",
-                    requiredArguments: ["key"],
-                    argumentHints: [
-                        "key": "Logical key for this secret value.",
-                    ],
-                    resultSummary: "Object { key, value } or null when the key does not exist."
-                ),
-                handler: { args, _ in
-                    try keychain.read(arguments: args)
-                }
-            ),
-            CapabilityRegistration(
-                descriptor: .init(
-                    id: .keychainWrite,
-                    title: "Write Keychain value",
-                    summary: "Store or update a string value in app-scoped Keychain storage.",
-                    tags: ["security", "token", "keychain"],
-                    example: "await apple.keychain.set('auth_token', token)",
-                    requiredArguments: ["key"],
-                    optionalArguments: ["value"],
-                    argumentHints: [
-                        "key": "Logical key for this secret value.",
-                        "value": "Secret string value. Defaults to empty string when omitted.",
-                    ],
-                    resultSummary: "Object { key, written: true }."
-                ),
-                handler: { args, _ in
-                    try keychain.write(arguments: args)
-                }
-            ),
-            CapabilityRegistration(
-                descriptor: .init(
-                    id: .keychainDelete,
-                    title: "Delete Keychain value",
-                    summary: "Delete an app-scoped Keychain value.",
-                    tags: ["security", "token", "keychain"],
-                    example: "await apple.keychain.delete('auth_token')",
-                    requiredArguments: ["key"],
-                    argumentHints: [
-                        "key": "Logical key for value removal.",
-                    ],
-                    resultSummary: "Object { key, deleted: true }."
-                ),
-                handler: { args, _ in
-                    try keychain.delete(arguments: args)
-                }
-            ),
-        ]
+        KeychainCodeModeBuiltIns(keychain: keychain).capabilityRegistrations()
     }
 
 
     func filesystemRegistrations() -> [CapabilityRegistration] {
         [
             CapabilityRegistration(
+                jsNames: ["apple.fs.list", "fs.promises.readdir"],
                 descriptor: .init(
                     id: .fsList,
                     title: "List directory",
@@ -117,6 +65,7 @@ extension DefaultCapabilityRegistrationBuilder {
                 }
             ),
             CapabilityRegistration(
+                jsNames: ["apple.fs.read", "fs.promises.readFile"],
                 descriptor: .init(
                     id: .fsRead,
                     title: "Read file",
@@ -136,6 +85,7 @@ extension DefaultCapabilityRegistrationBuilder {
                 }
             ),
             CapabilityRegistration(
+                jsNames: ["apple.fs.write", "fs.promises.writeFile"],
                 descriptor: .init(
                     id: .fsWrite,
                     title: "Write file",
@@ -156,6 +106,7 @@ extension DefaultCapabilityRegistrationBuilder {
                 }
             ),
             CapabilityRegistration(
+                jsNames: ["apple.fs.move", "fs.promises.rename"],
                 descriptor: .init(
                     id: .fsMove,
                     title: "Move file",
@@ -174,6 +125,7 @@ extension DefaultCapabilityRegistrationBuilder {
                 }
             ),
             CapabilityRegistration(
+                jsNames: ["apple.fs.copy", "fs.promises.copyFile"],
                 descriptor: .init(
                     id: .fsCopy,
                     title: "Copy file",
@@ -192,6 +144,7 @@ extension DefaultCapabilityRegistrationBuilder {
                 }
             ),
             CapabilityRegistration(
+                jsNames: ["apple.fs.delete", "fs.promises.rm"],
                 descriptor: .init(
                     id: .fsDelete,
                     title: "Delete file",
@@ -211,6 +164,7 @@ extension DefaultCapabilityRegistrationBuilder {
                 }
             ),
             CapabilityRegistration(
+                jsNames: ["apple.fs.stat", "fs.promises.stat"],
                 descriptor: .init(
                     id: .fsStat,
                     title: "Stat path",
@@ -228,6 +182,7 @@ extension DefaultCapabilityRegistrationBuilder {
                 }
             ),
             CapabilityRegistration(
+                jsNames: ["apple.fs.mkdir", "fs.promises.mkdir"],
                 descriptor: .init(
                     id: .fsMkdir,
                     title: "Create directory",
@@ -247,6 +202,7 @@ extension DefaultCapabilityRegistrationBuilder {
                 }
             ),
             CapabilityRegistration(
+                jsNames: ["apple.fs.exists"],
                 descriptor: .init(
                     id: .fsExists,
                     title: "Check path exists",
@@ -264,6 +220,7 @@ extension DefaultCapabilityRegistrationBuilder {
                 }
             ),
             CapabilityRegistration(
+                jsNames: ["apple.fs.access", "fs.promises.access"],
                 descriptor: .init(
                     id: .fsAccess,
                     title: "Check path access",

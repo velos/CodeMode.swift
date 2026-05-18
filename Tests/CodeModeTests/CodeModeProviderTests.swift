@@ -79,8 +79,8 @@ private struct ManualProvider: CodeModeProvider {
     let registry = CapabilityRegistry(
         registrations: [
             CapabilityRegistration(
-                descriptor: descriptor,
-                jsNames: ["custom.weather.current"]
+                jsNames: ["custom.weather.current"],
+                descriptor: descriptor
             ) { _, _ in
                 .null
             },
@@ -106,8 +106,8 @@ private struct ManualProvider: CodeModeProvider {
     let registry = CapabilityRegistry(
         registrations: [
             CapabilityRegistration(
-                descriptor: descriptor,
-                jsNames: ["custom.weather.current"]
+                jsNames: ["custom.weather.current"],
+                descriptor: descriptor
             ) { arguments, _ in
                 .object([
                     "latitude": arguments["latitude"] ?? .null,
@@ -140,8 +140,8 @@ private struct ManualProvider: CodeModeProvider {
         example: "await custom.calendar.presentNewEvent({ title: \"Plan\" })"
     )
     let registration = CapabilityRegistration(
-        descriptor: descriptor,
-        jsNames: ["custom.calendar.presentNewEvent"]
+        jsNames: ["custom.calendar.presentNewEvent"],
+        descriptor: descriptor
     ) { _, _ in
         .null
     }

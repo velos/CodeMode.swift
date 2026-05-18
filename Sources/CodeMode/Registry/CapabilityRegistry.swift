@@ -403,10 +403,73 @@ public struct CapabilityRegistration: Sendable {
     public var jsNames: [String]
     public var handler: CapabilityHandler
 
-    public init(descriptor: CapabilityDescriptor, jsNames: [String]? = nil, handler: @escaping CapabilityHandler) {
+    public init(jsNames: [String] = [], descriptor: CapabilityDescriptor, handler: @escaping CapabilityHandler) {
         self.descriptor = descriptor
-        self.jsNames = jsNames ?? JavaScriptBindingCatalog.names(for: descriptor.id)
+        self.jsNames = jsNames
         self.handler = handler
+    }
+}
+
+struct RegisteredCodeModeFunction: Sendable {
+    var capabilityKey: CodeModeCapabilityKey
+    var builtInCapability: CapabilityID?
+    var jsNames: [String]
+    var title: String
+    var summary: String
+    var tags: [String]
+    var example: String
+    var requiredPermissions: [PermissionKind]
+    var requiredArguments: [String]
+    var optionalArguments: [String]
+    var argumentTypes: [String: CapabilityArgumentType]
+    var argumentHints: [String: String]
+    var argumentConstraints: CapabilityArgumentConstraints
+    var resultSummary: String
+    var handler: CapabilityHandler
+
+    var catalogCapability: String {
+        builtInCapability?.rawValue ?? capabilityKey.rawValue
+    }
+
+    var validationName: String {
+        catalogCapability
+    }
+
+    init(_ registration: CapabilityRegistration) {
+        let descriptor = registration.descriptor
+        self.capabilityKey = descriptor.id.codeModeKey
+        self.builtInCapability = descriptor.id
+        self.jsNames = registration.jsNames
+        self.title = descriptor.title
+        self.summary = descriptor.summary
+        self.tags = descriptor.tags
+        self.example = descriptor.example
+        self.requiredPermissions = descriptor.requiredPermissions
+        self.requiredArguments = descriptor.requiredArguments
+        self.optionalArguments = descriptor.optionalArguments
+        self.argumentTypes = descriptor.argumentTypes
+        self.argumentHints = descriptor.argumentHints
+        self.argumentConstraints = descriptor.argumentConstraints
+        self.resultSummary = descriptor.resultSummary
+        self.handler = registration.handler
+    }
+
+    init(_ registration: CodeModeRegistration) {
+        self.capabilityKey = registration.capabilityKey
+        self.builtInCapability = nil
+        self.jsNames = [registration.jsPath]
+        self.title = registration.title
+        self.summary = registration.summary
+        self.tags = registration.tags
+        self.example = registration.example
+        self.requiredPermissions = []
+        self.requiredArguments = registration.requiredArguments
+        self.optionalArguments = registration.optionalArguments
+        self.argumentTypes = registration.argumentTypes
+        self.argumentHints = registration.argumentHints
+        self.argumentConstraints = registration.argumentConstraints
+        self.resultSummary = registration.resultSummary
+        self.handler = registration.handler
     }
 }
 
@@ -482,6 +545,30 @@ public final class CapabilityRegistry: @unchecked Sendable {
         return codeModeRegistrations.values.map { $0 }
     }
 
+    func registeredFunction(for capability: CapabilityID) -> RegisteredCodeModeFunction? {
+        lock.lock()
+        defer { lock.unlock() }
+        return registrations[capability].map(RegisteredCodeModeFunction.init)
+    }
+
+    func registeredFunction(for capabilityKey: CodeModeCapabilityKey) -> RegisteredCodeModeFunction? {
+        lock.lock()
+        defer { lock.unlock() }
+        if let builtIn = CapabilityID(rawValue: capabilityKey.rawValue),
+           let registration = registrations[builtIn]
+        {
+            return RegisteredCodeModeFunction(registration)
+        }
+        return codeModeRegistrations[capabilityKey].map(RegisteredCodeModeFunction.init)
+    }
+
+    func allRegisteredFunctions() -> [RegisteredCodeModeFunction] {
+        lock.lock()
+        defer { lock.unlock() }
+        return registrations.values.map(RegisteredCodeModeFunction.init)
+            + codeModeRegistrations.values.map(RegisteredCodeModeFunction.init)
+    }
+
     public func invoke(_ capabilityID: String, arguments: [String: JSONValue], context: BridgeInvocationContext) throws -> JSONValue {
         try context.checkCancellation()
 
@@ -497,41 +584,11 @@ public final class CapabilityRegistry: @unchecked Sendable {
             throw BridgeError.capabilityDenied(capability)
         }
 
-        lock.lock()
-        let registration = registrations[capability]
-        lock.unlock()
-
-        guard let registration else {
+        guard let function = registeredFunction(for: capability) else {
             throw BridgeError.capabilityNotFound(capability.rawValue)
         }
 
-        try validateArguments(arguments, for: capability, descriptor: registration.descriptor)
-
-        for permission in registration.descriptor.requiredPermissions {
-            try context.checkCancellation()
-            let status = context.permissionBroker.status(for: permission)
-            context.recordPermission(permission, status: status)
-
-            let resolvedStatus: PermissionStatus
-            if status == .notDetermined {
-                let requested = context.permissionBroker.request(for: permission)
-                context.recordPermission(permission, status: requested)
-                resolvedStatus = requested
-            } else {
-                resolvedStatus = status
-            }
-
-            guard resolvedStatus == .granted else {
-                throw BridgeError.permissionDenied(permission)
-            }
-
-            context.markPermissionValidated(permission)
-        }
-
-        try context.checkCancellation()
-        return try mapCodeModeFunctionError {
-            try registration.handler(arguments, context)
-        }
+        return try invoke(function, arguments: arguments, context: context)
     }
 
     private func invokeCodeMode(_ capabilityKey: CodeModeCapabilityKey, arguments: [String: JSONValue], context: BridgeInvocationContext) throws -> JSONValue {
@@ -539,18 +596,19 @@ public final class CapabilityRegistry: @unchecked Sendable {
             throw BridgeError.capabilityKeyDenied(capabilityKey)
         }
 
-        lock.lock()
-        let registration = codeModeRegistrations[capabilityKey]
-        lock.unlock()
-
-        guard let registration else {
+        guard let function = registeredFunction(for: capabilityKey) else {
             throw BridgeError.capabilityNotFound(capabilityKey.rawValue)
         }
 
-        try validateArguments(arguments, for: registration)
+        return try invoke(function, arguments: arguments, context: context)
+    }
+
+    private func invoke(_ function: RegisteredCodeModeFunction, arguments: [String: JSONValue], context: BridgeInvocationContext) throws -> JSONValue {
+        try validateArguments(arguments, for: function)
+        try validatePermissions(function.requiredPermissions, context: context)
         try context.checkCancellation()
         return try mapCodeModeFunctionError {
-            try registration.handler(arguments, context)
+            try function.handler(arguments, context)
         }
     }
 
@@ -571,46 +629,11 @@ public final class CapabilityRegistry: @unchecked Sendable {
         }
     }
 
-    private func validateArguments(_ arguments: [String: JSONValue], for capability: CapabilityID, descriptor: CapabilityDescriptor) throws {
-        let required = descriptor.requiredArguments
-        let optional = descriptor.optionalArguments
-        let typed = descriptor.argumentTypes
-
-        let missing = required.filter { value(atPath: $0, in: arguments) == nil }
-        if missing.isEmpty == false {
-            let names = missing.joined(separator: ", ")
-            throw BridgeError.invalidArguments("\(capability.rawValue) missing required arguments: \(names)")
-        }
-
-        for (path, expectedType) in typed.sorted(by: { $0.key < $1.key }) {
-            guard let value = value(atPath: path, in: arguments) else {
-                continue
-            }
-
-            guard expectedType.matches(value) else {
-                throw BridgeError.invalidArguments(
-                    "\(capability.rawValue) expected '\(path)' as \(expectedType.rawValue), received \(jsonTypeName(for: value))"
-                )
-            }
-        }
-
-        try descriptor.argumentConstraints.validate(arguments: arguments, capability: capability)
-
-        let allowedNames = Set(required + optional + Array(typed.keys))
-        if allowedNames.isEmpty == false {
-            let allowedTopLevel = Set(allowedNames.map(firstPathSegment))
-            let unknown = arguments.keys.sorted().filter { allowedTopLevel.contains($0) == false }
-            if unknown.isEmpty == false {
-                throw BridgeError.invalidArguments("\(capability.rawValue) received unknown arguments: \(unknown.joined(separator: ", "))")
-            }
-        }
-    }
-
-    private func validateArguments(_ arguments: [String: JSONValue], for registration: CodeModeRegistration) throws {
-        let required = registration.requiredArguments
-        let optional = registration.optionalArguments
-        let typed = registration.argumentTypes
-        let name = registration.capabilityKey.rawValue
+    private func validateArguments(_ arguments: [String: JSONValue], for function: RegisteredCodeModeFunction) throws {
+        let required = function.requiredArguments
+        let optional = function.optionalArguments
+        let typed = function.argumentTypes
+        let name = function.validationName
 
         let missing = required.filter { value(atPath: $0, in: arguments) == nil }
         if missing.isEmpty == false {
@@ -629,7 +652,7 @@ public final class CapabilityRegistry: @unchecked Sendable {
             }
         }
 
-        try registration.argumentConstraints.validate(arguments: arguments, capabilityName: name)
+        try function.argumentConstraints.validate(arguments: arguments, capabilityName: name)
 
         let allowedNames = Set(required + optional + Array(typed.keys))
         if allowedNames.isEmpty == false {
@@ -638,6 +661,29 @@ public final class CapabilityRegistry: @unchecked Sendable {
             if unknown.isEmpty == false {
                 throw BridgeError.invalidArguments("\(name) received unknown arguments: \(unknown.joined(separator: ", "))")
             }
+        }
+    }
+
+    private func validatePermissions(_ permissions: [PermissionKind], context: BridgeInvocationContext) throws {
+        for permission in permissions {
+            try context.checkCancellation()
+            let status = context.permissionBroker.status(for: permission)
+            context.recordPermission(permission, status: status)
+
+            let resolvedStatus: PermissionStatus
+            if status == .notDetermined {
+                let requested = context.permissionBroker.request(for: permission)
+                context.recordPermission(permission, status: requested)
+                resolvedStatus = requested
+            } else {
+                resolvedStatus = status
+            }
+
+            guard resolvedStatus == .granted else {
+                throw BridgeError.permissionDenied(permission)
+            }
+
+            context.markPermissionValidated(permission)
         }
     }
 

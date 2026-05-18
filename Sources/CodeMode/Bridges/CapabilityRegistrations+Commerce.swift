@@ -4,6 +4,7 @@ extension DefaultCapabilityRegistrationBuilder {
     func musicRegistrations() -> [CapabilityRegistration] {
         [
             CapabilityRegistration(
+                jsNames: ["apple.music.requestPermission"],
                 descriptor: .init(
                     id: .musicPermissionRequest,
                     title: "Request Music permission",
@@ -17,6 +18,7 @@ extension DefaultCapabilityRegistrationBuilder {
                 }
             ),
             CapabilityRegistration(
+                jsNames: ["apple.music.getSubscriptionStatus"],
                 descriptor: .init(
                     id: .musicSubscriptionStatus,
                     title: "Read Music subscription status",
@@ -30,6 +32,7 @@ extension DefaultCapabilityRegistrationBuilder {
                 }
             ),
             CapabilityRegistration(
+                jsNames: ["apple.music.search"],
                 descriptor: .init(
                     id: .musicCatalogSearch,
                     title: "Search Music catalog",
@@ -51,6 +54,7 @@ extension DefaultCapabilityRegistrationBuilder {
                 }
             ),
             CapabilityRegistration(
+                jsNames: ["apple.music.getDetails"],
                 descriptor: .init(
                     id: .musicCatalogDetails,
                     title: "Read Music catalog details",
@@ -70,6 +74,7 @@ extension DefaultCapabilityRegistrationBuilder {
                 }
             ),
             CapabilityRegistration(
+                jsNames: ["apple.music.readLibrary"],
                 descriptor: .init(
                     id: .musicLibraryRead,
                     title: "Read Music library",
@@ -89,6 +94,7 @@ extension DefaultCapabilityRegistrationBuilder {
                 }
             ),
             CapabilityRegistration(
+                jsNames: ["apple.music.writePlaylist"],
                 descriptor: .init(
                     id: .musicPlaylistWrite,
                     title: "Write Music playlist",
@@ -111,6 +117,7 @@ extension DefaultCapabilityRegistrationBuilder {
                 }
             ),
             CapabilityRegistration(
+                jsNames: ["apple.music.play"],
                 descriptor: .init(
                     id: .musicPlaybackControl,
                     title: "Control Music playback",
@@ -139,6 +146,7 @@ extension DefaultCapabilityRegistrationBuilder {
     func passKitRegistrations() -> [CapabilityRegistration] {
         [
             CapabilityRegistration(
+                jsNames: ["apple.wallet.getStatus"],
                 descriptor: .init(
                     id: .passKitWalletStatus,
                     title: "Read Wallet status",
@@ -152,6 +160,7 @@ extension DefaultCapabilityRegistrationBuilder {
                 }
             ),
             CapabilityRegistration(
+                jsNames: ["apple.wallet.listPasses"],
                 descriptor: .init(
                     id: .passKitPassesRead,
                     title: "List Wallet passes",
@@ -171,6 +180,7 @@ extension DefaultCapabilityRegistrationBuilder {
                 }
             ),
             CapabilityRegistration(
+                jsNames: ["apple.wallet.addPass"],
                 descriptor: .init(
                     id: .passKitPassAdd,
                     title: "Add Wallet pass",
@@ -190,6 +200,7 @@ extension DefaultCapabilityRegistrationBuilder {
                 }
             ),
             CapabilityRegistration(
+                jsNames: ["apple.wallet.presentPass"],
                 descriptor: .init(
                     id: .passKitPassPresent,
                     title: "Present Wallet pass",
@@ -205,6 +216,7 @@ extension DefaultCapabilityRegistrationBuilder {
                 }
             ),
             CapabilityRegistration(
+                jsNames: ["apple.wallet.canMakePayments"],
                 descriptor: .init(
                     id: .passKitApplePayStatus,
                     title: "Read Apple Pay status",
@@ -222,6 +234,7 @@ extension DefaultCapabilityRegistrationBuilder {
                 }
             ),
             CapabilityRegistration(
+                jsNames: ["apple.wallet.presentPayment"],
                 descriptor: .init(
                     id: .passKitApplePayPresent,
                     title: "Present Apple Pay request",
@@ -247,6 +260,7 @@ extension DefaultCapabilityRegistrationBuilder {
     func storeKitRegistrations() -> [CapabilityRegistration] {
         [
             CapabilityRegistration(
+                jsNames: ["apple.storekit.listProducts"],
                 descriptor: .init(
                     id: .storeKitProductsRead,
                     title: "Read StoreKit products",
@@ -264,6 +278,7 @@ extension DefaultCapabilityRegistrationBuilder {
                 }
             ),
             CapabilityRegistration(
+                jsNames: ["apple.storekit.listEntitlements"],
                 descriptor: .init(
                     id: .storeKitEntitlementsRead,
                     title: "Read StoreKit entitlements",
@@ -277,6 +292,7 @@ extension DefaultCapabilityRegistrationBuilder {
                 }
             ),
             CapabilityRegistration(
+                jsNames: ["apple.storekit.purchase"],
                 descriptor: .init(
                     id: .storeKitPurchase,
                     title: "Purchase StoreKit product",
@@ -297,6 +313,7 @@ extension DefaultCapabilityRegistrationBuilder {
                 }
             ),
             CapabilityRegistration(
+                jsNames: ["apple.storekit.restore"],
                 descriptor: .init(
                     id: .storeKitRestore,
                     title: "Restore StoreKit purchases",
@@ -314,6 +331,7 @@ extension DefaultCapabilityRegistrationBuilder {
                 }
             ),
             CapabilityRegistration(
+                jsNames: ["apple.storekit.listTransactions"],
                 descriptor: .init(
                     id: .storeKitTransactionsRead,
                     title: "Read StoreKit transaction inbox",
