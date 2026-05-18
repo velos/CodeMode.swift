@@ -224,6 +224,112 @@ private struct ManualProvider: CodeModeProvider {
     #expect(macOutput["cloudkit"] == .string("function"))
 }
 
+@Test func everyBuiltInJavaScriptNameInvokesRegistrationOwnedCapabilityAndPrunesUnsupportedNames() async throws {
+    let invocations = SynchronizedBox<[String]>([])
+    let allRegistrations = DefaultCapabilityLoader.loadAllRegistrations()
+    let fakeRegistrations = allRegistrations.map { registration in
+        CapabilityRegistration(
+            jsNames: registration.jsNames,
+            descriptor: registration.descriptor
+        ) { _, _ in
+            invocations.mutate { $0.append(registration.descriptor.id.rawValue) }
+            return fakeRuntimeValue(for: registration.descriptor.id)
+        }
+    }
+    let checks = fakeRegistrations
+        .flatMap { registration in
+            registration.jsNames.map { jsName in
+                BuiltInJavaScriptBindingCheck(
+                    jsName: jsName,
+                    descriptor: registration.descriptor
+                )
+            }
+        }
+        .sorted { $0.jsName < $1.jsName }
+
+    #expect(checks.isEmpty == false)
+
+    let registry = CapabilityRegistry(registrations: fakeRegistrations)
+    let catalog = BridgeCatalog(registry: registry)
+    let permissionBroker = FixedPermissionBroker(
+        statuses: Dictionary(uniqueKeysWithValues: PermissionKind.allCases.map { ($0, PermissionStatus.granted) })
+    )
+    let runtime = BridgeRuntime(
+        registry: registry,
+        catalog: catalog,
+        config: .init(permissionBroker: permissionBroker, hostPlatform: .iOS)
+    )
+    let statements = checks.map { check in
+        """
+        try {
+            await \(javaScriptInvocation(for: check.jsName, descriptor: check.descriptor));
+        } catch (error) {
+            failures.push({
+                jsName: \(jsonString(check.jsName)),
+                code: error && error.code ? String(error.code) : null,
+                message: error && error.message ? String(error.message) : String(error)
+            });
+        }
+        """
+    }.joined(separator: "\n")
+
+    let call = runtime.makeExecutionCall(
+        JavaScriptExecutionRequest(
+            code: """
+            const failures = [];
+            \(statements)
+            return { failures };
+            """,
+            allowedCapabilities: Array(CapabilityID.allCases),
+            timeoutMs: 20_000
+        )
+    )
+    let observed = await observe(call)
+    let output = try #require(observed.result?.output?.objectValue)
+    #expect(output.array("failures") == [])
+    #expect(invocations.get() == checks.map { $0.descriptor.id.rawValue })
+
+    let macRegistrations = CapabilityPlatformSupport.filter(fakeRegistrations, for: .macOS)
+    let unsupportedMacNames = CapabilityPlatformSupport.unsupportedJavaScriptNames(from: fakeRegistrations, for: .macOS)
+    #expect(unsupportedMacNames.isEmpty == false)
+
+    let macRegistry = CapabilityRegistry(registrations: macRegistrations)
+    let macRuntime = BridgeRuntime(
+        registry: macRegistry,
+        catalog: BridgeCatalog(registry: macRegistry),
+        config: .init(permissionBroker: permissionBroker, hostPlatform: .macOS),
+        unsupportedBuiltInJavaScriptNames: unsupportedMacNames
+    )
+    let unsupportedChecks = unsupportedMacNames
+        .sorted()
+        .map { name in "\(jsonString(name)): __typeOfPath(\(jsonString(name)))" }
+        .joined(separator: ",\n")
+    let macCall = macRuntime.makeExecutionCall(
+        JavaScriptExecutionRequest(
+            code: """
+            function __typeOfPath(path) {
+                const parts = String(path).split('.').filter(function(part){ return part.length > 0; });
+                let value = globalThis;
+                for (let i = 0; i < parts.length; i++) {
+                    if (!value || typeof value[parts[i]] === 'undefined') return 'undefined';
+                    value = value[parts[i]];
+                }
+                return typeof value;
+            }
+            return {
+            \(unsupportedChecks)
+            };
+            """,
+            allowedCapabilities: []
+        )
+    )
+    let macObserved = await observe(macCall)
+    let macOutput = try #require(macObserved.result?.output?.objectValue)
+    for name in unsupportedMacNames {
+        #expect(macOutput[name] == .string("undefined"))
+    }
+}
+
 @Test func platformPruningCanUseRegistrationJavaScriptNames() throws {
     let descriptor = CapabilityDescriptor(
         id: .calendarUIPresentNewEvent,
@@ -258,6 +364,188 @@ private func jsonString(_ value: String) -> String {
           let string = String(data: data, encoding: .utf8)
     else {
         return "\"\""
+    }
+    return string
+}
+
+private struct BuiltInJavaScriptBindingCheck {
+    var jsName: String
+    var descriptor: CapabilityDescriptor
+}
+
+private func javaScriptInvocation(for jsName: String, descriptor: CapabilityDescriptor) -> String {
+    switch jsName {
+    case "fetch":
+        return #"fetch("https://example.com", {})"#
+    case "fs.promises.readFile":
+        return #"fs.promises.readFile("tmp:input.txt", "utf8")"#
+    case "fs.promises.writeFile":
+        return #"fs.promises.writeFile("tmp:output.txt", "data", "utf8")"#
+    case "fs.promises.readdir":
+        return #"fs.promises.readdir("tmp:")"#
+    case "fs.promises.stat":
+        return #"fs.promises.stat("tmp:input.txt")"#
+    case "fs.promises.access":
+        return #"fs.promises.access("tmp:input.txt")"#
+    case "fs.promises.mkdir":
+        return #"fs.promises.mkdir("tmp:folder", { recursive: true })"#
+    case "fs.promises.rm":
+        return #"fs.promises.rm("tmp:input.txt", { recursive: true })"#
+    case "fs.promises.rename":
+        return #"fs.promises.rename("tmp:from.txt", "tmp:to.txt")"#
+    case "fs.promises.copyFile":
+        return #"fs.promises.copyFile("tmp:from.txt", "tmp:to.txt")"#
+    case "apple.keychain.get":
+        return #"apple.keychain.get("sample-key")"#
+    case "apple.keychain.set":
+        return #"apple.keychain.set("sample-key", "sample-value")"#
+    case "apple.keychain.delete":
+        return #"apple.keychain.delete("sample-key")"#
+    case "apple.location.getPermissionStatus",
+         "apple.location.requestPermission",
+         "apple.location.getCurrentPosition":
+        return "\(jsName)()"
+    default:
+        return "\(jsName)(\(jsonLiteral(sampleArguments(for: descriptor))))"
+    }
+}
+
+private func sampleArguments(for descriptor: CapabilityDescriptor) -> JSONValue {
+    let fields = descriptor.requiredArguments.reduce(into: [String: JSONValue]()) { result, name in
+        result[name] = sampleArgumentValue(name: name, type: descriptor.argumentTypes[name])
+    }
+    return .object(fields)
+}
+
+private func sampleArgumentValue(name: String, type: CapabilityArgumentType?) -> JSONValue {
+    switch name {
+    case "url":
+        return .string("https://example.com")
+    case "path":
+        return .string("tmp:input.txt")
+    case "from":
+        return .string("tmp:from.txt")
+    case "to":
+        return .string("tmp:to.txt")
+    case "key":
+        return .string("sample-key")
+    case "latitude":
+        return .number(37.7749)
+    case "longitude":
+        return .number(-122.4194)
+    case "start":
+        return .string("2026-01-01T00:00:00Z")
+    case "end":
+        return .string("2026-01-01T01:00:00Z")
+    case "title":
+        return .string("Sample")
+    case "identifier", "localIdentifier", "recordName", "subscriptionID", "productID", "paymentRequestID",
+         "accessoryIdentifier", "characteristicType", "type", "name":
+        return .string("sample-id")
+    case "recordType":
+        return .string("Task")
+    case "fields":
+        if type == .array {
+            return .array([
+                .object([
+                    "id": .string("name"),
+                    "label": .string("Name"),
+                ]),
+            ])
+        }
+        return .object(["title": .string("Sample")])
+    case "categories":
+        return .array([
+            .object([
+                "identifier": .string("task"),
+                "actions": .array([
+                    .object([
+                        "identifier": .string("done"),
+                        "title": .string("Done"),
+                    ]),
+                ]),
+            ]),
+        ])
+    case "buttons":
+        return .array([
+            .object([
+                "id": .string("ok"),
+                "title": .string("OK"),
+            ]),
+        ])
+    case "activityType":
+        return .string("delivery")
+    case "attributes", "contentState", "parameters":
+        return .object([:])
+    case "origin":
+        return .object(["latitude": .number(37.7749), "longitude": .number(-122.4194)])
+    case "destination":
+        return .object(["latitude": .number(37.7849), "longitude": .number(-122.4094)])
+    case "address":
+        return .string("1 Market St, San Francisco, CA")
+    case "query", "term", "input", "prompt":
+        return .string("sample")
+    case "productIDs":
+        return .array([.string("product.sample")])
+    case "confirmed":
+        return .bool(true)
+    case "action":
+        return .string("play")
+    default:
+        break
+    }
+
+    switch type {
+    case .string:
+        return .string("sample")
+    case .number:
+        return .number(1)
+    case .bool:
+        return .bool(true)
+    case .object:
+        return .object([:])
+    case .array:
+        return .array([])
+    case .any, .none:
+        return .string("sample")
+    }
+}
+
+private func fakeRuntimeValue(for capability: CapabilityID) -> JSONValue {
+    switch capability {
+    case .networkFetch:
+        return .object([
+            "ok": .bool(true),
+            "status": .number(200),
+            "statusText": .string("OK"),
+            "headers": .object([:]),
+            "bodyText": .string("{}"),
+            "bodyBase64": .string("e30="),
+        ])
+    case .fsRead:
+        return .object([
+            "path": .string("tmp:input.txt"),
+            "text": .string("sample"),
+            "base64": .string("c2FtcGxl"),
+        ])
+    case .fsList:
+        return .array([])
+    case .fsStat:
+        return .object([
+            "path": .string("tmp:input.txt"),
+            "isDirectory": .bool(false),
+            "size": .number(0),
+        ])
+    default:
+        return .object(["ok": .bool(true)])
+    }
+}
+
+private func jsonLiteral(_ value: JSONValue) -> String {
+    guard let data = try? JSONEncoder.codeModeBridge.encode(value),
+          let string = String(data: data, encoding: .utf8)
+    else {
+        return "{}"
     }
     return string
 }

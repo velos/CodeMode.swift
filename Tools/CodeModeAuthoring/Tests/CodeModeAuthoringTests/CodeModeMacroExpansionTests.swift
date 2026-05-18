@@ -24,6 +24,22 @@ private struct RuntimeMacroProvider: Sendable {
     }
 }
 
+@CodeMode(path: "myapp.tasks")
+private struct ExampleTaskProvider: Sendable {
+    @CodeModeName("complete")
+    @CodeModeDescription("Mark a task complete.")
+    @CodeModeParam("id", "Task identifier")
+    @CodeModeParam("note", "Optional completion note")
+    @CodeModeResult("Completion payload")
+    func completeTask(id: String, note: String?) async throws -> JSONValue {
+        .object([
+            "id": .string(id),
+            "note": note.map(JSONValue.string) ?? .null,
+            "completed": .bool(true),
+        ])
+    }
+}
+
 @Test func codeModeMacroProviderRegistersAndExecutes() async throws {
     let provider = RuntimeMacroProvider()
     #expect(provider.codeModePath == "macro.api")
@@ -48,6 +64,49 @@ private struct RuntimeMacroProvider: Sendable {
     )
     let observed = await observe(call)
     #expect(observed.result?.output == .string("Hello, Ada!"))
+}
+
+@Test func codeModeMacroProviderExampleRegistersDocsAndExecutes() async throws {
+    let provider = ExampleTaskProvider()
+    let tools = CodeModeAgentTools(config: CodeModeConfiguration(codeModeProviders: [provider]))
+
+    let search = try await tools.searchJavaScriptAPI(
+        JavaScriptAPISearchRequest(
+            code: """
+            async () => {
+                const ref = api.byJSName["myapp.tasks.complete"];
+                return {
+                    capabilityKey: ref.capabilityKey,
+                    summary: ref.summary,
+                    requiredArguments: ref.requiredArguments,
+                    optionalArguments: ref.optionalArguments,
+                    argumentHints: ref.argumentHints,
+                    resultSummary: ref.resultSummary
+                };
+            }
+            """
+        )
+    )
+    let reference = try #require(search.result?.objectValue)
+    #expect(reference.string("capabilityKey") == "myapp.tasks.complete")
+    #expect(reference.string("summary") == "Mark a task complete.")
+    #expect(reference.array("requiredArguments") == [.string("id")])
+    #expect(reference.array("optionalArguments") == [.string("note")])
+    #expect(reference.object("argumentHints")?.string("id") == "Task identifier")
+    #expect(reference.string("resultSummary") == "Completion payload")
+
+    let call = try await tools.executeJavaScript(
+        JavaScriptExecutionRequest(
+            code: #"return await myapp.tasks.complete({ id: "task-123", note: "Done in app" });"#,
+            allowedCapabilities: [],
+            allowedCapabilityKeys: ["myapp.tasks.complete"]
+        )
+    )
+    let observed = await observe(call)
+    let output = try #require(observed.result?.output?.objectValue)
+    #expect(output.string("id") == "task-123")
+    #expect(output.string("note") == "Done in app")
+    #expect(output.bool("completed") == true)
 }
 
 private struct ObservedExecution {
