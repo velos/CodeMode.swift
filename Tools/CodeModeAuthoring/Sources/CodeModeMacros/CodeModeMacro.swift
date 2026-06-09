@@ -9,31 +9,9 @@ import SwiftSyntaxMacros
 struct CodeModePlugin: CompilerPlugin {
     let providingMacros: [Macro.Type] = [
         CodeModeMacro.self,
-        CodeModeDescriptionMacro.self,
-        CodeModeNameMacro.self,
         CodeModeParamMacro.self,
         CodeModeResultMacro.self,
     ]
-}
-
-public struct CodeModeDescriptionMacro: PeerMacro {
-    public static func expansion(
-        of node: AttributeSyntax,
-        providingPeersOf declaration: some DeclSyntaxProtocol,
-        in context: some MacroExpansionContext
-    ) throws -> [DeclSyntax] {
-        []
-    }
-}
-
-public struct CodeModeNameMacro: PeerMacro {
-    public static func expansion(
-        of node: AttributeSyntax,
-        providingPeersOf declaration: some DeclSyntaxProtocol,
-        in context: some MacroExpansionContext
-    ) throws -> [DeclSyntax] {
-        []
-    }
 }
 
 public struct CodeModeParamMacro: PeerMacro {
@@ -69,111 +47,61 @@ public struct CodeModeMacro: ExtensionMacro {
             return []
         }
 
-        guard let path = stringArguments(in: node.description).first, isValidPath(path) else {
+        guard isNonGenericDeclaration(declaration) else {
+            context.diagnose(CodeModeDiagnostic("@CodeMode does not support generic types", node: Syntax(declaration)))
+            return []
+        }
+
+        let macroStrings = stringArguments(in: node.description)
+        guard macroStrings.count >= 2 else {
+            context.diagnose(CodeModeDiagnostic("@CodeMode requires path and description string arguments", node: Syntax(node)))
+            return []
+        }
+
+        let path = macroStrings[0]
+        let summary = macroStrings[1]
+        guard isValidPath(path) else {
             context.diagnose(CodeModeDiagnostic("@CodeMode requires a valid dotted JavaScript path", node: Syntax(node)))
             return []
         }
 
-        var seenNames: Set<String> = []
-        var entries: [FunctionEntry] = []
-        for member in declaration.memberBlock.members {
-            guard let function = member.decl.as(FunctionDeclSyntax.self) else {
-                continue
-            }
-
-            guard let description = attributeString(named: "CodeModeDescription", on: function).first else {
-                continue
-            }
-
-            let exposedName = attributeString(named: "CodeModeName", on: function).first ?? function.name.text
-            guard isValidPathSegment(exposedName) else {
-                context.diagnose(CodeModeDiagnostic("@CodeModeName must be a valid JavaScript identifier segment", node: Syntax(function.name)))
-                continue
-            }
-            guard seenNames.insert(exposedName).inserted else {
-                context.diagnose(CodeModeDiagnostic("@CodeMode functions cannot expose duplicate names", node: Syntax(function.name)))
-                continue
-            }
-
-            guard function.genericParameterClause == nil else {
-                context.diagnose(CodeModeDiagnostic("@CodeMode does not support generic methods", node: Syntax(function.name)))
-                continue
-            }
-
-            let isAsync = function.signature.effectSpecifiers?.asyncSpecifier != nil
-            let isThrowing = function.signature.effectSpecifiers?.throwsClause != nil
-            guard isThrowing else {
-                context.diagnose(CodeModeDiagnostic("@CodeMode methods must be throws or async throws", node: Syntax(function.name)))
-                continue
-            }
-
-            var parameters: [FunctionParameter] = []
-            var hasInvalidParameter = false
-            for parameter in function.signature.parameterClause.parameters {
-                if parameter.defaultValue != nil {
-                    context.diagnose(CodeModeDiagnostic("@CodeMode does not support default parameter values", node: Syntax(parameter)))
-                    hasInvalidParameter = true
-                    continue
-                }
-                if parameter.ellipsis != nil {
-                    context.diagnose(CodeModeDiagnostic("@CodeMode does not support variadic parameters", node: Syntax(parameter)))
-                    hasInvalidParameter = true
-                    continue
-                }
-                let externalName = parameter.firstName.text
-                if externalName == "_" || parameter.secondName != nil {
-                    context.diagnose(CodeModeDiagnostic("@CodeMode v1 requires one named parameter label per argument", node: Syntax(parameter)))
-                    hasInvalidParameter = true
-                    continue
-                }
-                guard isValidPathSegment(externalName) else {
-                    context.diagnose(CodeModeDiagnostic("@CodeMode parameter labels must be valid JavaScript object keys", node: Syntax(parameter)))
-                    hasInvalidParameter = true
-                    continue
-                }
-
-                let typeInfo = TypeInfo(typeSyntax: parameter.type.trimmedDescription)
-                guard typeInfo.isSupported else {
-                    context.diagnose(CodeModeDiagnostic("@CodeMode does not support parameter type '\(parameter.type.trimmedDescription)'", node: Syntax(parameter)))
-                    hasInvalidParameter = true
-                    continue
-                }
-
-                parameters.append(
-                    FunctionParameter(
-                        name: externalName,
-                        type: typeInfo.swiftType,
-                        argumentType: typeInfo.argumentType,
-                        optional: typeInfo.optional,
-                        description: parameterDescription(named: externalName, on: function)
-                    )
-                )
-            }
-            if hasInvalidParameter {
-                continue
-            }
-
-            let returnType = function.signature.returnClause?.type.trimmedDescription ?? "Void"
-            let returnInfo = TypeInfo(typeSyntax: returnType)
-            guard returnType == "Void" || returnInfo.isSupported else {
-                context.diagnose(CodeModeDiagnostic("@CodeMode does not support return type '\(returnType)'", node: Syntax(function.name)))
-                continue
-            }
-
-            entries.append(
-                FunctionEntry(
-                    swiftName: function.name.text,
-                    exposedName: exposedName,
-                    summary: description,
-                    resultSummary: attributeString(named: "CodeModeResult", on: function).first ?? "JSON value",
-                    parameters: parameters,
-                    isAsync: isAsync,
-                    returnsVoid: returnType == "Void"
-                )
-            )
+        guard let argumentsStruct = nestedStruct(named: "Arguments", in: declaration) else {
+            context.diagnose(CodeModeDiagnostic("@CodeMode requires a nested Arguments struct", node: Syntax(declaration)))
+            return []
         }
 
-        let body = entries.map { registrationSource(for: $0, path: path) }.joined(separator: ",\n")
+        guard let call = callMethod(in: declaration, context: context) else {
+            return []
+        }
+
+        let argumentFields = fields(in: argumentsStruct, attributeName: "CodeModeParam", context: context)
+        guard argumentFields.invalid == false else {
+            return []
+        }
+
+        let resultStruct = nestedStruct(named: "Result", in: declaration)
+        let resultInfo = resultStruct.map { structDecl in
+            let parsed = fields(in: structDecl, attributeName: nil, context: context)
+            return ParsedResult(
+                summary: attributeString(named: "CodeModeResult", attributes: structDecl.attributes).first ?? "JSON value",
+                fields: parsed.fields,
+                invalid: parsed.invalid
+            )
+        }
+        guard resultInfo?.invalid != true else {
+            return []
+        }
+
+        guard validate(call: call, hasResultStruct: resultStruct != nil, context: context) else {
+            return []
+        }
+
+        let returnsVoid = call.returnType == "Void" || call.returnType == "()"
+        if returnsVoid, resultStruct != nil {
+            context.diagnose(CodeModeDiagnostic("@CodeMode Result is only valid when call returns Result", node: Syntax(resultStruct!)))
+            return []
+        }
+
         let access = providerAccessModifier(for: declaration)
         let extensionSource = """
         extension \(type.trimmedDescription): CodeModeProvider {
@@ -181,7 +109,25 @@ public struct CodeModeMacro: ExtensionMacro {
 
             \(access)func codeModeRegistrations() -> [CodeModeRegistration] {
                 [
-        \(indent(body, spaces: 12))
+                    CodeModeRegistration(
+                        capabilityKey: CodeModeCapabilityKey(rawValue: \(literal(path))),
+                        jsPath: \(literal(path)),
+                        title: \(literal(title(for: path))),
+                        summary: \(literal(summary)),
+                        tags: [\(literal(parentPath(for: path)))],
+                        example: "await \(path)({})",
+                        requiredArguments: [\(argumentFields.fields.filter { !$0.optional }.map { literal($0.name) }.joined(separator: ", "))],
+                        optionalArguments: [\(argumentFields.fields.filter(\.optional).map { literal($0.name) }.joined(separator: ", "))],
+                        argumentTypes: \(argumentTypesSource(for: argumentFields.fields)),
+                        argumentHints: \(argumentHintsSource(for: argumentFields.fields)),
+                        resultSummary: \(literal(returnsVoid ? "null" : resultInfo?.summary ?? "JSON value")),
+                        handler: { arguments, _ in
+                            try CodeModeAsyncBridge.run {
+        \(indent(argumentsSource(for: argumentFields.fields), spaces: 24))
+        \(indent(resultSource(for: call, returnsVoid: returnsVoid, resultFields: resultInfo?.fields ?? []), spaces: 24))
+                            }
+                        }
+                    )
                 ]
             }
         }
@@ -190,49 +136,225 @@ public struct CodeModeMacro: ExtensionMacro {
         return [try ExtensionDeclSyntax(SyntaxNodeString(stringLiteral: extensionSource))]
     }
 
-    private static func registrationSource(for entry: FunctionEntry, path: String) -> String {
-        let capability = "\(path).\(entry.exposedName)"
-        let required = entry.parameters.filter { !$0.optional }.map { literal($0.name) }.joined(separator: ", ")
-        let optional = entry.parameters.filter(\.optional).map { literal($0.name) }.joined(separator: ", ")
-        let argumentTypes = entry.parameters.map { parameter in
-            "\(literal(parameter.name)): CapabilityArgumentType.\(parameter.argumentType)"
-        }.joined(separator: ", ")
-        let argumentHints = entry.parameters.compactMap { parameter -> String? in
-            guard let description = parameter.description else { return nil }
-            return "\(literal(parameter.name)): \(literal(description))"
-        }.joined(separator: ", ")
-        let decodeLines = entry.parameters.map { parameter in
-            let method = parameter.optional ? "optional" : "require"
-            return "let \(parameter.name) = try CodeModeArgumentDecoder.\(method)(\(literal(parameter.name)), as: \(parameter.type).self, in: arguments)"
-        }.joined(separator: "\n")
-        let callArguments = entry.parameters.map { "\($0.name): \($0.name)" }.joined(separator: ", ")
-        let callPrefix = entry.isAsync ? "try await " : "try "
-        let call = "\(callPrefix)self.\(entry.swiftName)(\(callArguments))"
-        let resultLine = entry.returnsVoid
-            ? "\(call)\nreturn .null"
-            : "let result = \(call)\nreturn CodeModeValueEncoder.encode(result)"
+    private static func callMethod(in declaration: some DeclGroupSyntax, context: some MacroExpansionContext) -> CallMethod? {
+        let functions = declaration.memberBlock.members.compactMap { $0.decl.as(FunctionDeclSyntax.self) }
+            .filter { $0.name.text == "call" }
+
+        guard functions.count == 1, let function = functions.first else {
+            context.diagnose(CodeModeDiagnostic("@CodeMode requires exactly one call(arguments:) method", node: Syntax(declaration)))
+            return nil
+        }
+
+        guard function.genericParameterClause == nil else {
+            context.diagnose(CodeModeDiagnostic("@CodeMode does not support generic methods", node: Syntax(function.name)))
+            return nil
+        }
+
+        guard function.signature.effectSpecifiers?.throwsClause != nil else {
+            context.diagnose(CodeModeDiagnostic("@CodeMode call(arguments:) must be throws or async throws", node: Syntax(function.name)))
+            return nil
+        }
+
+        let parameters = Array(function.signature.parameterClause.parameters)
+        guard parameters.count == 1, let parameter = parameters.first else {
+            context.diagnose(CodeModeDiagnostic("@CodeMode call method must accept exactly one arguments parameter", node: Syntax(function.name)))
+            return nil
+        }
+
+        guard parameter.defaultValue == nil, parameter.ellipsis == nil else {
+            context.diagnose(CodeModeDiagnostic("@CodeMode call(arguments:) does not support default or variadic parameters", node: Syntax(parameter)))
+            return nil
+        }
+
+        guard parameter.firstName.text == "arguments",
+              parameter.secondName == nil,
+              parameter.type.trimmedDescription == "Arguments"
+        else {
+            context.diagnose(CodeModeDiagnostic("@CodeMode call method must be call(arguments: Arguments)", node: Syntax(parameter)))
+            return nil
+        }
+
+        return CallMethod(
+            isAsync: function.signature.effectSpecifiers?.asyncSpecifier != nil,
+            returnType: function.signature.returnClause?.type.trimmedDescription ?? "Void",
+            node: Syntax(function.name)
+        )
+    }
+
+    private static func validate(
+        call: CallMethod,
+        hasResultStruct: Bool,
+        context: some MacroExpansionContext
+    ) -> Bool {
+        if call.returnType == "Void" || call.returnType == "()" {
+            return true
+        }
+
+        guard call.returnType == "Result" else {
+            context.diagnose(CodeModeDiagnostic("@CodeMode call return type must be Void or nested Result", node: call.node))
+            return false
+        }
+
+        guard hasResultStruct else {
+            context.diagnose(CodeModeDiagnostic("@CodeMode call returning Result requires a nested Result struct", node: call.node))
+            return false
+        }
+
+        return true
+    }
+
+    private static func fields(
+        in structDecl: StructDeclSyntax,
+        attributeName: String?,
+        context: some MacroExpansionContext
+    ) -> ParsedFields {
+        var result: [ToolField] = []
+        var invalid = false
+        var seenNames: Set<String> = []
+
+        for member in structDecl.memberBlock.members {
+            guard let variable = member.decl.as(VariableDeclSyntax.self) else {
+                continue
+            }
+
+            guard variable.bindings.count == 1, let binding = variable.bindings.first else {
+                context.diagnose(CodeModeDiagnostic("@CodeMode only supports one stored property per declaration", node: Syntax(variable)))
+                invalid = true
+                continue
+            }
+
+            guard binding.accessorBlock == nil else {
+                context.diagnose(CodeModeDiagnostic("@CodeMode does not support computed properties", node: Syntax(binding)))
+                invalid = true
+                continue
+            }
+
+            guard binding.initializer == nil else {
+                context.diagnose(CodeModeDiagnostic("@CodeMode does not support default property values", node: Syntax(binding)))
+                invalid = true
+                continue
+            }
+
+            guard let identifier = binding.pattern.as(IdentifierPatternSyntax.self) else {
+                context.diagnose(CodeModeDiagnostic("@CodeMode properties must use simple identifiers", node: Syntax(binding.pattern)))
+                invalid = true
+                continue
+            }
+
+            let name = identifier.identifier.text
+            guard isValidPathSegment(name) else {
+                context.diagnose(CodeModeDiagnostic("@CodeMode property names must be valid JavaScript object keys", node: Syntax(identifier)))
+                invalid = true
+                continue
+            }
+
+            guard seenNames.insert(name).inserted else {
+                context.diagnose(CodeModeDiagnostic("@CodeMode properties cannot use duplicate names", node: Syntax(identifier)))
+                invalid = true
+                continue
+            }
+
+            guard let type = binding.typeAnnotation?.type.trimmedDescription else {
+                context.diagnose(CodeModeDiagnostic("@CodeMode properties must have explicit types", node: Syntax(binding)))
+                invalid = true
+                continue
+            }
+
+            let typeInfo = TypeInfo(typeSyntax: type)
+            guard typeInfo.isSupported else {
+                context.diagnose(CodeModeDiagnostic("@CodeMode does not support property type '\(type)'", node: Syntax(binding)))
+                invalid = true
+                continue
+            }
+
+            result.append(
+                ToolField(
+                    name: name,
+                    swiftType: typeInfo.swiftType,
+                    argumentType: typeInfo.argumentType,
+                    optional: typeInfo.optional,
+                    description: attributeName.flatMap { attributeString(named: $0, attributes: variable.attributes).first }
+                )
+            )
+        }
+
+        return ParsedFields(fields: result, invalid: invalid)
+    }
+
+    private static func nestedStruct(named name: String, in declaration: some DeclGroupSyntax) -> StructDeclSyntax? {
+        declaration.memberBlock.members.compactMap { member in
+            member.decl.as(StructDeclSyntax.self)
+        }
+        .first { $0.name.text == name }
+    }
+
+    private static func argumentsSource(for fields: [ToolField]) -> String {
+        guard fields.isEmpty == false else {
+            return "let decodedArguments = Arguments()"
+        }
+
+        let assignments = fields.map { field in
+            let method = field.optional ? "optional" : "require"
+            return "\(field.name): try CodeModeArgumentDecoder.\(method)(\(literal(field.name)), as: \(field.swiftType).self, in: arguments)"
+        }.joined(separator: ",\n")
 
         return """
-        CodeModeRegistration(
-            capabilityKey: CodeModeCapabilityKey(rawValue: \(literal(capability))),
-            jsPath: \(literal(capability)),
-            title: \(literal(entry.exposedName)),
-            summary: \(literal(entry.summary)),
-            tags: [\(literal(path))],
-            example: "await \(capability)({})",
-            requiredArguments: [\(required)],
-            optionalArguments: [\(optional)],
-            argumentTypes: [\(argumentTypes)],
-            argumentHints: [\(argumentHints)],
-            resultSummary: \(literal(entry.resultSummary)),
-            handler: { arguments, _ in
-                try CodeModeAsyncBridge.run {
-        \(indent(decodeLines, spaces: 12))
-        \(indent(resultLine, spaces: 12))
-                }
-            }
+        let decodedArguments = Arguments(
+        \(indent(assignments, spaces: 4))
         )
         """
+    }
+
+    private static func resultSource(for call: CallMethod, returnsVoid: Bool, resultFields: [ToolField]) -> String {
+        let callPrefix = call.isAsync ? "try await " : "try "
+        let invocation = "\(callPrefix)self.call(arguments: decodedArguments)"
+
+        guard returnsVoid == false else {
+            return """
+            \(invocation)
+            return .null
+            """
+        }
+
+        guard resultFields.isEmpty == false else {
+            return """
+            _ = \(invocation)
+            return .object([:])
+            """
+        }
+
+        let objectEntries = resultFields.map { field in
+            "\(literal(field.name)): CodeModeValueEncoder.encode(result.\(field.name))"
+        }.joined(separator: ",\n")
+
+        return """
+        let result = \(invocation)
+        return .object([
+        \(indent(objectEntries, spaces: 4))
+        ])
+        """
+    }
+
+    private static func argumentTypesSource(for fields: [ToolField]) -> String {
+        guard fields.isEmpty == false else {
+            return "[:]"
+        }
+        return "[" + fields.map { field in
+            "\(literal(field.name)): CapabilityArgumentType.\(field.argumentType)"
+        }.joined(separator: ", ") + "]"
+    }
+
+    private static func argumentHintsSource(for fields: [ToolField]) -> String {
+        let entries = fields.compactMap { field -> String? in
+            guard let description = field.description else {
+                return nil
+            }
+            return "\(literal(field.name)): \(literal(description))"
+        }
+        guard entries.isEmpty == false else {
+            return "[:]"
+        }
+        return "[" + entries.joined(separator: ", ") + "]"
     }
 
     private static func isSupportedProviderDeclaration(_ declaration: some DeclGroupSyntax) -> Bool {
@@ -242,6 +364,19 @@ public struct CodeModeMacro: ExtensionMacro {
             return classDecl.modifiers.contains { $0.name.text == "final" }
         }
         return false
+    }
+
+    private static func isNonGenericDeclaration(_ declaration: some DeclGroupSyntax) -> Bool {
+        if let structDecl = declaration.as(StructDeclSyntax.self) {
+            return structDecl.genericParameterClause == nil
+        }
+        if let actorDecl = declaration.as(ActorDeclSyntax.self) {
+            return actorDecl.genericParameterClause == nil
+        }
+        if let classDecl = declaration.as(ClassDeclSyntax.self) {
+            return classDecl.genericParameterClause == nil
+        }
+        return true
     }
 
     private static func providerAccessModifier(for declaration: some DeclGroupSyntax) -> String {
@@ -264,8 +399,8 @@ public struct CodeModeMacro: ExtensionMacro {
         return ""
     }
 
-    private static func attributeString(named name: String, on function: FunctionDeclSyntax) -> [String] {
-        function.attributes.compactMap { element -> [String]? in
+    private static func attributeString(named name: String, attributes: AttributeListSyntax) -> [String] {
+        attributes.compactMap { element -> [String]? in
             guard case let .attribute(attribute) = element,
                   attribute.attributeName.trimmedDescription == name
             else {
@@ -274,22 +409,6 @@ public struct CodeModeMacro: ExtensionMacro {
             return stringArguments(in: attribute.description)
         }
         .flatMap { $0 }
-    }
-
-    private static func parameterDescription(named name: String, on function: FunctionDeclSyntax) -> String? {
-        function.attributes.compactMap { element -> String? in
-            guard case let .attribute(attribute) = element,
-                  attribute.attributeName.trimmedDescription == "CodeModeParam"
-            else {
-                return nil
-            }
-            let strings = stringArguments(in: attribute.description)
-            guard strings.count == 2, strings[0] == name else {
-                return nil
-            }
-            return strings[1]
-        }
-        .first
     }
 
     private static func stringArguments(in source: String) -> [String] {
@@ -338,6 +457,18 @@ public struct CodeModeMacro: ExtensionMacro {
         return segment.allSatisfy { $0 == "_" || $0 == "$" || $0.isASCIILetter || $0.isASCIIDigit }
     }
 
+    private static func title(for path: String) -> String {
+        path.split(separator: ".").last.map(String.init) ?? path
+    }
+
+    private static func parentPath(for path: String) -> String {
+        let segments = path.split(separator: ".").map(String.init)
+        guard segments.count > 1 else {
+            return path
+        }
+        return segments.dropLast().joined(separator: ".")
+    }
+
     private static func literal(_ value: String) -> String {
         let escaped = value
             .replacingOccurrences(of: "\\", with: "\\\\")
@@ -355,19 +486,26 @@ public struct CodeModeMacro: ExtensionMacro {
     }
 }
 
-private struct FunctionEntry {
-    var swiftName: String
-    var exposedName: String
-    var summary: String
-    var resultSummary: String
-    var parameters: [FunctionParameter]
-    var isAsync: Bool
-    var returnsVoid: Bool
+private struct ParsedFields {
+    var fields: [ToolField]
+    var invalid: Bool
 }
 
-private struct FunctionParameter {
+private struct ParsedResult {
+    var summary: String
+    var fields: [ToolField]
+    var invalid: Bool
+}
+
+private struct CallMethod {
+    var isAsync: Bool
+    var returnType: String
+    var node: Syntax
+}
+
+private struct ToolField {
     var name: String
-    var type: String
+    var swiftType: String
     var argumentType: String
     var optional: Bool
     var description: String?

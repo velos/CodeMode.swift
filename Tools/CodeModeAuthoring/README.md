@@ -8,21 +8,28 @@ Hosts that want macro-authored providers can import `CodeModeAuthoring`:
 import CodeMode
 import CodeModeAuthoring
 
-@CodeMode(path: "myapp.tasks")
-struct TaskAPI: Sendable {
+@CodeMode(path: "myapp.tasks.complete", description: "Mark a task complete.")
+struct TaskComplete: Sendable {
     let store: TaskStore
 
-    @CodeModeName("complete")
-    @CodeModeDescription("Mark a task complete.")
-    @CodeModeParam("id", "Task identifier")
-    @CodeModeParam("note", "Optional completion note")
+    struct Arguments {
+        @CodeModeParam("Task identifier")
+        var id: String
+
+        @CodeModeParam("Optional completion note")
+        var note: String?
+    }
+
     @CodeModeResult("Completion payload")
-    func completeTask(id: String, note: String?) async throws -> JSONValue {
-        try await store.complete(id: id, note: note)
-        return .object([
-            "id": .string(id),
-            "completed": .bool(true),
-        ])
+    struct Result {
+        var id: String
+        var note: String?
+        var completed: Bool
+    }
+
+    func call(arguments: Arguments) async throws -> Result {
+        try await store.complete(id: arguments.id, note: arguments.note)
+        return Result(id: arguments.id, note: arguments.note, completed: true)
     }
 }
 ```
@@ -33,7 +40,7 @@ Register provider instances through `CodeModeConfiguration(codeModeProviders:)`:
 let tools = CodeModeAgentTools(
     config: CodeModeConfiguration(
         codeModeProviders: [
-            TaskAPI(store: taskStore),
+            TaskComplete(store: taskStore),
         ]
     )
 )
@@ -57,4 +64,6 @@ let call = try await tools.executeJavaScript(
 )
 ```
 
-Macro v1 uses a single JSON object argument. Supported parameter and return shapes are JSON primitives, `JSONValue`, arrays/dictionaries of JSON-shaped values, and optional forms. Throw `CodeModeFunctionError` for structured failures that should surface as CodeMode bridge errors.
+Macro v1 maps one type to one JavaScript function. `Arguments` must be a nested struct, and no-arg tools use an empty `Arguments` struct. `call(arguments:)` must be `throws` or `async throws`, and it can return `Void` or a nested `Result` struct.
+
+Supported `Arguments` and `Result` property shapes are JSON primitives, `JSONValue`, arrays/dictionaries of JSON-shaped values, and optional forms. Throw `CodeModeFunctionError` for structured failures that should surface as CodeMode bridge errors.
