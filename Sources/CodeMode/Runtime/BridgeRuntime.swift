@@ -376,12 +376,13 @@ final class BridgeRuntime: @unchecked Sendable {
         cancellationController: ExecutionCancellationController,
         lastException: LockedBox<JavaScriptExceptionSnapshot?>
     ) throws -> JSONValue? {
+        let executionCode = Self.returningBareAwaitCode(from: code) ?? code
         let script = """
         globalThis.__codemode.state = 'pending';
         globalThis.__codemode.result = undefined;
         globalThis.__codemode.error = null;
         (async function(){
-        \(indented(code, prefix: "    "))
+        \(indented(executionCode, prefix: "    "))
         })()
         .then(function(value){
             globalThis.__codemode.state = 'fulfilled';
@@ -459,6 +460,19 @@ final class BridgeRuntime: @unchecked Sendable {
                 "Use top-level await directly; avoid wrapping the script in an unreturned async IIFE.",
             ]
         )
+    }
+
+    private static func returningBareAwaitCode(from code: String) -> String? {
+        var trimmed = code.trimmingCharacters(in: .whitespacesAndNewlines)
+        while trimmed.hasSuffix(";") {
+            trimmed.removeLast()
+            trimmed = trimmed.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        guard trimmed.hasPrefix("await "),
+              !trimmed.dropFirst("await ".count).contains(";") else {
+            return nil
+        }
+        return "return \(trimmed);"
     }
 
     private func runSearchScript(

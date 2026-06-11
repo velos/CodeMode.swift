@@ -483,6 +483,26 @@ import Testing
     #expect(observed.events.last == .finished)
 }
 
+@Test func executeReturnsBareTopLevelAwaitValue() async throws {
+    let (tools, sandbox) = try makeTools()
+    defer { cleanup(sandbox) }
+
+    let observed = try await execute(
+        tools,
+        request: JavaScriptExecutionRequest(
+            code: "await Promise.resolve({ ok: true, count: 42 });",
+            allowedCapabilities: []
+        )
+    )
+
+    let result = try #require(observed.result)
+    let payload = try requireJSONObject(from: result)
+    #expect(payload["ok"] as? Bool == true)
+    #expect(payload["count"] as? Int == 42)
+    #expect(result.diagnostics.contains(where: { $0.code == "NO_RETURN_VALUE" }) == false)
+    #expect(observed.events.last == .finished)
+}
+
 @Test func executeReturnsNilOutputWhenScriptOmitsReturnValue() async throws {
     let (tools, sandbox) = try makeTools()
     defer { cleanup(sandbox) }
