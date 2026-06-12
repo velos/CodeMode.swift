@@ -136,6 +136,30 @@ jobs:
               --output "$reports_dir/failures-r${repeat_count}.md" || status=$?
           fi
 
+          swift run --package-path Tools/CodeModeEval codemode-eval llm \
+            --suite catalog \
+            --repeat "$repeat_count" \
+            --max-output-tokens 1200 \
+            --request-delay-ms "$request_delay_ms" \
+            --model-retries 5 \
+            --retry-delay-ms 5000 \
+            --output "$reports_dir/catalog-r${repeat_count}.json" || status=$?
+
+          swift run --package-path Tools/CodeModeEval codemode-eval summarize \
+            "$reports_dir/catalog-r${repeat_count}.json" \
+            --output "$reports_dir/catalog-r${repeat_count}-summary.json" || status=$?
+
+          if [ "$repeat_count" = "5" ] && [ -f Tools/CodeModeEval/Baselines/catalog-r5-summary.json ]; then
+            swift run --package-path Tools/CodeModeEval codemode-eval report \
+              "$reports_dir/catalog-r${repeat_count}.json" \
+              --baseline Tools/CodeModeEval/Baselines/catalog-r5-summary.json \
+              --output "$reports_dir/catalog-r${repeat_count}.md" || status=$?
+          else
+            swift run --package-path Tools/CodeModeEval codemode-eval report \
+              "$reports_dir/catalog-r${repeat_count}.json" \
+              --output "$reports_dir/catalog-r${repeat_count}.md" || status=$?
+          fi
+
           if [ "$repeat_count" = "5" ]; then
             swift run --package-path Tools/CodeModeEval codemode-eval compare \
               Tools/CodeModeEval/Baselines/core-r5-summary.json \
@@ -148,6 +172,16 @@ jobs:
               "$reports_dir/failures-r5.json" \
               --retry-tolerance 0.25 \
               --turn-tolerance 0.25 || status=$?
+
+            if [ -f Tools/CodeModeEval/Baselines/catalog-r5-summary.json ]; then
+              swift run --package-path Tools/CodeModeEval codemode-eval compare \
+                Tools/CodeModeEval/Baselines/catalog-r5-summary.json \
+                "$reports_dir/catalog-r5.json" \
+                --retry-tolerance 0.5 \
+                --turn-tolerance 0.5 || status=$?
+            else
+              echo "Skipping catalog baseline compare because Tools/CodeModeEval/Baselines/catalog-r5-summary.json is not committed yet."
+            fi
           else
             echo "Skipping baseline compare because repeat_count=$repeat_count does not match committed r5 baselines."
           fi

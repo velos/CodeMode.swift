@@ -263,9 +263,11 @@ import Testing
 
     #expect(observed.result == nil)
     #expect(observed.error?.code == "CAPABILITY_DENIED")
+    #expect(observed.error?.suggestions.contains("Add \"fs.read\" to allowedCapabilities and retry.") == true)
     #expect(observed.events.contains(where: {
         if case .toolError(let error) = $0 {
-            return error.code == "CAPABILITY_DENIED"
+            return error.code == "CAPABILITY_DENIED" &&
+                error.suggestions.contains("Add \"fs.read\" to allowedCapabilities and retry.")
         }
         return false
     }))
@@ -407,6 +409,32 @@ import Testing
     #expect(payload["apple"] as? String == "hello world")
     #expect(payload["node"] as? String == "hello world")
     #expect(observed.events.last == .finished)
+}
+
+@Test func rawBridgeAndInstallHelpersAreHiddenFromUserJavaScript() async throws {
+    let (tools, sandbox) = try makeTools()
+    defer { cleanup(sandbox) }
+
+    let observed = try await execute(
+        tools,
+        request: JavaScriptExecutionRequest(
+            code: """
+            return {
+              bridge: typeof globalThis.__bridgeInvokeSync,
+              install: typeof globalThis.__codemodeInstallBinding,
+              installIfMissing: typeof globalThis.__codemodeInstallBindingIfMissing,
+              fsReadType: typeof apple.fs.read
+            };
+            """,
+            allowedCapabilities: []
+        )
+    )
+
+    let payload = try requireJSONObject(from: try #require(observed.result))
+    #expect(payload["bridge"] as? String == "undefined")
+    #expect(payload["install"] as? String == "undefined")
+    #expect(payload["installIfMissing"] as? String == "undefined")
+    #expect(payload["fsReadType"] as? String == "function")
 }
 
 @Test func executeSupportsLoopDrivenBridgeCalls() async throws {
@@ -577,6 +605,32 @@ import Testing
     #expect(observed.error?.code == "EXECUTION_TIMEOUT")
 }
 
+@Test func executeRecoversWithFreshContextAfterTimeout() async throws {
+    let (tools, sandbox) = try makeTools()
+    defer { cleanup(sandbox) }
+
+    let timedOut = try await execute(
+        tools,
+        request: JavaScriptExecutionRequest(
+            code: "await new Promise(() => {});",
+            allowedCapabilities: [],
+            timeoutMs: 30
+        )
+    )
+    #expect(timedOut.error?.code == "EXECUTION_TIMEOUT")
+
+    let recovered = try await execute(
+        tools,
+        request: JavaScriptExecutionRequest(
+            code: "return { ok: true };",
+            allowedCapabilities: []
+        )
+    )
+
+    let payload = try requireJSONObject(from: try #require(recovered.result))
+    #expect(payload["ok"] as? Bool == true)
+}
+
 @Test func executeRecordsPermissionEventsOnFailures() async throws {
     let broker = FixedPermissionBroker(statuses: [.locationWhenInUse: .denied])
     let (tools, sandbox) = try makeTools(permissionBroker: broker)
@@ -592,6 +646,8 @@ import Testing
 
     #expect(observed.result == nil)
     #expect(observed.error?.code == "PERMISSION_DENIED")
+    #expect(observed.error?.suggestions.contains(where: { $0.contains("apple.location.requestPermission()") }) == true)
+    #expect(observed.error?.suggestions.contains(where: { $0.contains("Do not repair this by adding more allowedCapabilities") }) == true)
     #expect(observed.error?.permissionEvents.contains(where: { $0.permission == .locationWhenInUse }) == true)
 }
 

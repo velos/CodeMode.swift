@@ -1,4 +1,5 @@
 import Foundation
+import JavaScriptCore
 import Testing
 @testable import CodeMode
 
@@ -24,6 +25,44 @@ private func jsNames(for capability: CapabilityID) -> [String] {
         .map(\.descriptor.id.rawValue)
 
     #expect(missingNames.isEmpty)
+}
+
+@Test func hardcodedBootstrapHelpersHaveRegistrationMetadata() throws {
+    let context = try #require(JSContext())
+    let invokeBlock: @convention(block) (String, String) -> String = { _, _ in
+        #"{"ok":true,"value":null}"#
+    }
+    context.setObject(invokeBlock, forKeyedSubscript: "__bridgeInvokeSync" as NSString)
+    #expect(context.evaluateScript(RuntimeJavaScript.bootstrap) != nil)
+
+    let namesJSON = try #require(
+        context.evaluateScript(
+            """
+            (function(){
+                const roots = ["fetch", "apple", "ios", "fs"];
+                const names = [];
+                function visit(path, value) {
+                    if (typeof value === "function") {
+                        names.push(path);
+                        return;
+                    }
+                    if (!value || typeof value !== "object") return;
+                    Object.keys(value).forEach(function(key) {
+                        visit(path ? path + "." + key : key, value[key]);
+                    });
+                }
+                roots.forEach(function(root) { visit(root, globalThis[root]); });
+                return JSON.stringify(names.sort());
+            })()
+            """
+        )?.toString()
+    )
+    let hardcodedNames = try JSONDecoder().decode([String].self, from: Data(namesJSON.utf8))
+    let registeredNames = Set(DefaultCapabilityLoader.loadAllRegistrations().flatMap(\.jsNames))
+    let missingMetadata = hardcodedNames.filter { registeredNames.contains($0) == false }
+
+    #expect(hardcodedNames.isEmpty == false)
+    #expect(missingMetadata.isEmpty)
 }
 
 @Test func platformSupportFilterMatchesCurrentPlatform() {
@@ -292,6 +331,36 @@ private func jsNames(for capability: CapabilityID) -> [String] {
 
     let statuses = context.allPermissionEvents().map { $0.status }
     #expect(statuses == [.notDetermined, .granted])
+}
+
+@Test func registryAcceptsCalendarWriteOnlyStatusForCalendarWriteOnlyPermission() throws {
+    let descriptor = CapabilityDescriptor(
+        id: .calendarWrite,
+        title: "Calendar Write",
+        summary: "Test capability",
+        tags: ["test"],
+        example: "noop",
+        requiredPermissions: [.calendarWriteOnly]
+    )
+
+    let registry = CapabilityRegistry(
+        registrations: [
+            CapabilityRegistration(descriptor: descriptor) { _, _ in
+                .string("ok")
+            }
+        ]
+    )
+
+    let broker = FixedPermissionBroker(statuses: [.calendarWriteOnly: .writeOnly])
+    let (context, sandbox) = try makeInvocationContext(
+        permissionBroker: broker,
+        allowedCapabilities: [.calendarWrite]
+    )
+    defer { cleanup(sandbox) }
+
+    let value = try registry.invoke("calendar.write", arguments: [:], context: context)
+    #expect(value.stringValue == "ok")
+    #expect(context.allPermissionEvents().map(\.status) == [.writeOnly])
 }
 
 @Test func registryValidationBlocksMissingRequiredArgsBeforePermissionChecks() throws {

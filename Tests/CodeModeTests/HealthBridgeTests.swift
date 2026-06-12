@@ -2,6 +2,24 @@ import Foundation
 import Testing
 @testable import CodeMode
 
+#if canImport(HealthKit)
+import HealthKit
+#endif
+
+@Test func systemPermissionBrokerDoesNotReportGlobalHealthKitGrant() {
+    let status = SystemPermissionBroker().status(for: .healthKit)
+
+    #if canImport(HealthKit)
+    if HKHealthStore.isHealthDataAvailable() {
+        #expect(status == .notDetermined)
+    } else {
+        #expect(status == .unavailable)
+    }
+    #else
+    #expect(status == .unavailable)
+    #endif
+}
+
 @Test func healthOperationsRequirePermission() throws {
     let bridge = HealthBridge()
     let broker = FixedPermissionBroker(statuses: [.healthKit: .denied])

@@ -33,6 +33,7 @@ Run the repeat baseline suites when model behavior needs a real stability signal
 ```sh
 swift run --package-path Tools/CodeModeEval codemode-eval llm --suite core --repeat 5 --request-delay-ms 1000 --output Tools/CodeModeEval/.build/reports/core-r5.json
 swift run --package-path Tools/CodeModeEval codemode-eval llm --suite failures --repeat 5 --request-delay-ms 1000 --output Tools/CodeModeEval/.build/reports/failures-r5.json
+swift run --package-path Tools/CodeModeEval codemode-eval llm --suite catalog --repeat 5 --request-delay-ms 1000 --output Tools/CodeModeEval/.build/reports/catalog-r5.json
 ```
 
 Live evals read `WAVELIKE_MODEL_ID`, `WAVELIKE_APP_ID`, `WAVELIKE_API_KEY`, and optional `WAVELIKE_ENV` from the environment or `.env`.
@@ -53,6 +54,7 @@ swift run --package-path Tools/CodeModeEval codemode-eval compare \
 
 Default comparison policy allows no pass-rate regression and no exact-capability regression. Retry and turn tolerances should stay small because increases there usually mean the model is recovering from avoidable tool or JavaScript mistakes.
 When a suite adds or removes scenarios, `compare` still checks overlapping per-scenario metrics but treats overall aggregate metrics as informational until a new baseline is reviewed and committed.
+The `catalog` suite covers search-only catalog scenarios. Its scheduled compare is enabled automatically once `Tools/CodeModeEval/Baselines/catalog-r5-summary.json` has been generated from a reviewed live r5 run and committed.
 
 Create a human-readable Markdown diagnostics report:
 

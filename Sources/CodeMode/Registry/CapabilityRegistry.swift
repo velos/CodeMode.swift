@@ -679,12 +679,19 @@ public final class CapabilityRegistry: @unchecked Sendable {
                 resolvedStatus = status
             }
 
-            guard resolvedStatus == .granted else {
+            guard permissionStatus(resolvedStatus, satisfies: permission) else {
                 throw BridgeError.permissionDenied(permission)
             }
 
             context.markPermissionValidated(permission)
         }
+    }
+
+    private func permissionStatus(_ status: PermissionStatus, satisfies permission: PermissionKind) -> Bool {
+        if permission == .calendarWriteOnly, status == .writeOnly {
+            return true
+        }
+        return status == .granted
     }
 
     private func value(atPath path: String, in root: [String: JSONValue]) -> JSONValue? {

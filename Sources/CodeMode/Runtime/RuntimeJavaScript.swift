@@ -133,6 +133,10 @@ enum RuntimeJavaScript {
     """
 
     static let bootstrap = """
+    (function(){
+    const __codemodeInvokeSync = globalThis.__bridgeInvokeSync;
+    delete globalThis.__bridgeInvokeSync;
+
     globalThis.__codemode = globalThis.__codemode || {};
     globalThis.__codemode.state = 'idle';
     globalThis.__codemode.result = null;
@@ -140,12 +144,13 @@ enum RuntimeJavaScript {
 
     function __invoke(capability, args) {
         const payload = JSON.stringify(args ?? {});
-        const raw = __bridgeInvokeSync(String(capability), payload);
+        const raw = __codemodeInvokeSync(String(capability), payload);
         const envelope = JSON.parse(String(raw || '{}'));
         if (!envelope.ok) {
             const error = new Error(envelope.error && envelope.error.message ? envelope.error.message : 'Bridge call failed');
             error.code = envelope.error && envelope.error.code ? envelope.error.code : 'BRIDGE_ERROR';
             error.capability = envelope.error && envelope.error.capability ? envelope.error.capability : null;
+            error.suggestions = envelope.error && Array.isArray(envelope.error.suggestions) ? envelope.error.suggestions.map(function(value){ return String(value); }) : [];
             throw error;
         }
         return envelope.value;
@@ -386,5 +391,8 @@ enum RuntimeJavaScript {
                 .join('/');
         }
     };
+    globalThis.__codemodeInstallBinding = __codemodeInstallBinding;
+    globalThis.__codemodeInstallBindingIfMissing = __codemodeInstallBindingIfMissing;
+    })();
     """
 }

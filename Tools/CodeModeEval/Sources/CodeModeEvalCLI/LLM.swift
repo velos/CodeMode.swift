@@ -14,7 +14,7 @@ struct LLM: AsyncParsableCommand {
     @Argument(help: "Scenario IDs to run. Omit to use --suite.")
     var scenarioIDs: [String] = []
 
-    @Option(name: .long, help: "Scenario suite to run when no scenario IDs are provided: smoke, core, failures, or all.")
+    @Option(name: .long, help: "Scenario suite to run when no scenario IDs are provided: smoke, core, failures, catalog, or all.")
     var suite: LLMEvalSuite = .smoke
 
     @Option(name: .customLong("repeat"), help: "Number of times to run each selected scenario.")
@@ -362,6 +362,7 @@ enum LLMEvalSuite: String, CaseIterable, Codable, ExpressibleByArgument, Sendabl
     case smoke
     case core
     case failures
+    case catalog
     case all
 
     var scenarioIDs: [String] {
@@ -405,6 +406,29 @@ enum LLMEvalSuite: String, CaseIterable, Codable, ExpressibleByArgument, Sendabl
                 "home.write-validation",
                 "media.metadata-validation",
             ]
+        case .catalog:
+            return [
+                "catalog.reminder-create",
+                "catalog.fs-read-shape",
+                "catalog.console-diagnostics",
+                "catalog.rejects-non-function",
+                "catalog.alias-platform-pruning",
+                "catalog.system-ui-platform-pruning",
+                "catalog.system-ui-documents-discovery",
+                "catalog.system-ui-interaction-discovery",
+                "catalog.system-ui-photo-camera-discovery",
+                "catalog.system-ui-ios-only-discovery",
+                "calendar.lifecycle-catalog",
+                "network.base64-timeout-catalog",
+                "notifications.delivered-content-catalog",
+                "system-ui.parameter-catalog",
+                "cloudkit.big-ticket-catalog",
+                "notifications.remote-catalog",
+                "speech.big-ticket-catalog",
+                "maps.big-ticket-catalog",
+                "foundation-appintents-activity.catalog",
+                "wallet-music-storekit.safety-catalog",
+            ]
         case .all:
             return []
         }
@@ -442,6 +466,7 @@ struct CodeModeLLMToolAttempt: Codable, Sendable {
     var index: Int
     var toolName: String
     var allowedCapabilities: [String]
+    var allowedCapabilityKeys: [String]
     var succeeded: Bool
     var errorCode: String?
     var errorMessage: String?
@@ -773,6 +798,7 @@ private final class WavelikeLLMEvalRunner: Sendable {
             await toolState.execute(
                 code: parameters.code,
                 allowedCapabilities: parameters.allowedCapabilities.values,
+                allowedCapabilityKeys: parameters.allowedCapabilityKeys?.values ?? [],
                 timeoutMs: parameters.timeoutMs
             )
         }
@@ -830,7 +856,10 @@ private final class WavelikeLLMEvalRunner: Sendable {
         }
 
         let snapshot = await toolState.snapshot()
-        let gradedToolCalls = gradedToolCalls(snapshot.toolCalls, expectedOrder: scenario.expectation.toolOrder)
+        let gradedToolCalls = CodeModeEvalToolCallGrader.orderedToolCalls(
+            snapshot.toolCalls,
+            expectedOrder: scenario.expectation.toolOrder
+        )
         let validationFailures = CodeModeEvalRunner().validateTranscript(
             scenario: scenario,
             toolCalls: gradedToolCalls,
@@ -935,15 +964,6 @@ private final class WavelikeLLMEvalRunner: Sendable {
             text.contains("temporarily")
     }
 
-    private func gradedToolCalls(
-        _ toolCalls: [CodeModeEvalToolCall],
-        expectedOrder: [CodeModeEvalToolName]
-    ) -> [CodeModeEvalToolCall] {
-        expectedOrder.compactMap { expectedTool in
-            toolCalls.last(where: { $0.tool == expectedTool })
-        }
-    }
-
     private static let instructions = """
     You are solving a CodeMode evaluation task.
 
@@ -955,11 +975,11 @@ private final class WavelikeLLMEvalRunner: Sendable {
     \(CodeModeAgentToolDescriptions.executeJavaScript.name):
     \(CodeModeAgentToolDescriptions.executeJavaScript.description)
 
-    Use searchJavaScriptAPI before executeJavaScript whenever you need helper names, arguments, result shapes, examples, or capability IDs. Search first for privileged Apple helpers such as filesystem, contacts, weather, reminders, calendar, photos, health, home, location, keychain, notifications, and alarms, even when the helper name looks obvious. Prefer api.byJSName["known.name"] for direct helper lookup; use api.byCapability["capability.id"] for capability IDs; use ?? null when a missing lookup must appear as null in JSON. For filesystem catalog searches, filter by ref.tags.includes("filesystem") and return the fields you will need to execute correctly, especially jsNames, requiredArguments, optionalArguments, argumentHints, resultSummary, and example. Avoid repeating searchJavaScriptAPI for references already returned by a previous search; run another search only when the previous result is missing information you need. When calling executeJavaScript, pass only the minimal allowedCapabilities needed by the JavaScript you run. Platform permission failures still need the relevant capability in allowedCapabilities; capability allowlisting is separate from user privacy permission. Use sandbox paths exactly as the user gives them, including tmp:, caches:, and documents: prefixes.
+    Use searchJavaScriptAPI before executeJavaScript whenever you need helper names, arguments, result shapes, examples, or capability IDs. Search first for privileged Apple helpers such as filesystem, contacts, weather, reminders, calendar, photos, health, home, location, keychain, notifications, and alarms, even when the helper name looks obvious. Prefer api.byJSName["known.name"] for direct helper lookup; use api.byCapability["capability.id"] for capability IDs; use ?? null when a missing lookup must appear as null in JSON. For filesystem catalog searches, filter by ref.tags.includes("filesystem") and return the fields you will need to execute correctly, especially jsNames, requiredArguments, optionalArguments, argumentHints, resultSummary, and example. Avoid repeating searchJavaScriptAPI for references already returned by a previous search; run another search only when the previous result is missing information you need. When calling executeJavaScript, pass only the minimal allowedCapabilities needed by the JavaScript you run and put custom provider keys in allowedCapabilityKeys. Platform permission failures still need the relevant capability in allowedCapabilities; capability allowlisting is separate from user privacy permission. Use sandbox paths exactly as the user gives them, including tmp:, caches:, and documents: prefixes.
 
     The execution runtime does not support require() or import. Never write const fs = require("fs"); fs is already a global variable. Use the provided globals directly. Node-style filesystem aliases are available as global fs.promises methods with positional arguments, while apple.fs.* helpers use object arguments with named fields.
 
-    The JavaScript return value is what will be graded. executeJavaScript does not automatically return the final expression, so use an explicit top-level return statement for successful outputs. The runtime already wraps your code in an async function; do not wrap your code in `(async () => { ... })()` unless you also return or await that promise from the top level. Prefer top-level await statements followed by a top-level `return { ... }`. If the user asks for a string, number, boolean, or specific object shape, make the script return exactly that shape rather than returning a larger helper result and summarizing it later. Pay attention to each catalog reference's resultSummary and examples; for example, apple.fs.read returns an object with text/base64 fields, fs.promises.readFile(path, "utf8") returns text, and apple.fs.list/fs.promises.readdir return entry objects where filenames are in entry.name.
+    The JavaScript return value is what will be graded. Use an explicit top-level return statement for multi-statement successful outputs. A script that is only a bare final top-level await expression also returns that awaited value. The runtime already wraps your code in an async function; do not wrap your code in `(async () => { ... })()` unless you also return or await that promise from the top level. Prefer top-level await statements followed by a top-level `return { ... }`. If the user asks for a string, number, boolean, or specific object shape, make the script return exactly that shape rather than returning a larger helper result and summarizing it later. Pay attention to each catalog reference's resultSummary and examples; for example, apple.fs.read returns an object with text/base64 fields, fs.promises.readFile(path, "utf8") returns text, and apple.fs.list/fs.promises.readdir return entry objects where filenames are in entry.name.
 
     Do not catch CodeMode helper errors inside JavaScript just to return an error object. Let helper errors propagate to executeJavaScript so the structured tool response includes code, functionName, diagnostics, and suggestions. If a tool call fails and you can repair it from the structured error or suggestions, retry with corrected code. Give a final answer only after the last useful tool call.
     """
@@ -1000,6 +1020,7 @@ private actor CodeModeLLMToolState {
                 return await execute(
                     code: parameters.code,
                     allowedCapabilities: parameters.allowedCapabilities.values,
+                    allowedCapabilityKeys: parameters.allowedCapabilityKeys?.values ?? [],
                     timeoutMs: parameters.timeoutMs
                 )
 
@@ -1063,7 +1084,12 @@ private actor CodeModeLLMToolState {
         }
     }
 
-    func execute(code: String, allowedCapabilities rawCapabilities: [String], timeoutMs: Int?) async -> String {
+    func execute(
+        code: String,
+        allowedCapabilities rawCapabilities: [String],
+        allowedCapabilityKeys rawCapabilityKeys: [String],
+        timeoutMs: Int?
+    ) async -> String {
         let unknownCapabilities = rawCapabilities.filter { CapabilityID(rawValue: $0) == nil }
         guard unknownCapabilities.isEmpty else {
             let message = "Unknown allowedCapabilities: \(unknownCapabilities.joined(separator: ", "))"
@@ -1071,6 +1097,7 @@ private actor CodeModeLLMToolState {
             recordAttempt(
                 toolName: CodeModeAgentToolDescriptions.executeJavaScript.name,
                 allowedCapabilities: rawCapabilities,
+                allowedCapabilityKeys: rawCapabilityKeys,
                 succeeded: false,
                 errorCode: "UNKNOWN_CAPABILITY",
                 errorMessage: message
@@ -1079,11 +1106,13 @@ private actor CodeModeLLMToolState {
         }
 
         let capabilities = rawCapabilities.compactMap(CapabilityID.init(rawValue:))
+        let capabilityKeys = rawCapabilityKeys.map(CodeModeCapabilityKey.init(rawValue:))
         toolCalls.append(
             CodeModeEvalToolCall(
                 tool: .executeJavaScript,
                 code: code,
-                allowedCapabilities: capabilities
+                allowedCapabilities: capabilities,
+                allowedCapabilityKeys: capabilityKeys
             )
         )
 
@@ -1092,6 +1121,7 @@ private actor CodeModeLLMToolState {
                 JavaScriptExecutionRequest(
                     code: code,
                     allowedCapabilities: capabilities,
+                    allowedCapabilityKeys: capabilityKeys,
                     timeoutMs: timeoutMs ?? scenario.timeoutMs
                 )
             )
@@ -1105,6 +1135,7 @@ private actor CodeModeLLMToolState {
                 recordAttempt(
                     toolName: CodeModeAgentToolDescriptions.executeJavaScript.name,
                     allowedCapabilities: rawCapabilities,
+                    allowedCapabilityKeys: rawCapabilityKeys,
                     succeeded: false,
                     error: toolError,
                     diagnostics: observed.diagnostics
@@ -1115,6 +1146,7 @@ private actor CodeModeLLMToolState {
             recordAttempt(
                 toolName: CodeModeAgentToolDescriptions.executeJavaScript.name,
                 allowedCapabilities: rawCapabilities,
+                allowedCapabilityKeys: rawCapabilityKeys,
                 succeeded: true,
                 diagnostics: observed.diagnostics
             )
@@ -1133,6 +1165,7 @@ private actor CodeModeLLMToolState {
             recordAttempt(
                 toolName: CodeModeAgentToolDescriptions.executeJavaScript.name,
                 allowedCapabilities: rawCapabilities,
+                allowedCapabilityKeys: rawCapabilityKeys,
                 succeeded: false,
                 error: toolError
             )
@@ -1143,6 +1176,7 @@ private actor CodeModeLLMToolState {
             recordAttempt(
                 toolName: CodeModeAgentToolDescriptions.executeJavaScript.name,
                 allowedCapabilities: rawCapabilities,
+                allowedCapabilityKeys: rawCapabilityKeys,
                 succeeded: false,
                 errorCode: "UNEXPECTED_ERROR",
                 errorMessage: message
@@ -1168,6 +1202,7 @@ private actor CodeModeLLMToolState {
     private func recordAttempt(
         toolName: String,
         allowedCapabilities: [String] = [],
+        allowedCapabilityKeys: [String] = [],
         succeeded: Bool,
         error: CodeModeToolError? = nil,
         errorCode: String? = nil,
@@ -1181,6 +1216,7 @@ private actor CodeModeLLMToolState {
                 index: toolAttempts.count + 1,
                 toolName: toolName,
                 allowedCapabilities: allowedCapabilities,
+                allowedCapabilityKeys: allowedCapabilityKeys,
                 succeeded: succeeded,
                 errorCode: error?.code ?? errorCode,
                 errorMessage: error?.message ?? errorMessage,
@@ -1419,6 +1455,7 @@ private struct ExecuteJavaScriptFunction: CallableFunction {
     struct Parameters: Codable {
         var code: String
         var allowedCapabilities: CapabilityList
+        var allowedCapabilityKeys: CapabilityList?
         var timeoutMs: Int?
     }
 
@@ -1435,11 +1472,15 @@ private struct ExecuteJavaScriptFunction: CallableFunction {
             parameters: .object(
                 properties: [
                     "code": .string(
-                        description: "JavaScript body to execute. Return the final value to grade.",
+                        description: "JavaScript body to execute. Return the final value to grade; a bare top-level await expression also returns its awaited value.",
                         enum: nil
                     ),
                     "allowedCapabilities": .string(
                         description: "Comma-separated capability IDs required by the JavaScript, for example fs.write,fs.read. Use an empty string when no capabilities are needed.",
+                        enum: nil
+                    ),
+                    "allowedCapabilityKeys": .string(
+                        description: "Optional comma-separated custom provider capability keys required by the JavaScript. Use an empty string or omit when no custom provider capabilities are needed.",
                         enum: nil
                     ),
                     "timeoutMs": .integer(

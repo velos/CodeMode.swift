@@ -41,7 +41,7 @@ public final class CodeModeAgentTools: @unchecked Sendable {
     }
 
     public func searchJavaScriptAPI(_ request: JavaScriptAPISearchRequest) async throws -> JavaScriptAPISearchResponse {
-        try runtime.search(request)
+        try await runtime.searchAsync(request)
     }
 
     public func executeJavaScript(_ request: JavaScriptExecutionRequest) async throws -> JavaScriptExecutionCall {

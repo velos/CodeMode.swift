@@ -53,6 +53,37 @@ import Testing
     #expect(failures.contains(where: { $0.contains("Forbidden capabilities") }))
 }
 
+@Test func orderedToolCallGradingDoesNotCollapseRepeatedExecuteCalls() {
+    let scenario = CodeModeEvalScenarios.filesystemRepairAfterInvalidArguments
+    let calls = [
+        CodeModeEvalToolCall(tool: .searchJavaScriptAPI, code: scenario.searchCode ?? ""),
+        CodeModeEvalToolCall(
+            tool: .executeJavaScript,
+            code: """
+            const result = await apple.fs.read({ path: "tmp:repair.txt", encoding: "utf8" });
+            return result.text;
+            """,
+            allowedCapabilities: [.fsRead]
+        ),
+    ]
+
+    let gradedCalls = CodeModeEvalToolCallGrader.orderedToolCalls(
+        calls,
+        expectedOrder: scenario.expectation.toolOrder
+    )
+
+    let failures = CodeModeEvalRunner().validateTranscript(
+        scenario: scenario,
+        toolCalls: gradedCalls,
+        searchResult: .string("fs.read apple.fs.read path"),
+        executionOutput: .string("repair target"),
+        error: nil
+    )
+
+    #expect(gradedCalls.count == 2)
+    #expect(failures.contains(where: { $0.contains("Tool order") }))
+}
+
 @Test func evalRunnerDoesNotDuplicateStreamedLogs() async {
     let runner = CodeModeEvalRunner()
 

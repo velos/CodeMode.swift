@@ -9,7 +9,7 @@ import SwiftUI
 #endif
 
 public final class AlarmBridge: @unchecked Sendable {
-    private static let scheduledAlarms = LockedBox<[String: [String: JSONValue]]>([:])
+    private let scheduledAlarms = LockedBox<[String: [String: JSONValue]]>([:])
 
     public init() {}
 
@@ -29,7 +29,7 @@ public final class AlarmBridge: @unchecked Sendable {
         }
 
         let limit = max(1, arguments.int("limit") ?? 50)
-        let alarms = Array(Self.scheduledAlarms.get().values.prefix(limit))
+        let alarms = Array(scheduledAlarms.get().values.prefix(limit))
         return .array(alarms.map(JSONValue.object))
     }
 
@@ -83,7 +83,7 @@ public final class AlarmBridge: @unchecked Sendable {
             throw BridgeError.permissionDenied(.alarmKit)
         }
 
-        let known = Self.scheduledAlarms.get()
+        let known = scheduledAlarms.get()
         let targets: [String]
         if let identifier = arguments.string("identifier"), identifier.isEmpty == false {
             targets = [identifier]
@@ -125,17 +125,17 @@ public final class AlarmBridge: @unchecked Sendable {
 
     private func upsertScheduledAlarm(_ alarm: [String: JSONValue]) {
         guard let id = alarm["identifier"]?.stringValue else { return }
-        var current = Self.scheduledAlarms.get()
+        var current = scheduledAlarms.get()
         current[id] = alarm
-        Self.scheduledAlarms.set(current)
+        scheduledAlarms.set(current)
     }
 
     private func removeScheduledAlarms(ids: [String]) {
-        var current = Self.scheduledAlarms.get()
+        var current = scheduledAlarms.get()
         for id in ids {
             current.removeValue(forKey: id)
         }
-        Self.scheduledAlarms.set(current)
+        scheduledAlarms.set(current)
     }
 
     private func isoDate(_ text: String?) -> Date? {

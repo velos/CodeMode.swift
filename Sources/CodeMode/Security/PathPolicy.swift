@@ -49,11 +49,12 @@ public struct DefaultPathPolicy: PathPolicy {
         }
 
         let normalized = url.standardizedFileURL
-        guard isAllowed(normalized) else {
+        let containmentURL = resolveSymlinksForContainment(normalized)
+        guard isAllowed(containmentURL) else {
             throw BridgeError.pathViolation("Path is outside allowed roots: \(cleaned)")
         }
 
-        return normalized
+        return containmentURL
     }
 
     private func parseScoped(path: String) -> (base: URL, suffix: String)? {
@@ -81,11 +82,31 @@ public struct DefaultPathPolicy: PathPolicy {
     }
 
     private func isAllowed(_ url: URL) -> Bool {
-        let allowedRoots = [config.tmpRoot, config.cachesRoot, config.documentsRoot, config.appGroupRoot].compactMap { $0?.standardizedFileURL.path }
-        let path = url.standardizedFileURL.path
+        let allowedRoots = [config.tmpRoot, config.cachesRoot, config.documentsRoot, config.appGroupRoot]
+            .compactMap { root in
+                root.map { resolveSymlinksForContainment($0.standardizedFileURL).path }
+            }
+        let path = resolveSymlinksForContainment(url.standardizedFileURL).path
 
         return allowedRoots.contains { allowed in
             path == allowed || path.hasPrefix(allowed + "/")
         }
+    }
+
+    private func resolveSymlinksForContainment(_ url: URL) -> URL {
+        var existingAncestor = url.standardizedFileURL
+        var missingComponents: [String] = []
+        let fileManager = FileManager.default
+
+        while fileManager.fileExists(atPath: existingAncestor.path) == false,
+              existingAncestor.path != existingAncestor.deletingLastPathComponent().path {
+            missingComponents.insert(existingAncestor.lastPathComponent, at: 0)
+            existingAncestor.deleteLastPathComponent()
+        }
+
+        let resolvedAncestor = existingAncestor.resolvingSymlinksInPath().standardizedFileURL
+        return missingComponents.reduce(resolvedAncestor) { partial, component in
+            partial.appendingPathComponent(component)
+        }.standardizedFileURL
     }
 }

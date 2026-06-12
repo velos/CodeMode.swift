@@ -15,12 +15,18 @@ final class BridgeRuntime: @unchecked Sendable {
         var capability: CapabilityID?
         var capabilityKey: CodeModeCapabilityKey?
         var functionName: String?
+        var suggestions: [String]
     }
 
     private let registry: CapabilityRegistry
     private let catalog: BridgeCatalog
     private let config: CodeModeConfiguration
     private let unsupportedBuiltInJavaScriptNames: [String]
+    private let executionQueue = DispatchQueue(
+        label: "CodeMode.BridgeRuntime.execution",
+        qos: .userInitiated,
+        attributes: .concurrent
+    )
 
     init(
         registry: CapabilityRegistry,
@@ -89,6 +95,12 @@ final class BridgeRuntime: @unchecked Sendable {
         )
     }
 
+    func searchAsync(_ request: JavaScriptAPISearchRequest) async throws -> JavaScriptAPISearchResponse {
+        try await runOnExecutionQueue {
+            try self.search(request)
+        }
+    }
+
     func makeExecutionCall(_ request: JavaScriptExecutionRequest) -> JavaScriptExecutionCall {
         let cancellationController = ExecutionCancellationController()
         let continuationBox = LockedBox<AsyncStream<JavaScriptExecutionEvent>.Continuation?>(nil)
@@ -101,11 +113,13 @@ final class BridgeRuntime: @unchecked Sendable {
 
         let resultTask = Task<JavaScriptExecutionResult, Error> {
             do {
-                let result = try self.execute(
-                    request,
-                    transcript: transcript,
-                    cancellationController: cancellationController
-                )
+                let result = try await self.runOnExecutionQueue {
+                    try self.execute(
+                        request,
+                        transcript: transcript,
+                        cancellationController: cancellationController
+                    )
+                }
                 continuationBox.get()?.yield(.finished)
                 continuationBox.get()?.finish()
                 return result
@@ -147,6 +161,20 @@ final class BridgeRuntime: @unchecked Sendable {
                 cancellationController.cancel()
             }
         )
+    }
+
+    private func runOnExecutionQueue<Output: Sendable>(
+        _ operation: @escaping @Sendable () throws -> Output
+    ) async throws -> Output {
+        try await withCheckedThrowingContinuation { continuation in
+            executionQueue.async {
+                do {
+                    continuation.resume(returning: try operation())
+                } catch {
+                    continuation.resume(throwing: error)
+                }
+            }
+        }
     }
 
     private func execute(
@@ -239,6 +267,7 @@ final class BridgeRuntime: @unchecked Sendable {
                         "code": .string(errorPayload.code),
                         "message": .string(errorPayload.message),
                         "capability": .string(capabilityKey.rawValue),
+                        "suggestions": .array(errorPayload.suggestions.map { .string($0) }),
                     ]),
                 ])
                 let encoded = try? JSONEncoder.codeModeBridge.encode(envelope)
@@ -321,6 +350,13 @@ final class BridgeRuntime: @unchecked Sendable {
                 ]
             )
         }
+
+        _ = context.evaluateScript(
+            """
+            delete globalThis.__codemodeInstallBinding;
+            delete globalThis.__codemodeInstallBindingIfMissing;
+            """
+        )
     }
 
     private func installSearchRuntime(
@@ -394,7 +430,8 @@ final class BridgeRuntime: @unchecked Sendable {
                 message: error && error.code && error.message ? String(error.message) : String(error),
                 code: error && error.code ? String(error.code) : null,
                 capability: error && error.capability ? String(error.capability) : null,
-                functionName: error && error.functionName ? String(error.functionName) : null
+                functionName: error && error.functionName ? String(error.functionName) : null,
+                suggestions: error && Array.isArray(error.suggestions) ? error.suggestions.map(function(value){ return String(value); }) : []
             };
         });
         """
@@ -622,7 +659,9 @@ final class BridgeRuntime: @unchecked Sendable {
         )
 
         if isToolFailureCode(code) {
-            let suggestions = bridgeSuggestions(for: payload.capability, capabilityKey: payload.capabilityKey)
+            let suggestions = payload.suggestions.isEmpty
+                ? bridgeSuggestions(for: payload.capability, capabilityKey: payload.capabilityKey)
+                : payload.suggestions
             return CodeModeToolError(
                 code: code,
                 message: payload.message,
@@ -712,8 +751,19 @@ final class BridgeRuntime: @unchecked Sendable {
             capabilityKey: capabilityKey,
             functionName: normalizedOptionalString(
                 context.evaluateScript("globalThis.__codemode.error?.functionName ?? null")?.toString()
-            )
+            ),
+            suggestions: rejectedSuggestions(from: context)
         )
+    }
+
+    private func rejectedSuggestions(from context: JSContext) -> [String] {
+        guard let json = context.evaluateScript("JSON.stringify(globalThis.__codemode.error?.suggestions ?? [])")?.toString(),
+              let data = json.data(using: .utf8),
+              let suggestions = try? JSONDecoder.codeModeBridge.decode([String].self, from: data)
+        else {
+            return []
+        }
+        return suggestions
     }
 
     private func event(for error: CodeModeToolError) -> JavaScriptExecutionEvent {
@@ -784,11 +834,69 @@ final class BridgeRuntime: @unchecked Sendable {
         capability: CapabilityID?,
         capabilityKey: CodeModeCapabilityKey?
     ) -> (String, [String]) {
-        guard case .invalidArguments = error else {
-            return (error.localizedDescription, bridgeSuggestions(for: capability, capabilityKey: capabilityKey))
+        let suggestions: [String]
+        switch error {
+        case let .capabilityDenied(capability):
+            suggestions = [
+                "Add \"\(capability.rawValue)\" to allowedCapabilities and retry.",
+                "If your host uses a unified capability-key allowlist, add \"\(capability.rawValue)\" to allowedCapabilityKeys.",
+            ] + bridgeSuggestions(for: capability, capabilityKey: capability.codeModeKey)
+        case let .capabilityKeyDenied(capabilityKey):
+            suggestions = [
+                "Add \"\(capabilityKey.rawValue)\" to allowedCapabilityKeys and retry.",
+                "Custom provider capabilities are not enabled by allowedCapabilities.",
+            ] + bridgeSuggestions(for: nil, capabilityKey: capabilityKey)
+        case let .permissionDenied(permission):
+            suggestions = permissionDeniedSuggestions(for: permission)
+        case .customPermissionDenied:
+            suggestions = [
+                "The custom provider denied permission after capability allowlisting succeeded.",
+                "This is not repaired by adding more allowedCapabilities; request provider permission or ask the host/user to grant access.",
+            ]
+        case .uiPresenterUnavailable:
+            suggestions = [
+                "Configure CodeModeConfiguration.systemUIPresenter before using UI-presenting helpers.",
+                "Do not retry this helper until the host provides a SystemUIPresenter.",
+            ]
+        default:
+            suggestions = bridgeSuggestions(for: capability, capabilityKey: capabilityKey)
         }
 
-        return (error.localizedDescription, bridgeSuggestions(for: capability, capabilityKey: capabilityKey))
+        return (error.localizedDescription, suggestions)
+    }
+
+    private func permissionDeniedSuggestions(for permission: PermissionKind) -> [String] {
+        var suggestions = [
+            "Permission \"\(permission.rawValue)\" was denied after capability allowlisting succeeded.",
+            "Do not repair this by adding more allowedCapabilities; the host or OS permission must change.",
+        ]
+
+        if let helper = permissionRequestHelper(for: permission) {
+            suggestions.append("If appropriate, call \(helper) first with its request capability allowlisted, then retry the original helper.")
+        } else {
+            suggestions.append("No CodeMode request helper is available for this permission; ask the user or host app to grant access.")
+        }
+
+        return suggestions
+    }
+
+    private func permissionRequestHelper(for permission: PermissionKind) -> String? {
+        switch permission {
+        case .locationWhenInUse:
+            return "apple.location.requestPermission()"
+        case .notifications:
+            return "apple.notifications.requestPermission()"
+        case .alarmKit:
+            return "ios.alarm.requestPermission()"
+        case .healthKit:
+            return "apple.health.requestPermission({ readTypes: [...], writeTypes: [...] })"
+        case .speechRecognition:
+            return "apple.speech.requestPermission()"
+        case .music:
+            return "apple.music.requestPermission()"
+        case .contacts, .calendar, .calendarWriteOnly, .reminders, .photoLibrary, .homeKit, .microphone:
+            return nil
+        }
     }
 
     private func formatArguments(_ names: [String], types: [String: CapabilityArgumentType]) -> String {

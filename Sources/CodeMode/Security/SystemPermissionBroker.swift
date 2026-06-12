@@ -400,7 +400,7 @@ public final class SystemPermissionBroker: PermissionBroker, @unchecked Sendable
         guard HKHealthStore.isHealthDataAvailable() else {
             return .unavailable
         }
-        return .granted
+        return .notDetermined
         #else
         return .unavailable
         #endif

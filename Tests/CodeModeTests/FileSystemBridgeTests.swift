@@ -168,6 +168,30 @@ private final class RecordingCodeModeFileSystem: CodeModeFileSystem, @unchecked 
     }
 }
 
+@Test func fileSystemRejectsSymlinkEscapeThroughAllowedRoot() async throws {
+    let (tools, sandbox) = try makeTools()
+    defer { cleanup(sandbox) }
+
+    let outside = sandbox.root.appendingPathComponent("outside", isDirectory: true)
+    try FileManager.default.createDirectory(at: outside, withIntermediateDirectories: true)
+    try Data("outside".utf8).write(to: outside.appendingPathComponent("secret.txt"))
+    try FileManager.default.createSymbolicLink(
+        at: sandbox.tmp.appendingPathComponent("escape"),
+        withDestinationURL: outside
+    )
+
+    let observed = try await execute(
+        tools,
+        request: JavaScriptExecutionRequest(
+            code: "return await apple.fs.read({ path: 'tmp:escape/secret.txt' });",
+            allowedCapabilities: [.fsRead]
+        )
+    )
+
+    #expect(observed.result == nil)
+    #expect(observed.error?.code == "PATH_POLICY_VIOLATION")
+}
+
 @Test func executeUsesConfiguredFileSystemOperations() async throws {
     let fileSystem = RecordingCodeModeFileSystem()
     let (tools, sandbox) = try makeTools(fileSystem: fileSystem)
