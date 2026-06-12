@@ -36,7 +36,20 @@ func cleanup(_ sandbox: TestSandbox) {
 func makeTools(
     permissionBroker: any PermissionBroker = NoopPermissionBroker(),
     fileSystem: any CodeModeFileSystem = LocalCodeModeFileSystem(),
-    systemUIPresenter: any SystemUIPresenter = UnavailableSystemUIPresenter()
+    systemUIPresenter: any SystemUIPresenter = UnavailableSystemUIPresenter(),
+    eventInbox: any CodeModeEventInbox = UnavailableCodeModeEventInbox(),
+    cloudKitClient: any CloudKitClient = UnavailableCloudKitClient(),
+    remoteNotificationsClient: any RemoteNotificationsClient = UnavailableRemoteNotificationsClient(),
+    speechClient: any SpeechClient = UnavailableSpeechClient(),
+    appIntentsClient: any AppIntentsClient = UnavailableAppIntentsClient(),
+    foundationModelsClient: any FoundationModelsClient = UnavailableFoundationModelsClient(),
+    activityClient: any ActivityClient = UnavailableActivityClient(),
+    mapsClient: any MapsClient = UnavailableMapsClient(),
+    musicClient: any MusicClient = UnavailableMusicClient(),
+    passKitClient: any PassKitClient = UnavailablePassKitClient(),
+    storeKitClient: any StoreKitClient = UnavailableStoreKitClient(),
+    codeModeProviders: [any CodeModeProvider] = [],
+    hostPlatform: HostPlatform = .current
 ) throws -> (CodeModeAgentTools, TestSandbox) {
     let sandbox = try makeTestSandbox()
 
@@ -50,7 +63,20 @@ func makeTools(
         artifactStore: InMemoryArtifactStore(),
         permissionBroker: permissionBroker,
         auditLogger: SyncAuditLogger(),
-        systemUIPresenter: systemUIPresenter
+        systemUIPresenter: systemUIPresenter,
+        eventInbox: eventInbox,
+        cloudKitClient: cloudKitClient,
+        remoteNotificationsClient: remoteNotificationsClient,
+        speechClient: speechClient,
+        appIntentsClient: appIntentsClient,
+        foundationModelsClient: foundationModelsClient,
+        activityClient: activityClient,
+        mapsClient: mapsClient,
+        musicClient: musicClient,
+        passKitClient: passKitClient,
+        storeKitClient: storeKitClient,
+        codeModeProviders: codeModeProviders,
+        hostPlatform: hostPlatform
     )
 
     let tools = CodeModeAgentTools(config: configuration)

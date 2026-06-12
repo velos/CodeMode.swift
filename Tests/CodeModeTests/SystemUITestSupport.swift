@@ -6,6 +6,7 @@ struct FakeSystemUIPresenter: SystemUIPresenter {
     var photosResult: JSONValue
     var contactsResult: JSONValue
     var extraResults: [CapabilityID: JSONValue]
+    var expectedArguments: [CapabilityID: [String: JSONValue]]
     var error: BridgeError?
 
     init(
@@ -13,31 +14,33 @@ struct FakeSystemUIPresenter: SystemUIPresenter {
         photosResult: JSONValue = .array([]),
         contactsResult: JSONValue = .array([]),
         extraResults: [CapabilityID: JSONValue] = [:],
+        expectedArguments: [CapabilityID: [String: JSONValue]] = [:],
         error: BridgeError? = nil
     ) {
         self.calendarResult = calendarResult
         self.photosResult = photosResult
         self.contactsResult = contactsResult
         self.extraResults = extraResults
+        self.expectedArguments = expectedArguments
         self.error = error
     }
 
     func presentNewCalendarEvent(arguments: [String: JSONValue], context: BridgeInvocationContext) throws -> JSONValue {
-        _ = arguments
+        try assertArguments(arguments, for: .calendarUIPresentNewEvent)
         _ = context
         if let error { throw error }
         return calendarResult
     }
 
     func pickPhotos(arguments: [String: JSONValue], context: BridgeInvocationContext) throws -> JSONValue {
-        _ = arguments
+        try assertArguments(arguments, for: .photosUIPick)
         _ = context
         if let error { throw error }
         return photosResult
     }
 
     func pickContacts(arguments: [String: JSONValue], context: BridgeInvocationContext) throws -> JSONValue {
-        _ = arguments
+        try assertArguments(arguments, for: .contactsUIPick)
         _ = context
         if let error { throw error }
         return contactsResult
@@ -128,9 +131,19 @@ struct FakeSystemUIPresenter: SystemUIPresenter {
     }
 
     private func result(for capability: CapabilityID, arguments: [String: JSONValue], context: BridgeInvocationContext) throws -> JSONValue {
-        _ = arguments
+        try assertArguments(arguments, for: capability)
         _ = context
         if let error { throw error }
         return extraResults[capability] ?? .object(["action": .string("cancelled")])
+    }
+
+    private func assertArguments(_ arguments: [String: JSONValue], for capability: CapabilityID) throws {
+        guard let expected = expectedArguments[capability] else {
+            return
+        }
+
+        guard arguments == expected else {
+            throw BridgeError.nativeFailure("Expected \(capability.rawValue) arguments \(expected), received \(arguments)")
+        }
     }
 }

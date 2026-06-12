@@ -17,8 +17,6 @@ let package = Package(
     dependencies: [
         .package(name: "codemode-ios", path: "../.."),
         .package(url: "https://github.com/apple/swift-argument-parser", from: "1.7.0"),
-        .package(url: "https://github.com/velos/wavelike-ios.git", branch: "main"),
-        .package(url: "https://github.com/velos/CallableFunction.git", branch: "feature/function-updates"),
     ],
     targets: [
         .executableTarget(
@@ -27,9 +25,8 @@ let package = Package(
                 .product(name: "CodeMode", package: "codemode-ios"),
                 .product(name: "CodeModeEvaluation", package: "codemode-ios"),
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
-                .product(name: "Wavelike", package: "wavelike-ios"),
-                .product(name: "CallableFunction", package: "CallableFunction"),
-            ]
+            ],
+            exclude: ["LLM.swift"]
         ),
     ]
 )

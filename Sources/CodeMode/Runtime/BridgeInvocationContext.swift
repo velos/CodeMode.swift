@@ -3,6 +3,7 @@ import Foundation
 public final class BridgeInvocationContext: @unchecked Sendable {
     public let executionContext: ExecutionContext
     public let allowedCapabilities: Set<CapabilityID>
+    public let allowedCapabilityKeys: Set<CodeModeCapabilityKey>
     public let pathPolicy: any PathPolicy
     public let artifactStore: any ArtifactStore
     public let permissionBroker: any PermissionBroker
@@ -17,6 +18,7 @@ public final class BridgeInvocationContext: @unchecked Sendable {
     init(
         executionContext: ExecutionContext,
         allowedCapabilities: Set<CapabilityID>,
+        allowedCapabilityKeys: Set<CodeModeCapabilityKey> = [],
         pathPolicy: any PathPolicy,
         artifactStore: any ArtifactStore,
         permissionBroker: any PermissionBroker,
@@ -27,6 +29,7 @@ public final class BridgeInvocationContext: @unchecked Sendable {
     ) {
         self.executionContext = executionContext
         self.allowedCapabilities = allowedCapabilities
+        self.allowedCapabilityKeys = allowedCapabilityKeys.union(allowedCapabilities.map(\.codeModeKey))
         self.pathPolicy = pathPolicy
         self.artifactStore = artifactStore
         self.permissionBroker = permissionBroker

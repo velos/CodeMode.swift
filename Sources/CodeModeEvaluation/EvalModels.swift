@@ -10,11 +10,33 @@ public struct CodeModeEvalToolCall: Codable, Sendable, Equatable {
     public var tool: CodeModeEvalToolName
     public var code: String
     public var allowedCapabilities: [CapabilityID]
+    public var allowedCapabilityKeys: [CodeModeCapabilityKey]
 
-    public init(tool: CodeModeEvalToolName, code: String, allowedCapabilities: [CapabilityID] = []) {
+    private enum CodingKeys: String, CodingKey {
+        case tool
+        case code
+        case allowedCapabilities
+        case allowedCapabilityKeys
+    }
+
+    public init(
+        tool: CodeModeEvalToolName,
+        code: String,
+        allowedCapabilities: [CapabilityID] = [],
+        allowedCapabilityKeys: [CodeModeCapabilityKey] = []
+    ) {
         self.tool = tool
         self.code = code
         self.allowedCapabilities = allowedCapabilities
+        self.allowedCapabilityKeys = allowedCapabilityKeys
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.tool = try container.decode(CodeModeEvalToolName.self, forKey: .tool)
+        self.code = try container.decode(String.self, forKey: .code)
+        self.allowedCapabilities = try container.decodeIfPresent([CapabilityID].self, forKey: .allowedCapabilities) ?? []
+        self.allowedCapabilityKeys = try container.decodeIfPresent([CodeModeCapabilityKey].self, forKey: .allowedCapabilityKeys) ?? []
     }
 }
 

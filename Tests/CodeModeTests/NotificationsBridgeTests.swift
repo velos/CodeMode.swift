@@ -28,6 +28,20 @@ import Testing
     } catch {
         #expect(requireBridgeErrorCode(error) == "PERMISSION_DENIED")
     }
+
+    do {
+        _ = try bridge.readDelivered(arguments: [:], context: context)
+        Issue.record("Expected notifications.delivered.read to require permission")
+    } catch {
+        #expect(requireBridgeErrorCode(error) == "PERMISSION_DENIED")
+    }
+
+    do {
+        _ = try bridge.deleteDelivered(arguments: [:], context: context)
+        Issue.record("Expected notifications.delivered.delete to require permission")
+    } catch {
+        #expect(requireBridgeErrorCode(error) == "PERMISSION_DENIED")
+    }
 }
 
 @Test func notificationsRequestPermissionUsesBrokerRequestStatus() throws {
@@ -43,6 +57,19 @@ import Testing
     let object = try requireObject(value)
     #expect(object.string("status") == PermissionStatus.granted.rawValue)
     #expect(object.bool("granted") == true)
+}
+
+@Test func notificationUserInfoShapeSerializesAsJSONObject() throws {
+    let value = JSONValue(any: [
+        AnyHashable("string"): "value",
+        AnyHashable("number"): 3,
+        AnyHashable("nested"): ["flag": true] as [String: Any],
+    ] as [AnyHashable: Any])
+
+    let object = try requireObject(value)
+    #expect(object.string("string") == "value")
+    #expect(object.int("number") == 3)
+    #expect(object.object("nested")?.bool("flag") == true)
 }
 
 @Test func executeUsesNotificationsBridgeWithPermissionDenial() async throws {

@@ -28,6 +28,29 @@ public enum CodeModeEvalScenarios {
         catalogIOSOnlySystemUIDiscovery,
         contactsPermissionDenied,
         weatherArgumentValidation,
+        keychainRoundTrip,
+        notificationsPermissionRequest,
+        locationPermissionStatus,
+        networkInvalidURL,
+        calendarLifecycleCatalogDiscovery,
+        networkBase64TimeoutCatalogDiscovery,
+        notificationsDeliveredContentCatalogDiscovery,
+        systemUIParameterCatalogDiscovery,
+        cloudKitBigTicketCatalogDiscovery,
+        notificationsRemoteCatalogDiscovery,
+        speechBigTicketCatalogDiscovery,
+        mapsBigTicketCatalogDiscovery,
+        foundationModelsAppIntentsActivityCatalogDiscovery,
+        walletMusicStoreKitSafetyCatalogDiscovery,
+        cloudKitInvalidDatabaseValidation,
+        mapsInvalidTransportValidation,
+        storeKitEmptyProductIDsValidation,
+        notificationsMalformedCategoriesValidation,
+        activityInvalidDismissalPolicyValidation,
+        musicInvalidPlaybackActionValidation,
+        calendarWritePermissionDenied,
+        homeWriteValidation,
+        mediaMetadataValidation,
         badFileSystemHelperSuggestion,
     ]
 
@@ -483,7 +506,7 @@ public enum CodeModeEvalScenarios {
     public static let reminderCatalogDiscovery = CodeModeEvalScenario(
         id: "catalog.reminder-create",
         title: "Reminder helper discovery",
-        task: "Search the catalog for the JavaScript helper and capability used to create reminders. Return the capability, first JS name, and required arguments.",
+        task: "Search the catalog for the JavaScript helper and capability used to create reminders. Return the capability, first JS name, optional arguments, and argument hints.",
         searchCode: """
         async () => {
             const wanted = ["reminders", "create"];
@@ -501,7 +524,8 @@ public enum CodeModeEvalScenarios {
                 .map(ref => ({
                     capability: ref.capability,
                     jsName: ref.jsNames[0],
-                    requiredArguments: ref.requiredArguments
+                    optionalArguments: ref.optionalArguments,
+                    argumentHints: ref.argumentHints
                 }));
         }
         """,
@@ -694,6 +718,8 @@ public enum CodeModeEvalScenarios {
                 return [name, ref ? {
                     capability: ref.capability,
                     jsNames: ref.jsNames,
+                    summary: ref.summary,
+                    tags: ref.tags,
                     requiredArguments: ref.requiredArguments,
                     optionalArguments: ref.optionalArguments,
                     argumentHints: ref.argumentHints,
@@ -743,6 +769,8 @@ public enum CodeModeEvalScenarios {
                 return [name, ref ? {
                     capability: ref.capability,
                     jsNames: ref.jsNames,
+                    summary: ref.summary,
+                    tags: ref.tags,
                     requiredArguments: ref.requiredArguments,
                     optionalArguments: ref.optionalArguments,
                     argumentHints: ref.argumentHints,
@@ -793,6 +821,8 @@ public enum CodeModeEvalScenarios {
                 return [name, ref ? {
                     capability: ref.capability,
                     jsNames: ref.jsNames,
+                    summary: ref.summary,
+                    tags: ref.tags,
                     requiredArguments: ref.requiredArguments,
                     optionalArguments: ref.optionalArguments,
                     argumentHints: ref.argumentHints,
@@ -836,6 +866,8 @@ public enum CodeModeEvalScenarios {
                 return [name, ref ? {
                     capability: ref.capability,
                     jsNames: ref.jsNames,
+                    summary: ref.summary,
+                    tags: ref.tags,
                     requiredArguments: ref.requiredArguments,
                     optionalArguments: ref.optionalArguments,
                     argumentHints: ref.argumentHints,
@@ -907,6 +939,833 @@ public enum CodeModeEvalScenarios {
             requiredSearchResultFragments: ["weather.read", "longitude"],
             requiredErrorSuggestionFragments: ["longitude:number", "Example:"],
             requiredExecuteCodeFragments: ["apple.weather.getCurrentWeather"],
+            expectedErrorCode: "INVALID_ARGUMENTS"
+        )
+    )
+
+    public static let keychainRoundTrip = CodeModeEvalScenario(
+        id: "keychain.round-trip",
+        title: "Keychain round trip",
+        task: "First search for the keychain get, set, and delete helpers. Then write the exact value \"eval-secret\" to a temporary keychain key, read it back, delete it, read the key again, and return exactly { value, missing } where value is the string you read before deletion and missing is the post-delete read result, which should be null.",
+        searchCode: """
+        async () => {
+            return {
+                get: api.byJSName["apple.keychain.get"],
+                set: api.byJSName["apple.keychain.set"],
+                delete: api.byJSName["apple.keychain.delete"]
+            };
+        }
+        """,
+        executeCode: """
+        const key = "codemode-eval-keychain-" + String(Date.now());
+        await apple.keychain.set(key, "eval-secret");
+        const read = await apple.keychain.get(key);
+        await apple.keychain.delete(key);
+        const missing = await apple.keychain.get(key);
+        return {
+            value: read ? read.value : null,
+            missing
+        };
+        """,
+        allowedCapabilities: [.keychainWrite, .keychainRead, .keychainDelete],
+        expectation: CodeModeEvalExpectation(
+            toolOrder: [.searchJavaScriptAPI, .executeJavaScript],
+            exactAllowedCapabilities: [.keychainWrite, .keychainRead, .keychainDelete],
+            requiredSearchResultFragments: [
+                "keychain.read",
+                "keychain.write",
+                "keychain.delete",
+                "apple.keychain.get",
+                "apple.keychain.set",
+                "apple.keychain.delete",
+            ],
+            requiredExecuteCodeFragments: [
+                "apple.keychain.set",
+                "apple.keychain.get",
+                "apple.keychain.delete",
+            ],
+            expectedOutput: .object([
+                "missing": .null,
+                "value": .string("eval-secret"),
+            ])
+        )
+    )
+
+    public static let notificationsPermissionRequest = CodeModeEvalScenario(
+        id: "notifications.permission-request",
+        title: "Notifications permission request",
+        task: "First search for apple.notifications.requestPermission, then request notification permission and return the status payload.",
+        searchCode: """
+        async () => {
+            return api.byJSName["apple.notifications.requestPermission"];
+        }
+        """,
+        executeCode: """
+        return await apple.notifications.requestPermission();
+        """,
+        allowedCapabilities: [.notificationsPermissionRequest],
+        permissions: CodeModeEvalPermissions(
+            statuses: [.notifications: .notDetermined],
+            requestStatuses: [.notifications: .granted]
+        ),
+        expectation: CodeModeEvalExpectation(
+            toolOrder: [.searchJavaScriptAPI, .executeJavaScript],
+            exactAllowedCapabilities: [.notificationsPermissionRequest],
+            requiredSearchResultFragments: [
+                "notifications.permission.request",
+                "apple.notifications.requestPermission",
+            ],
+            requiredExecuteCodeFragments: ["apple.notifications.requestPermission"],
+            expectedOutput: .object([
+                "granted": .bool(true),
+                "status": .string("granted"),
+            ])
+        )
+    )
+
+    public static let locationPermissionStatus = CodeModeEvalScenario(
+        id: "location.permission-status",
+        title: "Location permission status",
+        task: "First search for apple.location.getPermissionStatus, then read the current location permission status without requesting location coordinates and return exactly { status }.",
+        searchCode: """
+        async () => {
+            return api.byJSName["apple.location.getPermissionStatus"];
+        }
+        """,
+        executeCode: """
+        const status = await apple.location.getPermissionStatus();
+        return { status };
+        """,
+        allowedCapabilities: [.locationRead],
+        permissions: CodeModeEvalPermissions(statuses: [.locationWhenInUse: .restricted]),
+        expectation: CodeModeEvalExpectation(
+            toolOrder: [.searchJavaScriptAPI, .executeJavaScript],
+            exactAllowedCapabilities: [.locationRead],
+            forbiddenCapabilities: [.locationPermissionRequest],
+            requiredSearchResultFragments: [
+                "location.read",
+                "apple.location.getPermissionStatus",
+            ],
+            requiredExecuteCodeFragments: ["apple.location.getPermissionStatus"],
+            expectedOutput: .object(["status": .string("restricted")])
+        )
+    )
+
+    public static let networkInvalidURL = CodeModeEvalScenario(
+        id: "network.invalid-url",
+        title: "Network invalid URL",
+        task: "First search for fetch. Then call fetch with the invalid URL string \"http://%zz\" and let executeJavaScript surface the structured invalid-arguments error.",
+        searchCode: """
+        async () => {
+            return api.byJSName["fetch"];
+        }
+        """,
+        executeCode: """
+        return await fetch("http://%zz");
+        """,
+        allowedCapabilities: [.networkFetch],
+        expectation: CodeModeEvalExpectation(
+            toolOrder: [.searchJavaScriptAPI, .executeJavaScript],
+            exactAllowedCapabilities: [.networkFetch],
+            requiredSearchResultFragments: ["network.fetch", "fetch"],
+            requiredErrorSuggestionFragments: ["url", "Example:"],
+            requiredExecuteCodeFragments: ["fetch", "http://%zz"],
+            expectedErrorCode: "INVALID_ARGUMENTS"
+        )
+    )
+
+    public static let calendarLifecycleCatalogDiscovery = CodeModeEvalScenario(
+        id: "calendar.lifecycle-catalog",
+        title: "EventKit lifecycle catalog discovery",
+        task: "Search for calendar and reminders lifecycle helpers. Return each capability, JavaScript name, optional arguments, argument hints, and result summary, including create/update/delete helpers and calendar filtering arguments.",
+        searchCode: """
+        async () => {
+            const names = [
+                "apple.calendar.listEvents",
+                "apple.calendar.createEvent",
+                "apple.calendar.updateEvent",
+                "apple.calendar.deleteEvent",
+                "apple.reminders.listReminders",
+                "apple.reminders.createReminder",
+                "apple.reminders.updateReminder",
+                "apple.reminders.completeReminder",
+                "apple.reminders.deleteReminder"
+            ];
+            return Object.fromEntries(names.map(name => {
+                const ref = api.byJSName[name];
+                return [name, ref ? {
+                    capability: ref.capability,
+                    jsNames: ref.jsNames,
+                    summary: ref.summary,
+                    tags: ref.tags,
+                    requiredArguments: ref.requiredArguments,
+                    optionalArguments: ref.optionalArguments,
+                    argumentHints: ref.argumentHints,
+                    resultSummary: ref.resultSummary
+                } : null];
+            }));
+        }
+        """,
+        expectation: CodeModeEvalExpectation(
+            toolOrder: [.searchJavaScriptAPI],
+            requiredSearchResultFragments: [
+                "apple.calendar.deleteEvent",
+                "apple.calendar.updateEvent",
+                "apple.reminders.completeReminder",
+                "apple.reminders.deleteReminder",
+                "apple.reminders.updateReminder",
+                "calendar.delete",
+                "calendar.write",
+                "calendarIdentifier",
+                "calendarIdentifiers",
+                "includeCompleted",
+                "isAllDay",
+                "isCompleted",
+                "reminders.delete",
+                "span",
+            ]
+        )
+    )
+
+    public static let networkBase64TimeoutCatalogDiscovery = CodeModeEvalScenario(
+        id: "network.base64-timeout-catalog",
+        title: "Network base64 and timeout catalog discovery",
+        task: "Search for fetch and return the network.fetch JavaScript name, arguments, hints, and result summary. The result must include timeoutMs, bodyBase64, responseEncoding, and base64 response support.",
+        searchCode: """
+        async () => {
+            const ref = api.byJSName["fetch"];
+            return {
+                capability: ref.capability,
+                jsNames: ref.jsNames,
+                requiredArguments: ref.requiredArguments,
+                optionalArguments: ref.optionalArguments,
+                argumentHints: ref.argumentHints,
+                resultSummary: ref.resultSummary
+            };
+        }
+        """,
+        expectation: CodeModeEvalExpectation(
+            toolOrder: [.searchJavaScriptAPI],
+            requiredSearchResultFragments: [
+                "network.fetch",
+                "fetch",
+                "options.bodyBase64",
+                "options.responseEncoding",
+                "options.timeoutMs",
+                "base64",
+                "HTTP(S)",
+            ]
+        )
+    )
+
+    public static let notificationsDeliveredContentCatalogDiscovery = CodeModeEvalScenario(
+        id: "notifications.delivered-content-catalog",
+        title: "Notifications delivered/content catalog discovery",
+        task: "Search for notification scheduling, pending, and delivered helpers. Return each capability, JavaScript name, arguments, hints, and result summary, including richer schedule content fields and delivered-notification management.",
+        searchCode: """
+        async () => {
+            const names = [
+                "apple.notifications.schedule",
+                "apple.notifications.listPending",
+                "apple.notifications.cancelPending",
+                "apple.notifications.listDelivered",
+                "apple.notifications.removeDelivered"
+            ];
+            return Object.fromEntries(names.map(name => {
+                const ref = api.byJSName[name];
+                return [name, ref ? {
+                    capability: ref.capability,
+                    jsNames: ref.jsNames,
+                    summary: ref.summary,
+                    tags: ref.tags,
+                    requiredArguments: ref.requiredArguments,
+                    optionalArguments: ref.optionalArguments,
+                    argumentHints: ref.argumentHints,
+                    resultSummary: ref.resultSummary
+                } : null];
+            }));
+        }
+        """,
+        expectation: CodeModeEvalExpectation(
+            toolOrder: [.searchJavaScriptAPI],
+            requiredSearchResultFragments: [
+                "apple.notifications.listDelivered",
+                "apple.notifications.removeDelivered",
+                "badge",
+                "categoryIdentifier",
+                "notifications.delivered.delete",
+                "notifications.delivered.read",
+                "sound",
+                "threadIdentifier",
+                "userInfo",
+            ]
+        )
+    )
+
+    public static let systemUIParameterCatalogDiscovery = CodeModeEvalScenario(
+        id: "system-ui.parameter-catalog",
+        title: "UIKit parameter catalog discovery",
+        task: "Search the iOS system UI catalog for calendar editor, camera capture, live data scanner, and alert helpers. Return arguments, hints, and result summaries that expose the new timeout/sourceRect/camera/scanner parameters.",
+        catalogPlatform: .iOS,
+        searchCode: """
+        async () => {
+            const names = [
+                "apple.calendar.presentNewEvent",
+                "apple.camera.capture",
+                "apple.camera.scanData",
+                "apple.ui.presentAlert"
+            ];
+            return Object.fromEntries(names.map(name => {
+                const ref = api.byJSName[name];
+                return [name, ref ? {
+                    capability: ref.capability,
+                    jsNames: ref.jsNames,
+                    summary: ref.summary,
+                    tags: ref.tags,
+                    requiredArguments: ref.requiredArguments,
+                    optionalArguments: ref.optionalArguments,
+                    argumentHints: ref.argumentHints,
+                    resultSummary: ref.resultSummary
+                } : null];
+            }));
+        }
+        """,
+        expectation: CodeModeEvalExpectation(
+            toolOrder: [.searchJavaScriptAPI],
+            requiredSearchResultFragments: [
+                "allowsEditing",
+                "apple.calendar.presentNewEvent",
+                "apple.camera.capture",
+                "apple.camera.scanData",
+                "apple.ui.presentAlert",
+                "cameraDevice",
+                "flashMode",
+                "isGuidanceEnabled",
+                "isHighFrameRateTrackingEnabled",
+                "isHighlightingEnabled",
+                "isPinchToZoomEnabled",
+                "maximumDurationSeconds",
+                "sourceRect",
+                "timeoutMs",
+                "videoQuality",
+            ]
+        )
+    )
+
+    public static let cloudKitBigTicketCatalogDiscovery = CodeModeEvalScenario(
+        id: "cloudkit.big-ticket-catalog",
+        title: "CloudKit serverless catalog discovery",
+        task: "Search for CloudKit account, query, write, delete, subscription, and subscription-inbox helpers. Return capability names, JavaScript names, arguments, hints, and result summaries for serverless synced state.",
+        searchCode: """
+        async () => {
+            const names = [
+                "apple.cloudkit.getAccountStatus",
+                "apple.cloudkit.queryRecords",
+                "apple.cloudkit.saveRecord",
+                "apple.cloudkit.deleteRecord",
+                "apple.cloudkit.subscribe",
+                "apple.cloudkit.listEvents"
+            ];
+            return Object.fromEntries(names.map(name => {
+                const ref = api.byJSName[name];
+                return [name, ref ? {
+                    capability: ref.capability,
+                    jsNames: ref.jsNames,
+                    requiredArguments: ref.requiredArguments,
+                    optionalArguments: ref.optionalArguments,
+                    argumentHints: ref.argumentHints,
+                    resultSummary: ref.resultSummary
+                } : null];
+            }));
+        }
+        """,
+        expectation: CodeModeEvalExpectation(
+            toolOrder: [.searchJavaScriptAPI],
+            requiredSearchResultFragments: [
+                "apple.cloudkit.queryRecords",
+                "apple.cloudkit.saveRecord",
+                "apple.cloudkit.subscribe",
+                "cloudkit.records.query",
+                "cloudkit.record.save",
+                "cloudkit.subscription.save",
+                "cloudkit.subscriptionEvents.read",
+                "containerIdentifier",
+                "database",
+                "private",
+                "public",
+                "shared",
+                "recordType",
+                "inbox",
+            ]
+        )
+    )
+
+    public static let notificationsRemoteCatalogDiscovery = CodeModeEvalScenario(
+        id: "notifications.remote-catalog",
+        title: "APNs remote notification catalog discovery",
+        task: "Search for client-side APNs registration, token, settings, categories/actions, and response inbox helpers. Return arguments, hints, and result summaries; do not include APNs provider-send APIs.",
+        searchCode: """
+        async () => {
+            const names = [
+                "apple.notifications.registerRemote",
+                "apple.notifications.getRemoteToken",
+                "apple.notifications.getSettings",
+                "apple.notifications.setCategories",
+                "apple.notifications.listResponses"
+            ];
+            return Object.fromEntries(names.map(name => {
+                const ref = api.byJSName[name];
+                return [name, ref ? {
+                    capability: ref.capability,
+                    jsNames: ref.jsNames,
+                    summary: ref.summary,
+                    tags: ref.tags,
+                    requiredArguments: ref.requiredArguments,
+                    optionalArguments: ref.optionalArguments,
+                    argumentHints: ref.argumentHints,
+                    resultSummary: ref.resultSummary
+                } : null];
+            }));
+        }
+        """,
+        expectation: CodeModeEvalExpectation(
+            toolOrder: [.searchJavaScriptAPI],
+            requiredSearchResultFragments: [
+                "APNs",
+                "apple.notifications.registerRemote",
+                "apple.notifications.getRemoteToken",
+                "apple.notifications.getSettings",
+                "apple.notifications.setCategories",
+                "apple.notifications.listResponses",
+                "notifications.remote.register",
+                "notifications.remote.token.read",
+                "notifications.settings.read",
+                "notifications.categories.set",
+                "notifications.responses.read",
+                "categories",
+                "actionIdentifier",
+                "inbox",
+            ]
+        )
+    )
+
+    public static let speechBigTicketCatalogDiscovery = CodeModeEvalScenario(
+        id: "speech.big-ticket-catalog",
+        title: "Speech transcription catalog discovery",
+        task: "Search for Speech permission/status, file transcription, and microphone transcription helpers. Return arguments, permissions, hints, and result summaries including timeout and locale options.",
+        searchCode: """
+        async () => {
+            const names = [
+                "apple.speech.requestPermission",
+                "apple.speech.getStatus",
+                "apple.speech.transcribeFile",
+                "apple.speech.transcribeMicrophone"
+            ];
+            return Object.fromEntries(names.map(name => {
+                const ref = api.byJSName[name];
+                return [name, ref ? {
+                    capability: ref.capability,
+                    jsNames: ref.jsNames,
+                    requiredArguments: ref.requiredArguments,
+                    optionalArguments: ref.optionalArguments,
+                    argumentHints: ref.argumentHints,
+                    resultSummary: ref.resultSummary
+                } : null];
+            }));
+        }
+        """,
+        expectation: CodeModeEvalExpectation(
+            toolOrder: [.searchJavaScriptAPI],
+            requiredSearchResultFragments: [
+                "apple.speech.requestPermission",
+                "apple.speech.transcribeFile",
+                "apple.speech.transcribeMicrophone",
+                "speech.file.transcribe",
+                "speech.microphone.transcribe",
+                "locale",
+                "microphone",
+                "requiresOnDeviceRecognition",
+                "timeoutMs",
+                "transcript",
+            ]
+        )
+    )
+
+    public static let mapsBigTicketCatalogDiscovery = CodeModeEvalScenario(
+        id: "maps.big-ticket-catalog",
+        title: "MapKit catalog discovery",
+        task: "Search for MapKit geocode, reverse-geocode, local search, route estimate, and open-Maps helpers. Return arguments, hints, and result summaries.",
+        searchCode: """
+        async () => {
+            const names = [
+                "apple.maps.geocode",
+                "apple.maps.reverseGeocode",
+                "apple.maps.search",
+                "apple.maps.routeEstimate",
+                "apple.maps.open"
+            ];
+            return Object.fromEntries(names.map(name => {
+                const ref = api.byJSName[name];
+                return [name, ref ? {
+                    capability: ref.capability,
+                    jsNames: ref.jsNames,
+                    requiredArguments: ref.requiredArguments,
+                    optionalArguments: ref.optionalArguments,
+                    argumentHints: ref.argumentHints,
+                    resultSummary: ref.resultSummary
+                } : null];
+            }));
+        }
+        """,
+        expectation: CodeModeEvalExpectation(
+            toolOrder: [.searchJavaScriptAPI],
+            requiredSearchResultFragments: [
+                "apple.maps.geocode",
+                "apple.maps.reverseGeocode",
+                "apple.maps.search",
+                "apple.maps.routeEstimate",
+                "apple.maps.open",
+                "maps.geocode",
+                "maps.search",
+                "address",
+                "latitude",
+                "longitude",
+                "origin",
+                "destination",
+                "transportType",
+            ]
+        )
+    )
+
+    public static let foundationModelsAppIntentsActivityCatalogDiscovery = CodeModeEvalScenario(
+        id: "foundation-appintents-activity.catalog",
+        title: "Foundation Models, App Intents, and Activity catalog discovery",
+        task: "Search for Foundation Models generation/extraction, host App Intents adapters, and iOS Live Activity adapter helpers. Return capability names, arguments, hints, and result summaries.",
+        catalogPlatform: .iOS,
+        searchCode: """
+        async () => {
+            const names = [
+                "apple.foundationModels.getStatus",
+                "apple.foundationModels.generate",
+                "apple.foundationModels.extract",
+                "apple.appIntents.list",
+                "apple.appIntents.run",
+                "apple.appIntents.listHandoffs",
+                "apple.activity.start",
+                "apple.activity.update",
+                "apple.activity.getPushToken"
+            ];
+            return Object.fromEntries(names.map(name => {
+                const ref = api.byJSName[name];
+                return [name, ref ? {
+                    capability: ref.capability,
+                    jsNames: ref.jsNames,
+                    summary: ref.summary,
+                    tags: ref.tags,
+                    requiredArguments: ref.requiredArguments,
+                    optionalArguments: ref.optionalArguments,
+                    argumentHints: ref.argumentHints,
+                    resultSummary: ref.resultSummary
+                } : null];
+            }));
+        }
+        """,
+        expectation: CodeModeEvalExpectation(
+            toolOrder: [.searchJavaScriptAPI],
+            requiredSearchResultFragments: [
+                "apple.foundationModels.generate",
+                "apple.foundationModels.extract",
+                "foundationModels.generate",
+                "schemaIdentifier",
+                "host-defined",
+                "apple.appIntents.run",
+                "appintents.run",
+                "host-registered",
+                "apple.appIntents.listHandoffs",
+                "apple.activity.start",
+                "activity.start",
+                "activityType",
+                "pushToken",
+            ]
+        )
+    )
+
+    public static let walletMusicStoreKitSafetyCatalogDiscovery = CodeModeEvalScenario(
+        id: "wallet-music-storekit.safety-catalog",
+        title: "Wallet, MusicKit, and StoreKit safety catalog discovery",
+        task: "Search the iOS catalog for Wallet/Apple Pay, MusicKit, and StoreKit helpers. Return capability names, arguments, hints, and result summaries, especially user-mediated and explicit-confirmation constraints.",
+        catalogPlatform: .iOS,
+        searchCode: """
+        async () => {
+            const names = [
+                "apple.wallet.getStatus",
+                "apple.wallet.addPass",
+                "apple.wallet.presentPayment",
+                "apple.music.getSubscriptionStatus",
+                "apple.music.search",
+                "apple.music.play",
+                "apple.storekit.listProducts",
+                "apple.storekit.purchase",
+                "apple.storekit.listTransactions"
+            ];
+            return Object.fromEntries(names.map(name => {
+                const ref = api.byJSName[name];
+                return [name, ref ? {
+                    capability: ref.capability,
+                    jsNames: ref.jsNames,
+                    summary: ref.summary,
+                    tags: ref.tags,
+                    requiredArguments: ref.requiredArguments,
+                    optionalArguments: ref.optionalArguments,
+                    argumentHints: ref.argumentHints,
+                    resultSummary: ref.resultSummary
+                } : null];
+            }));
+        }
+        """,
+        expectation: CodeModeEvalExpectation(
+            toolOrder: [.searchJavaScriptAPI],
+            requiredSearchResultFragments: [
+                "apple.wallet.addPass",
+                "apple.wallet.presentPayment",
+                "passkit.applePay.present",
+                "host merchant configuration",
+                "explicit user-visible confirmation",
+                "apple.music.search",
+                "apple.music.play",
+                "music.catalog.search",
+                "music.playback.control",
+                "subscription",
+                "apple.storekit.purchase",
+                "storekit.purchase",
+                "confirmed",
+                "apple.storekit.listTransactions",
+                "inbox",
+            ]
+        )
+    )
+
+    public static let cloudKitInvalidDatabaseValidation = CodeModeEvalScenario(
+        id: "cloudkit.invalid-database-validation",
+        title: "CloudKit database validation",
+        task: "First search for apple.cloudkit.queryRecords. Then call it with database exactly \"archive\" and recordType \"Task\". Do not catch the error in JavaScript; let executeJavaScript surface structured INVALID_ARGUMENTS before any CloudKit client is required.",
+        searchCode: """
+        async () => {
+            return api.byJSName["apple.cloudkit.queryRecords"];
+        }
+        """,
+        executeCode: """
+        return await apple.cloudkit.queryRecords({ database: "archive", recordType: "Task" });
+        """,
+        allowedCapabilities: [.cloudKitRecordsQuery],
+        expectation: CodeModeEvalExpectation(
+            toolOrder: [.searchJavaScriptAPI, .executeJavaScript],
+            exactAllowedCapabilities: [.cloudKitRecordsQuery],
+            requiredSearchResultFragments: ["apple.cloudkit.queryRecords", "database", "private", "shared", "public"],
+            requiredExecuteCodeFragments: ["apple.cloudkit.queryRecords", "archive"],
+            expectedErrorCode: "INVALID_ARGUMENTS"
+        )
+    )
+
+    public static let mapsInvalidTransportValidation = CodeModeEvalScenario(
+        id: "maps.invalid-transport-validation",
+        title: "MapKit transport validation",
+        task: "First search for apple.maps.routeEstimate. Then call it with valid origin/destination coordinates but transportType exactly \"hoverboard\". Do not catch the error in JavaScript; let executeJavaScript surface structured INVALID_ARGUMENTS before any Maps client is required.",
+        searchCode: """
+        async () => {
+            return api.byJSName["apple.maps.routeEstimate"];
+        }
+        """,
+        executeCode: """
+        return await apple.maps.routeEstimate({
+            origin: { latitude: 37.33, longitude: -122.03 },
+            destination: { latitude: 37.77, longitude: -122.42 },
+            transportType: "hoverboard"
+        });
+        """,
+        allowedCapabilities: [.mapsRouteEstimate],
+        expectation: CodeModeEvalExpectation(
+            toolOrder: [.searchJavaScriptAPI, .executeJavaScript],
+            exactAllowedCapabilities: [.mapsRouteEstimate],
+            requiredSearchResultFragments: ["apple.maps.routeEstimate", "transportType", "automobile"],
+            requiredExecuteCodeFragments: ["apple.maps.routeEstimate", "hoverboard"],
+            expectedErrorCode: "INVALID_ARGUMENTS"
+        )
+    )
+
+    public static let storeKitEmptyProductIDsValidation = CodeModeEvalScenario(
+        id: "storekit.empty-productids-validation",
+        title: "StoreKit productIDs validation",
+        task: "First search for apple.storekit.listProducts. Then call it with productIDs as an empty array. Do not catch the error in JavaScript; let executeJavaScript surface structured INVALID_ARGUMENTS before any StoreKit client is required.",
+        searchCode: """
+        async () => {
+            return api.byJSName["apple.storekit.listProducts"];
+        }
+        """,
+        executeCode: """
+        return await apple.storekit.listProducts({ productIDs: [] });
+        """,
+        allowedCapabilities: [.storeKitProductsRead],
+        expectation: CodeModeEvalExpectation(
+            toolOrder: [.searchJavaScriptAPI, .executeJavaScript],
+            exactAllowedCapabilities: [.storeKitProductsRead],
+            requiredSearchResultFragments: ["apple.storekit.listProducts", "productIDs"],
+            requiredExecuteCodeFragments: ["apple.storekit.listProducts", "productIDs"],
+            expectedErrorCode: "INVALID_ARGUMENTS"
+        )
+    )
+
+    public static let notificationsMalformedCategoriesValidation = CodeModeEvalScenario(
+        id: "notifications.malformed-categories-validation",
+        title: "APNs category shape validation",
+        task: "First search for apple.notifications.setCategories. Then call it with a category missing identifier. Do not catch the error in JavaScript; let executeJavaScript surface structured INVALID_ARGUMENTS before any remote notification client is required.",
+        searchCode: """
+        async () => {
+            return api.byJSName["apple.notifications.setCategories"];
+        }
+        """,
+        executeCode: """
+        return await apple.notifications.setCategories({
+            categories: [{ actions: [{ identifier: "done", title: "Done" }] }]
+        });
+        """,
+        allowedCapabilities: [.notificationsCategoriesSet],
+        expectation: CodeModeEvalExpectation(
+            toolOrder: [.searchJavaScriptAPI, .executeJavaScript],
+            exactAllowedCapabilities: [.notificationsCategoriesSet],
+            requiredSearchResultFragments: ["apple.notifications.setCategories", "categories", "actions"],
+            requiredExecuteCodeFragments: ["apple.notifications.setCategories", "categories"],
+            expectedErrorCode: "INVALID_ARGUMENTS"
+        )
+    )
+
+    public static let activityInvalidDismissalPolicyValidation = CodeModeEvalScenario(
+        id: "activity.invalid-dismissal-policy-validation",
+        title: "ActivityKit dismissal policy validation",
+        task: "First search for apple.activity.end on iOS. Then call it with dismissalPolicy exactly \"later\". Do not catch the error in JavaScript; let executeJavaScript surface structured INVALID_ARGUMENTS before any ActivityKit client is required.",
+        catalogPlatform: .iOS,
+        searchCode: """
+        async () => {
+            return api.byJSName["apple.activity.end"];
+        }
+        """,
+        executeCode: """
+        return await apple.activity.end({ identifier: "activity-1", dismissalPolicy: "later" });
+        """,
+        allowedCapabilities: [.activityEnd],
+        expectation: CodeModeEvalExpectation(
+            toolOrder: [.searchJavaScriptAPI, .executeJavaScript],
+            exactAllowedCapabilities: [.activityEnd],
+            requiredSearchResultFragments: ["apple.activity.end", "dismissalPolicy", "immediate"],
+            requiredExecuteCodeFragments: ["apple.activity.end", "later"],
+            expectedErrorCode: "INVALID_ARGUMENTS"
+        )
+    )
+
+    public static let musicInvalidPlaybackActionValidation = CodeModeEvalScenario(
+        id: "music.invalid-playback-action-validation",
+        title: "Music playback action validation",
+        task: "First search for apple.music.play. Then call it with action exactly \"shuffleEverything\". Do not catch the error in JavaScript; let executeJavaScript surface structured INVALID_ARGUMENTS before any Music permission or client is required.",
+        searchCode: """
+        async () => {
+            return api.byJSName["apple.music.play"];
+        }
+        """,
+        executeCode: """
+        return await apple.music.play({ action: "shuffleEverything" });
+        """,
+        allowedCapabilities: [.musicPlaybackControl],
+        expectation: CodeModeEvalExpectation(
+            toolOrder: [.searchJavaScriptAPI, .executeJavaScript],
+            exactAllowedCapabilities: [.musicPlaybackControl],
+            requiredSearchResultFragments: ["apple.music.play", "action", "playCatalog"],
+            requiredExecuteCodeFragments: ["apple.music.play", "shuffleEverything"],
+            expectedErrorCode: "INVALID_ARGUMENTS"
+        )
+    )
+
+    public static let calendarWritePermissionDenied = CodeModeEvalScenario(
+        id: "calendar.write-permission-denied",
+        title: "Calendar write permission denied",
+        task: "First search for apple.calendar.createEvent. Then call executeJavaScript with exactly the calendar.write allowed capability and try to create a valid event titled \"Eval Standup\" from 2026-02-22T16:00:00Z to 2026-02-22T16:15:00Z while calendar write-only privacy permission is denied. Do not omit the capability and do not catch the error in JavaScript; let executeJavaScript surface the structured PERMISSION_DENIED error.",
+        searchCode: """
+        async () => {
+            return api.byJSName["apple.calendar.createEvent"];
+        }
+        """,
+        executeCode: """
+        return await apple.calendar.createEvent({
+            title: "Eval Standup",
+            start: "2026-02-22T16:00:00Z",
+            end: "2026-02-22T16:15:00Z"
+        });
+        """,
+        allowedCapabilities: [.calendarWrite],
+        permissions: CodeModeEvalPermissions(statuses: [.calendarWriteOnly: .denied]),
+        expectation: CodeModeEvalExpectation(
+            toolOrder: [.searchJavaScriptAPI, .executeJavaScript],
+            exactAllowedCapabilities: [.calendarWrite],
+            requiredSearchResultFragments: [
+                "calendar.write",
+                "apple.calendar.createEvent",
+            ],
+            requiredExecuteCodeFragments: ["apple.calendar.createEvent", "Eval Standup"],
+            expectedErrorCode: "PERMISSION_DENIED"
+        )
+    )
+
+    public static let homeWriteValidation = CodeModeEvalScenario(
+        id: "home.write-validation",
+        title: "Home write validation",
+        task: "First search for apple.home.writeCharacteristic. Then call it with only accessoryIdentifier set exactly to \"accessory-1\" and let executeJavaScript surface the structured missing-arguments error before any HomeKit permission flow.",
+        searchCode: """
+        async () => {
+            return api.byJSName["apple.home.writeCharacteristic"];
+        }
+        """,
+        executeCode: """
+        return await apple.home.writeCharacteristic({ accessoryIdentifier: "accessory-1" });
+        """,
+        allowedCapabilities: [.homeWrite],
+        permissions: CodeModeEvalPermissions(statuses: [.homeKit: .granted]),
+        expectation: CodeModeEvalExpectation(
+            toolOrder: [.searchJavaScriptAPI, .executeJavaScript],
+            exactAllowedCapabilities: [.homeWrite],
+            requiredSearchResultFragments: [
+                "home.write",
+                "apple.home.writeCharacteristic",
+                "characteristicType",
+                "value",
+            ],
+            requiredErrorSuggestionFragments: ["characteristicType:string", "value", "Example:"],
+            requiredExecuteCodeFragments: ["apple.home.writeCharacteristic", "accessory-1"],
+            expectedErrorCode: "INVALID_ARGUMENTS"
+        )
+    )
+
+    public static let mediaMetadataValidation = CodeModeEvalScenario(
+        id: "media.metadata-validation",
+        title: "Media metadata validation",
+        task: "First search for apple.media.metadata. Then call it without a path and let executeJavaScript surface the structured missing-arguments error.",
+        searchCode: """
+        async () => {
+            return api.byJSName["apple.media.metadata"];
+        }
+        """,
+        executeCode: """
+        return await apple.media.metadata({});
+        """,
+        allowedCapabilities: [.mediaMetadataRead],
+        expectation: CodeModeEvalExpectation(
+            toolOrder: [.searchJavaScriptAPI, .executeJavaScript],
+            exactAllowedCapabilities: [.mediaMetadataRead],
+            requiredSearchResultFragments: [
+                "media.metadata.read",
+                "apple.media.metadata",
+                "path",
+            ],
+            requiredErrorSuggestionFragments: ["path", "Example:"],
+            requiredExecuteCodeFragments: ["apple.media.metadata"],
             expectedErrorCode: "INVALID_ARGUMENTS"
         )
     )

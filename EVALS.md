@@ -3,24 +3,16 @@
 This project has two eval layers:
 
 - Deterministic evals run local scenario code through `searchJavaScriptAPI` and `executeJavaScript`.
-- Live LLM evals ask the configured Wavelike model to solve the same tasks, capture real tool calls, and grade the transcript.
+- Saved live LLM reports capture real model tool calls for the same tasks and can be summarized, reported, and compared by the eval CLI.
 
 ## Local Checks
 
-Run deterministic checks before PRs:
+Run deterministic checks before PRs with the single supported eval CLI:
 
 ```sh
 swift test
 swift run --package-path Tools/CodeModeEval codemode-eval run
 ```
-
-Run a small live smoke pass while iterating on prompts or tool descriptions:
-
-```sh
-swift run --package-path Tools/CodeModeEval codemode-eval llm --suite smoke --request-delay-ms 1000
-```
-
-Live runs print per-scenario progress to stderr so JSON stdout stays parseable. In an interactive terminal this is an in-place progress bar with colored pass/fail states; in CI it falls back to one line per scenario. Use `--quiet` to suppress progress output.
 
 Preview a live run before spending provider calls:
 
@@ -28,14 +20,7 @@ Preview a live run before spending provider calls:
 swift run --package-path Tools/CodeModeEval codemode-eval plan --suite core --repeat 5 --request-delay-ms 1000
 ```
 
-Run the repeat baseline suites when model behavior needs a real stability signal:
-
-```sh
-swift run --package-path Tools/CodeModeEval codemode-eval llm --suite core --repeat 5 --request-delay-ms 1000 --output Tools/CodeModeEval/.build/reports/core-r5.json
-swift run --package-path Tools/CodeModeEval codemode-eval llm --suite failures --repeat 5 --request-delay-ms 1000 --output Tools/CodeModeEval/.build/reports/failures-r5.json
-```
-
-Live evals read `WAVELIKE_MODEL_ID`, `WAVELIKE_APP_ID`, `WAVELIKE_API_KEY`, and optional `WAVELIKE_ENV` from the environment or `.env`.
+The default eval package intentionally excludes the private Wavelike-backed live runner so `swift build --package-path Tools/CodeModeEval` works in unauthenticated CI. Keep live model execution in a separate private runner or workflow when it is needed; this package keeps the deterministic runner plus `plan`, `summarize`, `report`, and `compare`.
 
 ## Baselines
 
@@ -53,6 +38,7 @@ swift run --package-path Tools/CodeModeEval codemode-eval compare \
 
 Default comparison policy allows no pass-rate regression and no exact-capability regression. Retry and turn tolerances should stay small because increases there usually mean the model is recovering from avoidable tool or JavaScript mistakes.
 When a suite adds or removes scenarios, `compare` still checks overlapping per-scenario metrics but treats overall aggregate metrics as informational until a new baseline is reviewed and committed.
+The `catalog` suite covers search-only catalog scenarios. Its scheduled compare is enabled automatically once `Tools/CodeModeEval/Baselines/catalog-r5-summary.json` has been generated from a reviewed live r5 run and committed.
 
 Create a human-readable Markdown diagnostics report:
 
@@ -75,14 +61,13 @@ swift run --package-path Tools/CodeModeEval codemode-eval summarize \
 
 ## CI Policy
 
-The GitHub Actions workflow runs deterministic evals on PRs and pushes. Live LLM evals run only on schedule or manual dispatch because they require secrets and provider calls.
+The GitHub Actions workflow runs deterministic evals on PRs and pushes. Scheduled and manually dispatched runs build the same public eval CLI and preview `core`, `failures`, and `catalog` LLM suite budgets without making live provider calls or resolving private Wavelike dependencies.
 
-Scheduled/manual live evals:
+Scheduled/manual planning runs:
 
-- Run `core` and `failures` with repeat count 5 by default.
-- Save raw JSON, summary JSON, and Markdown diagnostics reports as workflow artifacts.
-- Compare repeat-5 reports against committed summary baselines.
-- Use request pacing and transient model retry/backoff to tolerate provider rate limits.
+- Preview `core`, `failures`, and `catalog` with repeat count 5 by default.
+- Honor the manual `repeat_count` and `request_delay_ms` inputs for budget estimates.
+- Leave baseline comparison to private live-report generation until a reviewed candidate report exists.
 
 ## Updating Baselines
 

@@ -8,16 +8,16 @@ struct BridgeCatalog: Sendable {
     }
 
     private let references: [JavaScriptAPIReference]
-    private let referencesByCapability: [CapabilityID: JavaScriptAPIReference]
+    private let referencesByCapability: [CodeModeCapabilityKey: JavaScriptAPIReference]
     private let searchCatalog: JSONValue
     private let allJavaScriptNames: [String]
 
     init(registry: CapabilityRegistry) {
-        let descriptors = registry.allDescriptors().sorted { $0.id.rawValue < $1.id.rawValue }
-        let references = descriptors.map(Self.reference(from:))
+        let functions = registry.allRegisteredFunctions().sorted { $0.catalogCapability < $1.catalogCapability }
+        let references = functions.map(Self.reference(from:))
 
         self.references = references
-        self.referencesByCapability = Dictionary(uniqueKeysWithValues: references.map { ($0.capability, $0) })
+        self.referencesByCapability = Dictionary(uniqueKeysWithValues: references.map { ($0.capabilityKey, $0) })
         self.allJavaScriptNames = Array(Set(references.flatMap(\.jsNames))).sorted()
 
         var byJSName: [String: JavaScriptAPIReference] = [:]
@@ -30,14 +30,18 @@ struct BridgeCatalog: Sendable {
         self.searchCatalog = Self.jsonValue(
             from: SearchCatalogPayload(
                 references: references,
-                byCapability: Dictionary(uniqueKeysWithValues: references.map { ($0.capability.rawValue, $0) }),
+                byCapability: Dictionary(uniqueKeysWithValues: references.map { ($0.capability, $0) }),
                 byJSName: byJSName
             )
         )
     }
 
     func reference(for capability: CapabilityID) -> JavaScriptAPIReference? {
-        referencesByCapability[capability]
+        referencesByCapability[capability.codeModeKey]
+    }
+
+    func reference(for capabilityKey: CodeModeCapabilityKey) -> JavaScriptAPIReference? {
+        referencesByCapability[capabilityKey]
     }
 
     func allReferences() -> [JavaScriptAPIReference] {
@@ -94,18 +98,21 @@ struct BridgeCatalog: Sendable {
         }
     }
 
-    private static func reference(from descriptor: CapabilityDescriptor) -> JavaScriptAPIReference {
-        JavaScriptAPIReference(
-            capability: descriptor.id,
-            jsNames: JavaScriptBindingCatalog.names(for: descriptor.id),
-            summary: descriptor.summary,
-            tags: descriptor.tags,
-            example: descriptor.example,
-            requiredArguments: descriptor.requiredArguments,
-            optionalArguments: descriptor.optionalArguments,
-            argumentTypes: descriptor.argumentTypes,
-            argumentHints: descriptor.argumentHints,
-            resultSummary: descriptor.resultSummary
+    private static func reference(from function: RegisteredCodeModeFunction) -> JavaScriptAPIReference {
+        return JavaScriptAPIReference(
+            capability: function.catalogCapability,
+            capabilityKey: function.capabilityKey,
+            builtInCapability: function.builtInCapability,
+            jsNames: function.jsNames,
+            summary: function.summary,
+            tags: function.tags,
+            example: function.example,
+            requiredArguments: function.requiredArguments,
+            optionalArguments: function.optionalArguments,
+            argumentTypes: function.argumentTypes,
+            argumentHints: function.argumentHints,
+            argumentConstraints: function.argumentConstraints,
+            resultSummary: function.resultSummary
         )
     }
 

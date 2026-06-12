@@ -18,12 +18,15 @@
     "catalog.console-diagnostics",
     "catalog.alias-platform-pruning",
     "weather.argument-validation",
+    "keychain.round-trip",
+    "notifications.permission-request",
+    "location.permission-status",
     "fs.bad-helper-suggestion"
   ],
   "suite" : "core",
   "summary" : {
     "averageRetries" : 0,
-    "averageTurns" : 2.769230769230769,
+    "averageTurns" : 2.8125,
     "byScenario" : [
       {
         "averageRetries" : 0,
@@ -229,20 +232,68 @@
         ],
         "passRate" : 1,
         "passedRuns" : 5,
+        "scenarioID" : "keychain.round-trip",
+        "title" : "Keychain round trip",
+        "totalRuns" : 5
+      },
+      {
+        "averageRetries" : 0,
+        "averageTurns" : 3,
+        "exactCapabilityPassRate" : 1,
+        "exactCapabilityPassedRuns" : 5,
+        "exactCapabilityRuns" : 5,
+        "failedRuns" : 0,
+        "failureCategories" : [
+
+        ],
+        "passRate" : 1,
+        "passedRuns" : 5,
+        "scenarioID" : "notifications.permission-request",
+        "title" : "Notifications permission request",
+        "totalRuns" : 5
+      },
+      {
+        "averageRetries" : 0,
+        "averageTurns" : 3,
+        "exactCapabilityPassRate" : 1,
+        "exactCapabilityPassedRuns" : 5,
+        "exactCapabilityRuns" : 5,
+        "failedRuns" : 0,
+        "failureCategories" : [
+
+        ],
+        "passRate" : 1,
+        "passedRuns" : 5,
+        "scenarioID" : "location.permission-status",
+        "title" : "Location permission status",
+        "totalRuns" : 5
+      },
+      {
+        "averageRetries" : 0,
+        "averageTurns" : 3,
+        "exactCapabilityPassRate" : 1,
+        "exactCapabilityPassedRuns" : 5,
+        "exactCapabilityRuns" : 5,
+        "failedRuns" : 0,
+        "failureCategories" : [
+
+        ],
+        "passRate" : 1,
+        "passedRuns" : 5,
         "scenarioID" : "fs.bad-helper-suggestion",
         "title" : "Bad helper names get suggestions",
         "totalRuns" : 5
       }
     ],
     "exactCapabilityPassRate" : 1,
-    "exactCapabilityPassedRuns" : 50,
-    "exactCapabilityRuns" : 50,
+    "exactCapabilityPassedRuns" : 65,
+    "exactCapabilityRuns" : 65,
     "failedRuns" : 0,
     "failureCategories" : [
 
     ],
     "passRate" : 1,
-    "passedRuns" : 65,
-    "totalRuns" : 65
+    "passedRuns" : 80,
+    "totalRuns" : 80
   }
 }

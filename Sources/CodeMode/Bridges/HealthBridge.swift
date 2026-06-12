@@ -143,11 +143,7 @@ public final class HealthBridge: @unchecked Sendable {
         case .denied, .restricted:
             throw BridgeError.permissionDenied(.healthKit)
         case .notDetermined:
-            let requested = context.permissionBroker.request(for: .healthKit)
-            context.recordPermission(.healthKit, status: requested)
-            if requested != .granted {
-                throw BridgeError.permissionDenied(.healthKit)
-            }
+            break
         case .granted, .writeOnly, .unavailable:
             break
         }

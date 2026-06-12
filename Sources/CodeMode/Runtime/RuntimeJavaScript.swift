@@ -1,6 +1,115 @@
 import Foundation
 
 enum RuntimeJavaScript {
+    static func pruningScript(removingJavaScriptNames names: some Sequence<String>) -> String {
+        let bindingsToRemove = Array(Set(names)).sorted()
+
+        guard bindingsToRemove.isEmpty == false else {
+            return ""
+        }
+
+        let deleteCalls = bindingsToRemove.map { name in
+            "__codemodeDeletePath(\(jsonString(name)));"
+        }
+
+        let groupPaths = Set(
+            bindingsToRemove.compactMap { name -> String? in
+                let components = name.split(separator: ".")
+                guard components.count >= 2 else {
+                    return nil
+                }
+                return components.dropLast().joined(separator: ".")
+            }
+        )
+
+        let groupCleanupCalls = groupPaths.sorted(by: { lhs, rhs in
+            lhs.components(separatedBy: ".").count > rhs.components(separatedBy: ".").count
+        }).map { path in
+            "__codemodeDeleteIfEmpty(\(jsonString(path)));"
+        }
+
+        let rootCleanupCalls = ["apple", "ios", "fs"].map { root in
+            "__codemodeDeleteIfEmpty(\(jsonString(root)));"
+        }
+
+        return """
+        (function(){
+            function __codemodeResolveParent(path) {
+                const segments = String(path).split('.').filter(function(segment){ return segment.length > 0; });
+                if (segments.length === 0) return null;
+                let target = globalThis;
+                for (let i = 0; i < segments.length - 1; i++) {
+                    if (!target || typeof target[segments[i]] === 'undefined') return null;
+                    target = target[segments[i]];
+                }
+                return { target: target, property: segments[segments.length - 1] };
+            }
+            function __codemodeDeletePath(path) {
+                const binding = __codemodeResolveParent(path);
+                if (binding && binding.target) delete binding.target[binding.property];
+            }
+            function __codemodeResolvePath(path) {
+                const segments = String(path).split('.').filter(function(segment){ return segment.length > 0; });
+                let target = globalThis;
+                for (let i = 0; i < segments.length; i++) {
+                    if (!target || typeof target[segments[i]] === 'undefined') return undefined;
+                    target = target[segments[i]];
+                }
+                return target;
+            }
+            function __codemodeDeleteIfEmpty(path) {
+                const value = __codemodeResolvePath(path);
+                if (value && typeof value === 'object' && Object.keys(value).length === 0) {
+                    __codemodeDeletePath(path);
+                }
+            }
+        \(indent((deleteCalls + groupCleanupCalls + rootCleanupCalls).joined(separator: "\n"), prefix: "    "))
+        })();
+        """
+    }
+
+    static func builtInBootstrap(for registrations: [CapabilityRegistration]) -> String {
+        let commands = registrations
+            .sorted { $0.descriptor.id.rawValue < $1.descriptor.id.rawValue }
+            .flatMap { registration in
+                registration.jsNames.sorted().map { jsName in
+                    "__codemodeInstallBindingIfMissing(\(jsonString(jsName)), \(jsonString(registration.descriptor.id.codeModeKey.rawValue)));"
+                }
+            }
+        guard commands.isEmpty == false else {
+            return ""
+        }
+        return commands.joined(separator: "\n")
+    }
+
+    static func providerBootstrap(for registrations: [CodeModeRegistration]) -> String {
+        let commands = registrations
+            .sorted { $0.jsPath < $1.jsPath }
+            .map { registration in
+                "__codemodeInstallBinding(\(jsonString(registration.jsPath)), \(jsonString(registration.capabilityKey.rawValue)));"
+            }
+        guard commands.isEmpty == false else {
+            return ""
+        }
+        return commands.joined(separator: "\n")
+    }
+
+    private static func jsonString(_ value: String) -> String {
+        guard let data = try? JSONEncoder.codeModeBridge.encode(value),
+              let string = String(data: data, encoding: .utf8)
+        else {
+            return "\"\""
+        }
+        return string
+    }
+
+    private static func indent(_ value: String, prefix: String) -> String {
+        value
+            .split(separator: "\n", omittingEmptySubsequences: false)
+            .map { $0.isEmpty ? "" : prefix + $0 }
+            .joined(separator: "\n")
+    }
+
     static let searchBootstrap = """
     globalThis.__codemode = globalThis.__codemode || {};
     globalThis.__codemode.state = 'idle';
@@ -24,6 +133,10 @@ enum RuntimeJavaScript {
     """
 
     static let bootstrap = """
+    (function(){
+    const __codemodeInvokeSync = globalThis.__bridgeInvokeSync;
+    delete globalThis.__bridgeInvokeSync;
+
     globalThis.__codemode = globalThis.__codemode || {};
     globalThis.__codemode.state = 'idle';
     globalThis.__codemode.result = null;
@@ -31,12 +144,13 @@ enum RuntimeJavaScript {
 
     function __invoke(capability, args) {
         const payload = JSON.stringify(args ?? {});
-        const raw = __bridgeInvokeSync(String(capability), payload);
+        const raw = __codemodeInvokeSync(String(capability), payload);
         const envelope = JSON.parse(String(raw || '{}'));
         if (!envelope.ok) {
             const error = new Error(envelope.error && envelope.error.message ? envelope.error.message : 'Bridge call failed');
             error.code = envelope.error && envelope.error.code ? envelope.error.code : 'BRIDGE_ERROR';
             error.capability = envelope.error && envelope.error.capability ? envelope.error.capability : null;
+            error.suggestions = envelope.error && Array.isArray(envelope.error.suggestions) ? envelope.error.suggestions.map(function(value){ return String(value); }) : [];
             throw error;
         }
         return envelope.value;
@@ -44,6 +158,39 @@ enum RuntimeJavaScript {
 
     function __invokeAsync(capability, args) {
         return Promise.resolve().then(function(){ return __invoke(capability, args); });
+    }
+
+    function __codemodeResolveBinding(jsPath) {
+        const segments = String(jsPath).split('.').filter(function(segment){ return segment.length > 0; });
+        if (segments.length === 0) {
+            throw new Error('Invalid CodeMode JS path');
+        }
+        let target = globalThis;
+        for (let i = 0; i < segments.length - 1; i++) {
+            const segment = segments[i];
+            if (!target[segment] || typeof target[segment] !== 'object') {
+                target[segment] = {};
+            }
+            target = target[segment];
+        }
+        return { target: target, property: segments[segments.length - 1] };
+    }
+
+    function __codemodeInstallResolvedBinding(binding, capability) {
+        binding.target[binding.property] = function(args) {
+            return __invokeAsync(capability, args || {});
+        };
+    }
+
+    function __codemodeInstallBinding(jsPath, capability) {
+        __codemodeInstallResolvedBinding(__codemodeResolveBinding(jsPath), capability);
+    }
+
+    function __codemodeInstallBindingIfMissing(jsPath, capability) {
+        const binding = __codemodeResolveBinding(jsPath);
+        if (typeof binding.target[binding.property] === 'undefined') {
+            __codemodeInstallResolvedBinding(binding, capability);
+        }
     }
 
     globalThis.console = {
@@ -73,18 +220,36 @@ enum RuntimeJavaScript {
     }
 
     if (typeof URL === 'undefined') {
-        globalThis.URL = function(url){ this.href = String(url); };
+        globalThis.URL = function(url){
+            this.href = String(url);
+            this.toString = function(){ return this.href; };
+            this.valueOf = function(){ return this.href; };
+        };
     }
 
     function __response(payload) {
         const bodyText = payload && payload.bodyText ? String(payload.bodyText) : '';
+        const bodyBase64 = payload && payload.bodyBase64 ? String(payload.bodyBase64) : '';
+        const headerValues = payload && payload.headers ? payload.headers : {};
+        const headers = Object.assign({}, headerValues);
+        headers.get = function(name) {
+            const target = String(name || '').toLowerCase();
+            const keys = Object.keys(headerValues);
+            for (let i = 0; i < keys.length; i++) {
+                if (String(keys[i]).toLowerCase() === target) {
+                    return headerValues[keys[i]];
+                }
+            }
+            return null;
+        };
         return {
             ok: !!(payload && payload.ok),
             status: payload && payload.status ? Number(payload.status) : 0,
             statusText: payload && payload.statusText ? String(payload.statusText) : '',
-            headers: payload && payload.headers ? payload.headers : {},
+            headers: headers,
             text: function(){ return Promise.resolve(bodyText); },
-            json: function(){ return Promise.resolve(bodyText.length ? JSON.parse(bodyText) : null); }
+            json: function(){ return Promise.resolve(bodyText.length ? JSON.parse(bodyText) : null); },
+            base64: function(){ return Promise.resolve(bodyBase64); }
         };
     }
 
@@ -105,13 +270,11 @@ enum RuntimeJavaScript {
         getCurrentPosition: function() { return __invokeAsync('location.read', { mode: 'current' }); }
     };
 
-    globalThis.apple.weather = {
-        getCurrentWeather: function(coords) { return __invokeAsync('weather.read', coords || {}); }
-    };
-
     globalThis.apple.calendar = {
         listEvents: function(args) { return __invokeAsync('calendar.read', args || {}); },
-        createEvent: function(args) { return __invokeAsync('calendar.write', args || {}); },
+        createEvent: function(args) { return __invokeAsync('calendar.write', Object.assign({}, args || {}, { operation: 'create' })); },
+        updateEvent: function(args) { return __invokeAsync('calendar.write', Object.assign({}, args || {}, { operation: 'update' })); },
+        deleteEvent: function(args) { return __invokeAsync('calendar.delete', args || {}); },
         pickCalendar: function(args) { return __invokeAsync('calendar.ui.pickCalendar', args || {}); },
         presentEvent: function(args) { return __invokeAsync('calendar.ui.presentEvent', args || {}); },
         presentNewEvent: function(args) { return __invokeAsync('calendar.ui.presentNewEvent', args || {}); }
@@ -119,7 +282,10 @@ enum RuntimeJavaScript {
 
     globalThis.apple.reminders = {
         listReminders: function(args) { return __invokeAsync('reminders.read', args || {}); },
-        createReminder: function(args) { return __invokeAsync('reminders.write', args || {}); }
+        createReminder: function(args) { return __invokeAsync('reminders.write', Object.assign({}, args || {}, { operation: 'create' })); },
+        updateReminder: function(args) { return __invokeAsync('reminders.write', Object.assign({}, args || {}, { operation: 'update' })); },
+        completeReminder: function(args) { return __invokeAsync('reminders.write', Object.assign({ isCompleted: true }, args || {}, { operation: 'complete' })); },
+        deleteReminder: function(args) { return __invokeAsync('reminders.delete', args || {}); }
     };
 
     globalThis.apple.contacts = {
@@ -187,55 +353,6 @@ enum RuntimeJavaScript {
         open: function(args) { return __invokeAsync('settings.ui.open', args || {}); }
     };
 
-    globalThis.apple.vision = {
-        analyzeImage: function(args) { return __invokeAsync('vision.image.analyze', args || {}); }
-    };
-
-    globalThis.apple.notifications = {
-        requestPermission: function() { return __invokeAsync('notifications.permission.request', {}); },
-        schedule: function(args) { return __invokeAsync('notifications.schedule', args || {}); },
-        listPending: function(args) { return __invokeAsync('notifications.pending.read', args || {}); },
-        cancelPending: function(args) { return __invokeAsync('notifications.pending.delete', args || {}); }
-    };
-
-    globalThis.ios = globalThis.ios || {};
-    globalThis.ios.alarm = {
-        requestPermission: function() { return __invokeAsync('alarm.permission.request', {}); },
-        list: function(args) { return __invokeAsync('alarm.read', args || {}); },
-        schedule: function(args) { return __invokeAsync('alarm.schedule', args || {}); },
-        cancel: function(args) { return __invokeAsync('alarm.cancel', args || {}); }
-    };
-
-    globalThis.apple.health = {
-        requestPermission: function(args) { return __invokeAsync('health.permission.request', args || {}); },
-        read: function(args) { return __invokeAsync('health.read', args || {}); },
-        write: function(args) { return __invokeAsync('health.write', args || {}); }
-    };
-
-    globalThis.apple.home = {
-        list: function(args) { return __invokeAsync('home.read', args || {}); },
-        writeCharacteristic: function(args) { return __invokeAsync('home.write', args || {}); }
-    };
-
-    globalThis.apple.media = {
-        metadata: function(args) { return __invokeAsync('media.metadata.read', args || {}); },
-        extractFrame: function(args) { return __invokeAsync('media.frame.extract', args || {}); },
-        transcode: function(args) { return __invokeAsync('media.transcode', args || {}); }
-    };
-
-    globalThis.apple.fs = {
-        list: function(args) { return __invokeAsync('fs.list', args || {}); },
-        read: function(args) { return __invokeAsync('fs.read', args || {}); },
-        write: function(args) { return __invokeAsync('fs.write', args || {}); },
-        move: function(args) { return __invokeAsync('fs.move', args || {}); },
-        copy: function(args) { return __invokeAsync('fs.copy', args || {}); },
-        delete: function(args) { return __invokeAsync('fs.delete', args || {}); },
-        stat: function(args) { return __invokeAsync('fs.stat', args || {}); },
-        mkdir: function(args) { return __invokeAsync('fs.mkdir', args || {}); },
-        exists: function(args) { return __invokeAsync('fs.exists', args || {}); },
-        access: function(args) { return __invokeAsync('fs.access', args || {}); }
-    };
-
     globalThis.fs = {
         promises: {
             readFile: function(path, options) {
@@ -274,5 +391,8 @@ enum RuntimeJavaScript {
                 .join('/');
         }
     };
+    globalThis.__codemodeInstallBinding = __codemodeInstallBinding;
+    globalThis.__codemodeInstallBindingIfMissing = __codemodeInstallBindingIfMissing;
+    })();
     """
 }

@@ -11,12 +11,16 @@
     "fs.capability-denied",
     "execution.timeout",
     "catalog.rejects-non-function",
-    "contacts.permission-denied"
+    "contacts.permission-denied",
+    "network.invalid-url",
+    "calendar.write-permission-denied",
+    "home.write-validation",
+    "media.metadata-validation"
   ],
   "suite" : "failures",
   "summary" : {
     "averageRetries" : 0,
-    "averageTurns" : 2.6666666666666665,
+    "averageTurns" : 2.8,
     "byScenario" : [
       {
         "averageRetries" : 0,
@@ -113,17 +117,81 @@
         "scenarioID" : "contacts.permission-denied",
         "title" : "Permission denial stays structured",
         "totalRuns" : 5
+      },
+      {
+        "averageRetries" : 0,
+        "averageTurns" : 3,
+        "exactCapabilityPassRate" : 1,
+        "exactCapabilityPassedRuns" : 5,
+        "exactCapabilityRuns" : 5,
+        "failedRuns" : 0,
+        "failureCategories" : [
+
+        ],
+        "passRate" : 1,
+        "passedRuns" : 5,
+        "scenarioID" : "network.invalid-url",
+        "title" : "Network invalid URL",
+        "totalRuns" : 5
+      },
+      {
+        "averageRetries" : 0,
+        "averageTurns" : 3,
+        "exactCapabilityPassRate" : 1,
+        "exactCapabilityPassedRuns" : 5,
+        "exactCapabilityRuns" : 5,
+        "failedRuns" : 0,
+        "failureCategories" : [
+
+        ],
+        "passRate" : 1,
+        "passedRuns" : 5,
+        "scenarioID" : "calendar.write-permission-denied",
+        "title" : "Calendar write permission denied",
+        "totalRuns" : 5
+      },
+      {
+        "averageRetries" : 0,
+        "averageTurns" : 3,
+        "exactCapabilityPassRate" : 1,
+        "exactCapabilityPassedRuns" : 5,
+        "exactCapabilityRuns" : 5,
+        "failedRuns" : 0,
+        "failureCategories" : [
+
+        ],
+        "passRate" : 1,
+        "passedRuns" : 5,
+        "scenarioID" : "home.write-validation",
+        "title" : "Home write validation",
+        "totalRuns" : 5
+      },
+      {
+        "averageRetries" : 0,
+        "averageTurns" : 3,
+        "exactCapabilityPassRate" : 1,
+        "exactCapabilityPassedRuns" : 5,
+        "exactCapabilityRuns" : 5,
+        "failedRuns" : 0,
+        "failureCategories" : [
+
+        ],
+        "passRate" : 1,
+        "passedRuns" : 5,
+        "scenarioID" : "media.metadata-validation",
+        "title" : "Media metadata validation",
+        "totalRuns" : 5
       }
     ],
     "exactCapabilityPassRate" : 1,
-    "exactCapabilityPassedRuns" : 25,
-    "exactCapabilityRuns" : 25,
+    "exactCapabilityPassedRuns" : 45,
+    "exactCapabilityRuns" : 45,
     "failedRuns" : 0,
     "failureCategories" : [
 
     ],
     "passRate" : 1,
-    "passedRuns" : 30,
-    "totalRuns" : 30
+    "passedRuns" : 50,
+    "totalRuns" : 50
   }
 }

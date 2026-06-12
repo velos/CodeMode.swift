@@ -7,6 +7,18 @@ public struct CodeModeConfiguration: Sendable {
     public var permissionBroker: any PermissionBroker
     public var auditLogger: any AuditLogger
     public var systemUIPresenter: any SystemUIPresenter
+    public var eventInbox: any CodeModeEventInbox
+    public var cloudKitClient: any CloudKitClient
+    public var remoteNotificationsClient: any RemoteNotificationsClient
+    public var speechClient: any SpeechClient
+    public var appIntentsClient: any AppIntentsClient
+    public var foundationModelsClient: any FoundationModelsClient
+    public var activityClient: any ActivityClient
+    public var mapsClient: any MapsClient
+    public var musicClient: any MusicClient
+    public var passKitClient: any PassKitClient
+    public var storeKitClient: any StoreKitClient
+    public var codeModeProviders: [any CodeModeProvider]
     public var hostPlatform: HostPlatform
 
     public init(
@@ -16,6 +28,18 @@ public struct CodeModeConfiguration: Sendable {
         permissionBroker: any PermissionBroker = SystemPermissionBroker(),
         auditLogger: any AuditLogger = SyncAuditLogger(),
         systemUIPresenter: any SystemUIPresenter = UnavailableSystemUIPresenter(),
+        eventInbox: any CodeModeEventInbox = UnavailableCodeModeEventInbox(),
+        cloudKitClient: any CloudKitClient = UnavailableCloudKitClient(),
+        remoteNotificationsClient: any RemoteNotificationsClient = UnavailableRemoteNotificationsClient(),
+        speechClient: any SpeechClient = UnavailableSpeechClient(),
+        appIntentsClient: any AppIntentsClient = UnavailableAppIntentsClient(),
+        foundationModelsClient: any FoundationModelsClient = UnavailableFoundationModelsClient(),
+        activityClient: any ActivityClient = UnavailableActivityClient(),
+        mapsClient: any MapsClient = UnavailableMapsClient(),
+        musicClient: any MusicClient = UnavailableMusicClient(),
+        passKitClient: any PassKitClient = UnavailablePassKitClient(),
+        storeKitClient: any StoreKitClient = UnavailableStoreKitClient(),
+        codeModeProviders: [any CodeModeProvider] = [],
         hostPlatform: HostPlatform = .current
     ) {
         self.pathPolicy = pathPolicy
@@ -24,6 +48,18 @@ public struct CodeModeConfiguration: Sendable {
         self.permissionBroker = permissionBroker
         self.auditLogger = auditLogger
         self.systemUIPresenter = systemUIPresenter
+        self.eventInbox = eventInbox
+        self.cloudKitClient = cloudKitClient
+        self.remoteNotificationsClient = remoteNotificationsClient
+        self.speechClient = speechClient
+        self.appIntentsClient = appIntentsClient
+        self.foundationModelsClient = foundationModelsClient
+        self.activityClient = activityClient
+        self.mapsClient = mapsClient
+        self.musicClient = musicClient
+        self.passKitClient = passKitClient
+        self.storeKitClient = storeKitClient
+        self.codeModeProviders = codeModeProviders
         self.hostPlatform = hostPlatform
     }
 }
@@ -37,7 +73,9 @@ public struct JavaScriptAPISearchRequest: Sendable, Codable, Equatable {
 }
 
 public struct JavaScriptAPIReference: Sendable, Codable, Equatable {
-    public var capability: CapabilityID
+    public var capability: String
+    public var capabilityKey: CodeModeCapabilityKey
+    public var builtInCapability: CapabilityID?
     public var jsNames: [String]
     public var summary: String
     public var tags: [String]
@@ -46,10 +84,13 @@ public struct JavaScriptAPIReference: Sendable, Codable, Equatable {
     public var optionalArguments: [String]
     public var argumentTypes: [String: CapabilityArgumentType]
     public var argumentHints: [String: String]
+    public var argumentConstraints: CapabilityArgumentConstraints
     public var resultSummary: String
 
     public init(
-        capability: CapabilityID,
+        capability: String,
+        capabilityKey: CodeModeCapabilityKey? = nil,
+        builtInCapability: CapabilityID? = nil,
         jsNames: [String],
         summary: String,
         tags: [String],
@@ -58,9 +99,12 @@ public struct JavaScriptAPIReference: Sendable, Codable, Equatable {
         optionalArguments: [String],
         argumentTypes: [String: CapabilityArgumentType],
         argumentHints: [String: String],
+        argumentConstraints: CapabilityArgumentConstraints = .none,
         resultSummary: String
     ) {
         self.capability = capability
+        self.capabilityKey = capabilityKey ?? CodeModeCapabilityKey(rawValue: capability)
+        self.builtInCapability = builtInCapability
         self.jsNames = jsNames
         self.summary = summary
         self.tags = tags
@@ -69,6 +113,7 @@ public struct JavaScriptAPIReference: Sendable, Codable, Equatable {
         self.optionalArguments = optionalArguments
         self.argumentTypes = argumentTypes
         self.argumentHints = argumentHints
+        self.argumentConstraints = argumentConstraints
         self.resultSummary = resultSummary
     }
 }
@@ -86,17 +131,20 @@ public struct JavaScriptAPISearchResponse: Sendable, Codable, Equatable {
 public struct JavaScriptExecutionRequest: Sendable, Codable, Equatable {
     public var code: String
     public var allowedCapabilities: [CapabilityID]
+    public var allowedCapabilityKeys: [CodeModeCapabilityKey]
     public var timeoutMs: Int
     public var context: ExecutionContext
 
     public init(
         code: String,
         allowedCapabilities: [CapabilityID],
+        allowedCapabilityKeys: [CodeModeCapabilityKey] = [],
         timeoutMs: Int = 10_000,
         context: ExecutionContext = .init()
     ) {
         self.code = code
         self.allowedCapabilities = allowedCapabilities
+        self.allowedCapabilityKeys = allowedCapabilityKeys
         self.timeoutMs = timeoutMs
         self.context = context
     }
@@ -136,6 +184,7 @@ public struct CodeModeToolError: Error, Sendable, Codable, Equatable {
     public var message: String
     public var functionName: String?
     public var capability: CapabilityID?
+    public var capabilityKey: CodeModeCapabilityKey?
     public var line: Int?
     public var column: Int?
     public var suggestions: [String]
@@ -148,6 +197,7 @@ public struct CodeModeToolError: Error, Sendable, Codable, Equatable {
         message: String,
         functionName: String? = nil,
         capability: CapabilityID? = nil,
+        capabilityKey: CodeModeCapabilityKey? = nil,
         line: Int? = nil,
         column: Int? = nil,
         suggestions: [String] = [],
@@ -159,6 +209,7 @@ public struct CodeModeToolError: Error, Sendable, Codable, Equatable {
         self.message = message
         self.functionName = functionName
         self.capability = capability
+        self.capabilityKey = capabilityKey ?? capability?.codeModeKey
         self.line = line
         self.column = column
         self.suggestions = suggestions
@@ -324,10 +375,12 @@ public enum CapabilityID: String, Sendable, Codable, CaseIterable, Hashable {
 
     case calendarRead = "calendar.read"
     case calendarWrite = "calendar.write"
+    case calendarDelete = "calendar.delete"
     case calendarUIPresentNewEvent = "calendar.ui.presentNewEvent"
 
     case remindersRead = "reminders.read"
     case remindersWrite = "reminders.write"
+    case remindersDelete = "reminders.delete"
 
     case contactsRead = "contacts.read"
     case contactsSearch = "contacts.search"
@@ -344,6 +397,13 @@ public enum CapabilityID: String, Sendable, Codable, CaseIterable, Hashable {
     case notificationsSchedule = "notifications.schedule"
     case notificationsPendingRead = "notifications.pending.read"
     case notificationsPendingDelete = "notifications.pending.delete"
+    case notificationsDeliveredRead = "notifications.delivered.read"
+    case notificationsDeliveredDelete = "notifications.delivered.delete"
+    case notificationsRemoteRegister = "notifications.remote.register"
+    case notificationsRemoteTokenRead = "notifications.remote.token.read"
+    case notificationsSettingsRead = "notifications.settings.read"
+    case notificationsCategoriesSet = "notifications.categories.set"
+    case notificationsResponsesRead = "notifications.responses.read"
 
     case alarmPermissionRequest = "alarm.permission.request"
     case alarmRead = "alarm.read"
@@ -360,6 +420,61 @@ public enum CapabilityID: String, Sendable, Codable, CaseIterable, Hashable {
     case mediaMetadataRead = "media.metadata.read"
     case mediaFrameExtract = "media.frame.extract"
     case mediaTranscode = "media.transcode"
+
+    case cloudKitAccountStatus = "cloudkit.account.status"
+    case cloudKitRecordsQuery = "cloudkit.records.query"
+    case cloudKitRecordSave = "cloudkit.record.save"
+    case cloudKitRecordDelete = "cloudkit.record.delete"
+    case cloudKitSubscriptionSave = "cloudkit.subscription.save"
+    case cloudKitSubscriptionEventsRead = "cloudkit.subscriptionEvents.read"
+
+    case speechPermissionRequest = "speech.permission.request"
+    case speechStatus = "speech.status"
+    case speechFileTranscribe = "speech.file.transcribe"
+    case speechMicrophoneTranscribe = "speech.microphone.transcribe"
+
+    case appIntentsList = "appintents.list"
+    case appIntentsRun = "appintents.run"
+    case appIntentsDonate = "appintents.donate"
+    case appIntentsOpen = "appintents.open"
+    case appIntentsHandoffsRead = "appintents.handoffs.read"
+
+    case foundationModelsStatus = "foundationModels.status"
+    case foundationModelsGenerate = "foundationModels.generate"
+    case foundationModelsExtract = "foundationModels.extract"
+
+    case activityList = "activity.list"
+    case activityStart = "activity.start"
+    case activityUpdate = "activity.update"
+    case activityEnd = "activity.end"
+    case activityPushTokenRead = "activity.pushToken.read"
+
+    case mapsGeocode = "maps.geocode"
+    case mapsReverseGeocode = "maps.reverseGeocode"
+    case mapsSearch = "maps.search"
+    case mapsRouteEstimate = "maps.route.estimate"
+    case mapsOpen = "maps.open"
+
+    case musicPermissionRequest = "music.permission.request"
+    case musicSubscriptionStatus = "music.subscription.status"
+    case musicCatalogSearch = "music.catalog.search"
+    case musicCatalogDetails = "music.catalog.details"
+    case musicLibraryRead = "music.library.read"
+    case musicPlaylistWrite = "music.playlist.write"
+    case musicPlaybackControl = "music.playback.control"
+
+    case passKitWalletStatus = "passkit.wallet.status"
+    case passKitPassesRead = "passkit.passes.read"
+    case passKitPassAdd = "passkit.pass.add"
+    case passKitPassPresent = "passkit.pass.present"
+    case passKitApplePayStatus = "passkit.applePay.status"
+    case passKitApplePayPresent = "passkit.applePay.present"
+
+    case storeKitProductsRead = "storekit.products.read"
+    case storeKitEntitlementsRead = "storekit.entitlements.read"
+    case storeKitPurchase = "storekit.purchase"
+    case storeKitRestore = "storekit.restore"
+    case storeKitTransactionsRead = "storekit.transactions.read"
 
     case fsList = "fs.list"
     case fsRead = "fs.read"

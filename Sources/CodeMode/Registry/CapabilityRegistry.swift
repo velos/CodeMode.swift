@@ -33,6 +33,151 @@ public enum CapabilityArgumentType: String, Sendable, Codable, Equatable {
     }
 }
 
+public struct CapabilityArgumentConstraints: Sendable, Codable, Equatable {
+    public var allowedStringValues: [String: [String]]
+
+    public init(allowedStringValues: [String: [String]] = [:]) {
+        self.allowedStringValues = allowedStringValues.mapValues(Self.uniqueValues)
+    }
+
+    public static let none = CapabilityArgumentConstraints()
+
+    public static func defaults(for capability: CapabilityID) -> CapabilityArgumentConstraints {
+        switch capability {
+        case .networkFetch:
+            return .init(allowedStringValues: [
+                "options.responseEncoding": ["text", "base64"],
+            ])
+        case .calendarWrite:
+            return .init(allowedStringValues: [
+                "operation": ["create", "update"],
+            ])
+        case .calendarDelete:
+            return .init(allowedStringValues: [
+                "span": ["thisEvent", "futureEvents"],
+            ])
+        case .calendarUIPickCalendar:
+            return .init(allowedStringValues: [
+                "selectionStyle": ["single", "multiple"],
+                "displayStyle": ["writable", "all"],
+            ])
+        case .remindersWrite:
+            return .init(allowedStringValues: [
+                "operation": ["create", "update", "complete"],
+            ])
+        case .photosRead:
+            return .init(allowedStringValues: [
+                "mediaType": ["any", "image", "photo", "video"],
+            ])
+        case .photosUIPick:
+            return .init(allowedStringValues: [
+                "mediaType": ["any", "image", "photo", "video"],
+            ])
+        case .contactsUIPick:
+            return .init(allowedStringValues: [
+                "mode": ["single", "multiple"],
+            ])
+        case .cameraUICapture:
+            return .init(allowedStringValues: [
+                "mediaType": ["any", "image", "photo", "video"],
+                "cameraDevice": ["rear", "front"],
+                "flashMode": ["auto", "on", "off"],
+                "videoQuality": ["high", "medium", "low", "640x480", "iFrame1280x720", "iFrame960x540", "iframe1280x720", "iframe960x540"],
+            ])
+        case .cameraUIScanData:
+            return .init(allowedStringValues: [
+                "mode": ["any", "text", "barcode"],
+                "qualityLevel": ["balanced", "fast", "accurate"],
+            ])
+        case .printUIPresent:
+            return .init(allowedStringValues: [
+                "outputType": ["general", "photo", "grayscale"],
+            ])
+        case .uiAlertPresent:
+            return .init(allowedStringValues: [
+                "preferredStyle": ["alert", "actionSheet", "actionsheet"],
+            ])
+        case .cloudKitRecordsQuery, .cloudKitRecordSave, .cloudKitRecordDelete, .cloudKitSubscriptionSave:
+            return .init(allowedStringValues: [
+                "database": ["private", "shared", "public"],
+            ])
+        case .activityEnd:
+            return .init(allowedStringValues: [
+                "dismissalPolicy": ["default", "immediate"],
+            ])
+        case .mapsRouteEstimate, .mapsOpen:
+            return .init(allowedStringValues: [
+                "transportType": ["automobile", "walking", "transit", "any"],
+            ])
+        case .musicPlaybackControl:
+            return .init(allowedStringValues: [
+                "action": ["play", "pause", "stop", "skipToNext", "skipToPrevious", "playCatalog", "playLibrary"],
+            ])
+        default:
+            return .none
+        }
+    }
+
+    func validate(arguments: [String: JSONValue], capability: CapabilityID) throws {
+        try validate(arguments: arguments, capabilityName: capability.rawValue)
+    }
+
+    func validate(arguments: [String: JSONValue], capabilityName: String) throws {
+        for (path, allowed) in allowedStringValues.sorted(by: { $0.key < $1.key }) {
+            guard let value = Self.value(atPath: path, in: arguments) else {
+                continue
+            }
+            guard let string = value.stringValue else {
+                throw BridgeError.invalidArguments("\(capabilityName) expected '\(path)' as string, received \(Self.jsonTypeName(for: value))")
+            }
+            guard allowed.contains(string) else {
+                throw BridgeError.invalidArguments("\(capabilityName) \(path) must be one of \(allowed.joined(separator: ", "))")
+            }
+        }
+    }
+
+    private static func uniqueValues(_ values: [String]) -> [String] {
+        var seen: Set<String> = []
+        var result: [String] = []
+        for value in values where seen.insert(value).inserted {
+            result.append(value)
+        }
+        return result
+    }
+
+    private static func value(atPath path: String, in root: [String: JSONValue]) -> JSONValue? {
+        let segments = path.split(separator: ".").map(String.init)
+        guard segments.isEmpty == false else { return nil }
+
+        var current: JSONValue = .object(root)
+        for segment in segments {
+            guard let object = current.objectValue, let next = object[segment] else {
+                return nil
+            }
+            current = next
+        }
+
+        return current
+    }
+
+    private static func jsonTypeName(for value: JSONValue) -> String {
+        switch value {
+        case .string:
+            return "string"
+        case .number:
+            return "number"
+        case .bool:
+            return "bool"
+        case .object:
+            return "object"
+        case .array:
+            return "array"
+        case .null:
+            return "null"
+        }
+    }
+}
+
 public struct CapabilityDescriptor: Sendable, Equatable {
     public var id: CapabilityID
     public var title: String
@@ -44,6 +189,7 @@ public struct CapabilityDescriptor: Sendable, Equatable {
     public var optionalArguments: [String]
     public var argumentTypes: [String: CapabilityArgumentType]
     public var argumentHints: [String: String]
+    public var argumentConstraints: CapabilityArgumentConstraints
     public var resultSummary: String
 
     public init(
@@ -57,6 +203,7 @@ public struct CapabilityDescriptor: Sendable, Equatable {
         optionalArguments: [String] = [],
         argumentTypes: [String: CapabilityArgumentType] = [:],
         argumentHints: [String: String] = [:],
+        argumentConstraints: CapabilityArgumentConstraints? = nil,
         resultSummary: String = "JSON value"
     ) {
         self.id = id
@@ -69,6 +216,7 @@ public struct CapabilityDescriptor: Sendable, Equatable {
         self.optionalArguments = optionalArguments
         self.argumentTypes = argumentTypes.isEmpty ? CapabilityDescriptor.inferArgumentTypes(required: requiredArguments, optional: optionalArguments) : argumentTypes
         self.argumentHints = argumentHints
+        self.argumentConstraints = argumentConstraints ?? CapabilityArgumentConstraints.defaults(for: id)
         self.resultSummary = resultSummary
     }
 
@@ -79,6 +227,9 @@ public struct CapabilityDescriptor: Sendable, Equatable {
             "options.method": .string,
             "options.headers": .object,
             "options.body": .string,
+            "options.bodyBase64": .string,
+            "options.timeoutMs": .number,
+            "options.responseEncoding": .string,
 
             "key": .string,
             "value": .string,
@@ -93,11 +244,19 @@ public struct CapabilityDescriptor: Sendable, Equatable {
             "title": .string,
             "notes": .string,
             "location": .string,
+            "calendarIdentifier": .string,
+            "calendarIdentifiers": .array,
+            "isAllDay": .bool,
+            "span": .string,
+            "operation": .string,
             "selectionStyle": .string,
             "displayStyle": .string,
             "allowsEditing": .bool,
             "allowsCalendarPreview": .bool,
             "dueDate": .string,
+            "includeCompleted": .bool,
+            "isCompleted": .bool,
+            "priority": .number,
             "query": .string,
             "limit": .number,
             "identifiers": .array,
@@ -105,6 +264,14 @@ public struct CapabilityDescriptor: Sendable, Equatable {
             "mediaType": .string,
             "outputDirectory": .string,
             "timeoutMs": .number,
+            "cameraDevice": .string,
+            "flashMode": .string,
+            "videoQuality": .string,
+            "maximumDurationSeconds": .number,
+            "isGuidanceEnabled": .bool,
+            "isHighlightingEnabled": .bool,
+            "isPinchToZoomEnabled": .bool,
+            "isHighFrameRateTrackingEnabled": .bool,
             "displayedPropertyKeys": .array,
             "allowsActions": .bool,
             "givenName": .string,
@@ -128,6 +295,7 @@ public struct CapabilityDescriptor: Sendable, Equatable {
             "prefersEphemeralSession": .bool,
             "preferredStyle": .string,
             "buttons": .array,
+            "sourceRect": .object,
             "features": .array,
             "maxResults": .number,
             "identifier": .string,
@@ -136,10 +304,80 @@ public struct CapabilityDescriptor: Sendable, Equatable {
             "secondsFromNow": .number,
             "fireDate": .string,
             "repeats": .bool,
+            "sound": .string,
+            "badge": .number,
+            "userInfo": .object,
+            "threadIdentifier": .string,
+            "categoryIdentifier": .string,
             "includeCharacteristics": .bool,
             "accessoryIdentifier": .string,
             "serviceType": .string,
             "characteristicType": .string,
+            "containerIdentifier": .string,
+            "database": .string,
+            "recordType": .string,
+            "recordName": .string,
+            "fields": .object,
+            "zoneID": .string,
+            "predicate": .any,
+            "sortDescriptors": .array,
+            "desiredKeys": .array,
+            "savePolicy": .string,
+            "subscriptionID": .string,
+            "firesOnRecordCreation": .bool,
+            "firesOnRecordUpdate": .bool,
+            "firesOnRecordDeletion": .bool,
+            "afterCursor": .string,
+            "types": .array,
+            "categories": .array,
+            "actionIdentifier": .string,
+            "locale": .string,
+            "requiresOnDeviceRecognition": .bool,
+            "taskHint": .string,
+            "partialResults": .bool,
+            "domain": .string,
+            "parameters": .object,
+            "instructions": .string,
+            "temperature": .number,
+            "maxTokens": .number,
+            "schema": .object,
+            "schemaIdentifier": .string,
+            "input": .string,
+            "activityType": .string,
+            "attributes": .object,
+            "contentState": .object,
+            "pushType": .string,
+            "staleDate": .string,
+            "alert": .object,
+            "dismissalPolicy": .string,
+            "address": .string,
+            "region": .object,
+            "resultTypes": .array,
+            "origin": .object,
+            "destination": .object,
+            "transportType": .string,
+            "departureDate": .string,
+            "arrivalDate": .string,
+            "term": .string,
+            "countryCode": .string,
+            "type": .string,
+            "catalogIDs": .array,
+            "libraryIDs": .array,
+            "description": .string,
+            "playlistID": .string,
+            "catalogID": .string,
+            "libraryID": .string,
+            "action": .string,
+            "queue": .object,
+            "startPlaying": .bool,
+            "passTypeIdentifier": .string,
+            "serialNumber": .string,
+            "paymentRequestID": .string,
+            "networks": .array,
+            "confirmed": .bool,
+            "productID": .string,
+            "productIDs": .array,
+            "appAccountToken": .string,
 
             "path": .string,
             "encoding": .string,
@@ -162,21 +400,90 @@ public struct CapabilityDescriptor: Sendable, Equatable {
 
 public struct CapabilityRegistration: Sendable {
     public var descriptor: CapabilityDescriptor
+    public var jsNames: [String]
     public var handler: CapabilityHandler
 
-    public init(descriptor: CapabilityDescriptor, handler: @escaping CapabilityHandler) {
+    public init(jsNames: [String] = [], descriptor: CapabilityDescriptor, handler: @escaping CapabilityHandler) {
         self.descriptor = descriptor
+        self.jsNames = jsNames
         self.handler = handler
+    }
+}
+
+struct RegisteredCodeModeFunction: Sendable {
+    var capabilityKey: CodeModeCapabilityKey
+    var builtInCapability: CapabilityID?
+    var jsNames: [String]
+    var title: String
+    var summary: String
+    var tags: [String]
+    var example: String
+    var requiredPermissions: [PermissionKind]
+    var requiredArguments: [String]
+    var optionalArguments: [String]
+    var argumentTypes: [String: CapabilityArgumentType]
+    var argumentHints: [String: String]
+    var argumentConstraints: CapabilityArgumentConstraints
+    var resultSummary: String
+    var handler: CapabilityHandler
+
+    var catalogCapability: String {
+        builtInCapability?.rawValue ?? capabilityKey.rawValue
+    }
+
+    var validationName: String {
+        catalogCapability
+    }
+
+    init(_ registration: CapabilityRegistration) {
+        let descriptor = registration.descriptor
+        self.capabilityKey = descriptor.id.codeModeKey
+        self.builtInCapability = descriptor.id
+        self.jsNames = registration.jsNames
+        self.title = descriptor.title
+        self.summary = descriptor.summary
+        self.tags = descriptor.tags
+        self.example = descriptor.example
+        self.requiredPermissions = descriptor.requiredPermissions
+        self.requiredArguments = descriptor.requiredArguments
+        self.optionalArguments = descriptor.optionalArguments
+        self.argumentTypes = descriptor.argumentTypes
+        self.argumentHints = descriptor.argumentHints
+        self.argumentConstraints = descriptor.argumentConstraints
+        self.resultSummary = descriptor.resultSummary
+        self.handler = registration.handler
+    }
+
+    init(_ registration: CodeModeRegistration) {
+        self.capabilityKey = registration.capabilityKey
+        self.builtInCapability = nil
+        self.jsNames = [registration.jsPath]
+        self.title = registration.title
+        self.summary = registration.summary
+        self.tags = registration.tags
+        self.example = registration.example
+        self.requiredPermissions = []
+        self.requiredArguments = registration.requiredArguments
+        self.optionalArguments = registration.optionalArguments
+        self.argumentTypes = registration.argumentTypes
+        self.argumentHints = registration.argumentHints
+        self.argumentConstraints = registration.argumentConstraints
+        self.resultSummary = registration.resultSummary
+        self.handler = registration.handler
     }
 }
 
 public final class CapabilityRegistry: @unchecked Sendable {
     private let lock = NSLock()
     private var registrations: [CapabilityID: CapabilityRegistration] = [:]
+    private var codeModeRegistrations: [CodeModeCapabilityKey: CodeModeRegistration] = [:]
 
-    public init(registrations: [CapabilityRegistration] = []) {
+    public init(registrations: [CapabilityRegistration] = [], codeModeRegistrations: [CodeModeRegistration] = []) {
         for registration in registrations {
             self.registrations[registration.descriptor.id] = registration
+        }
+        for registration in codeModeRegistrations {
+            self.codeModeRegistrations[registration.capabilityKey] = registration
         }
     }
 
@@ -194,10 +501,36 @@ public final class CapabilityRegistry: @unchecked Sendable {
         lock.unlock()
     }
 
+    public func register(_ registration: CodeModeRegistration) {
+        lock.lock()
+        codeModeRegistrations[registration.capabilityKey] = registration
+        lock.unlock()
+    }
+
+    public func register(_ registrations: [CodeModeRegistration]) {
+        lock.lock()
+        for registration in registrations {
+            self.codeModeRegistrations[registration.capabilityKey] = registration
+        }
+        lock.unlock()
+    }
+
     public func descriptor(for capability: CapabilityID) -> CapabilityDescriptor? {
         lock.lock()
         defer { lock.unlock() }
         return registrations[capability]?.descriptor
+    }
+
+    public func registration(for capability: CapabilityID) -> CapabilityRegistration? {
+        lock.lock()
+        defer { lock.unlock() }
+        return registrations[capability]
+    }
+
+    public func allCapabilityRegistrations() -> [CapabilityRegistration] {
+        lock.lock()
+        defer { lock.unlock() }
+        return registrations.values.map { $0 }
     }
 
     public func allDescriptors() -> [CapabilityDescriptor] {
@@ -206,28 +539,133 @@ public final class CapabilityRegistry: @unchecked Sendable {
         return registrations.values.map(\.descriptor)
     }
 
+    public func allCodeModeRegistrations() -> [CodeModeRegistration] {
+        lock.lock()
+        defer { lock.unlock() }
+        return codeModeRegistrations.values.map { $0 }
+    }
+
+    func registeredFunction(for capability: CapabilityID) -> RegisteredCodeModeFunction? {
+        lock.lock()
+        defer { lock.unlock() }
+        return registrations[capability].map(RegisteredCodeModeFunction.init)
+    }
+
+    func registeredFunction(for capabilityKey: CodeModeCapabilityKey) -> RegisteredCodeModeFunction? {
+        lock.lock()
+        defer { lock.unlock() }
+        if let builtIn = CapabilityID(rawValue: capabilityKey.rawValue),
+           let registration = registrations[builtIn]
+        {
+            return RegisteredCodeModeFunction(registration)
+        }
+        return codeModeRegistrations[capabilityKey].map(RegisteredCodeModeFunction.init)
+    }
+
+    func allRegisteredFunctions() -> [RegisteredCodeModeFunction] {
+        lock.lock()
+        defer { lock.unlock() }
+        return registrations.values.map(RegisteredCodeModeFunction.init)
+            + codeModeRegistrations.values.map(RegisteredCodeModeFunction.init)
+    }
+
     public func invoke(_ capabilityID: String, arguments: [String: JSONValue], context: BridgeInvocationContext) throws -> JSONValue {
         try context.checkCancellation()
 
-        guard let capability = CapabilityID(rawValue: capabilityID) else {
-            throw BridgeError.capabilityNotFound(capabilityID)
+        if let capability = CapabilityID(rawValue: capabilityID) {
+            return try invokeBuiltIn(capability, arguments: arguments, context: context)
         }
 
-        guard context.allowedCapabilities.contains(capability) else {
+        return try invokeCodeMode(CodeModeCapabilityKey(rawValue: capabilityID), arguments: arguments, context: context)
+    }
+
+    private func invokeBuiltIn(_ capability: CapabilityID, arguments: [String: JSONValue], context: BridgeInvocationContext) throws -> JSONValue {
+        guard context.allowedCapabilities.contains(capability) || context.allowedCapabilityKeys.contains(capability.codeModeKey) else {
             throw BridgeError.capabilityDenied(capability)
         }
 
-        lock.lock()
-        let registration = registrations[capability]
-        lock.unlock()
-
-        guard let registration else {
-            throw BridgeError.capabilityNotFound(capabilityID)
+        guard let function = registeredFunction(for: capability) else {
+            throw BridgeError.capabilityNotFound(capability.rawValue)
         }
 
-        try validateArguments(arguments, for: capability, descriptor: registration.descriptor)
+        return try invoke(function, arguments: arguments, context: context)
+    }
 
-        for permission in registration.descriptor.requiredPermissions {
+    private func invokeCodeMode(_ capabilityKey: CodeModeCapabilityKey, arguments: [String: JSONValue], context: BridgeInvocationContext) throws -> JSONValue {
+        guard context.allowedCapabilityKeys.contains(capabilityKey) else {
+            throw BridgeError.capabilityKeyDenied(capabilityKey)
+        }
+
+        guard let function = registeredFunction(for: capabilityKey) else {
+            throw BridgeError.capabilityNotFound(capabilityKey.rawValue)
+        }
+
+        return try invoke(function, arguments: arguments, context: context)
+    }
+
+    private func invoke(_ function: RegisteredCodeModeFunction, arguments: [String: JSONValue], context: BridgeInvocationContext) throws -> JSONValue {
+        try validateArguments(arguments, for: function)
+        try validatePermissions(function.requiredPermissions, context: context)
+        try context.checkCancellation()
+        return try mapCodeModeFunctionError {
+            try function.handler(arguments, context)
+        }
+    }
+
+    private func mapCodeModeFunctionError(_ body: () throws -> JSONValue) throws -> JSONValue {
+        do {
+            return try body()
+        } catch let error as CodeModeFunctionError {
+            switch error {
+            case let .invalidArguments(message):
+                throw BridgeError.invalidArguments(message)
+            case let .unsupportedPlatform(feature):
+                throw BridgeError.unsupportedPlatform(feature)
+            case let .permissionDenied(message):
+                throw BridgeError.customPermissionDenied(message)
+            case let .nativeFailure(message):
+                throw BridgeError.nativeFailure(message)
+            }
+        }
+    }
+
+    private func validateArguments(_ arguments: [String: JSONValue], for function: RegisteredCodeModeFunction) throws {
+        let required = function.requiredArguments
+        let optional = function.optionalArguments
+        let typed = function.argumentTypes
+        let name = function.validationName
+
+        let missing = required.filter { value(atPath: $0, in: arguments) == nil }
+        if missing.isEmpty == false {
+            throw BridgeError.invalidArguments("\(name) missing required arguments: \(missing.joined(separator: ", "))")
+        }
+
+        for (path, expectedType) in typed.sorted(by: { $0.key < $1.key }) {
+            guard let value = value(atPath: path, in: arguments) else {
+                continue
+            }
+
+            guard expectedType.matches(value) else {
+                throw BridgeError.invalidArguments(
+                    "\(name) expected '\(path)' as \(expectedType.rawValue), received \(jsonTypeName(for: value))"
+                )
+            }
+        }
+
+        try function.argumentConstraints.validate(arguments: arguments, capabilityName: name)
+
+        let allowedNames = Set(required + optional + Array(typed.keys))
+        if allowedNames.isEmpty == false {
+            let allowedTopLevel = Set(allowedNames.map(firstPathSegment))
+            let unknown = arguments.keys.sorted().filter { allowedTopLevel.contains($0) == false }
+            if unknown.isEmpty == false {
+                throw BridgeError.invalidArguments("\(name) received unknown arguments: \(unknown.joined(separator: ", "))")
+            }
+        }
+    }
+
+    private func validatePermissions(_ permissions: [PermissionKind], context: BridgeInvocationContext) throws {
+        for permission in permissions {
             try context.checkCancellation()
             let status = context.permissionBroker.status(for: permission)
             context.recordPermission(permission, status: status)
@@ -241,48 +679,19 @@ public final class CapabilityRegistry: @unchecked Sendable {
                 resolvedStatus = status
             }
 
-            guard resolvedStatus == .granted else {
+            guard permissionStatus(resolvedStatus, satisfies: permission) else {
                 throw BridgeError.permissionDenied(permission)
             }
 
             context.markPermissionValidated(permission)
         }
-
-        try context.checkCancellation()
-        return try registration.handler(arguments, context)
     }
 
-    private func validateArguments(_ arguments: [String: JSONValue], for capability: CapabilityID, descriptor: CapabilityDescriptor) throws {
-        let required = descriptor.requiredArguments
-        let optional = descriptor.optionalArguments
-        let typed = descriptor.argumentTypes
-
-        let missing = required.filter { value(atPath: $0, in: arguments) == nil }
-        if missing.isEmpty == false {
-            let names = missing.joined(separator: ", ")
-            throw BridgeError.invalidArguments("\(capability.rawValue) missing required arguments: \(names)")
+    private func permissionStatus(_ status: PermissionStatus, satisfies permission: PermissionKind) -> Bool {
+        if permission == .calendarWriteOnly, status == .writeOnly {
+            return true
         }
-
-        for (path, expectedType) in typed.sorted(by: { $0.key < $1.key }) {
-            guard let value = value(atPath: path, in: arguments) else {
-                continue
-            }
-
-            guard expectedType.matches(value) else {
-                throw BridgeError.invalidArguments(
-                    "\(capability.rawValue) expected '\(path)' as \(expectedType.rawValue), received \(jsonTypeName(for: value))"
-                )
-            }
-        }
-
-        let allowedNames = Set(required + optional + Array(typed.keys))
-        if allowedNames.isEmpty == false {
-            let allowedTopLevel = Set(allowedNames.map(firstPathSegment))
-            let unknown = arguments.keys.sorted().filter { allowedTopLevel.contains($0) == false }
-            if unknown.isEmpty == false {
-                throw BridgeError.invalidArguments("\(capability.rawValue) received unknown arguments: \(unknown.joined(separator: ", "))")
-            }
-        }
+        return status == .granted
     }
 
     private func value(atPath path: String, in root: [String: JSONValue]) -> JSONValue? {

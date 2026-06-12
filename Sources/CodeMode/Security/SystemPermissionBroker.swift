@@ -20,6 +20,18 @@ import Photos
 import UserNotifications
 #endif
 
+#if canImport(Speech)
+import Speech
+#endif
+
+#if canImport(AVFoundation)
+import AVFoundation
+#endif
+
+#if canImport(MediaPlayer) && !os(macOS) && !os(watchOS)
+import MediaPlayer
+#endif
+
 #if canImport(AlarmKit)
 import AlarmKit
 #endif
@@ -57,6 +69,12 @@ public final class SystemPermissionBroker: PermissionBroker, @unchecked Sendable
             return healthKitStatus()
         case .homeKit:
             return homeKitStatus()
+        case .speechRecognition:
+            return speechRecognitionStatus()
+        case .microphone:
+            return microphoneStatus()
+        case .music:
+            return musicStatus()
         }
     }
 
@@ -82,6 +100,12 @@ public final class SystemPermissionBroker: PermissionBroker, @unchecked Sendable
             return requestHealthKitPermission()
         case .homeKit:
             return requestHomeKitPermission()
+        case .speechRecognition:
+            return requestSpeechRecognitionPermission()
+        case .microphone:
+            return requestMicrophonePermission()
+        case .music:
+            return requestMusicPermission()
         }
     }
 
@@ -314,12 +338,69 @@ public final class SystemPermissionBroker: PermissionBroker, @unchecked Sendable
         #endif
     }
 
+    private func speechRecognitionStatus() -> PermissionStatus {
+        #if canImport(Speech)
+        switch SFSpeechRecognizer.authorizationStatus() {
+        case .authorized:
+            return .granted
+        case .denied:
+            return .denied
+        case .restricted:
+            return .restricted
+        case .notDetermined:
+            return .notDetermined
+        @unknown default:
+            return .unavailable
+        }
+        #else
+        return .unavailable
+        #endif
+    }
+
+    private func microphoneStatus() -> PermissionStatus {
+        #if canImport(AVFoundation)
+        switch AVCaptureDevice.authorizationStatus(for: .audio) {
+        case .authorized:
+            return .granted
+        case .denied:
+            return .denied
+        case .restricted:
+            return .restricted
+        case .notDetermined:
+            return .notDetermined
+        @unknown default:
+            return .unavailable
+        }
+        #else
+        return .unavailable
+        #endif
+    }
+
+    private func musicStatus() -> PermissionStatus {
+        #if canImport(MediaPlayer) && !os(macOS) && !os(watchOS)
+        switch MPMediaLibrary.authorizationStatus() {
+        case .authorized:
+            return .granted
+        case .denied:
+            return .denied
+        case .restricted:
+            return .restricted
+        case .notDetermined:
+            return .notDetermined
+        @unknown default:
+            return .unavailable
+        }
+        #else
+        return .unavailable
+        #endif
+    }
+
     private func healthKitStatus() -> PermissionStatus {
         #if canImport(HealthKit)
         guard HKHealthStore.isHealthDataAvailable() else {
             return .unavailable
         }
-        return .granted
+        return .notDetermined
         #else
         return .unavailable
         #endif
@@ -492,6 +573,45 @@ public final class SystemPermissionBroker: PermissionBroker, @unchecked Sendable
 
     private func requestHealthKitPermission() -> PermissionStatus {
         healthKitStatus()
+    }
+
+    private func requestSpeechRecognitionPermission() -> PermissionStatus {
+        #if canImport(Speech)
+        let semaphore = DispatchSemaphore(value: 0)
+        SFSpeechRecognizer.requestAuthorization { _ in
+            semaphore.signal()
+        }
+        _ = semaphore.wait(timeout: .now() + 10)
+        return speechRecognitionStatus()
+        #else
+        return .unavailable
+        #endif
+    }
+
+    private func requestMicrophonePermission() -> PermissionStatus {
+        #if canImport(AVFoundation)
+        let semaphore = DispatchSemaphore(value: 0)
+        AVCaptureDevice.requestAccess(for: .audio) { _ in
+            semaphore.signal()
+        }
+        _ = semaphore.wait(timeout: .now() + 10)
+        return microphoneStatus()
+        #else
+        return .unavailable
+        #endif
+    }
+
+    private func requestMusicPermission() -> PermissionStatus {
+        #if canImport(MediaPlayer) && !os(macOS) && !os(watchOS)
+        let semaphore = DispatchSemaphore(value: 0)
+        MPMediaLibrary.requestAuthorization { _ in
+            semaphore.signal()
+        }
+        _ = semaphore.wait(timeout: .now() + 10)
+        return musicStatus()
+        #else
+        return .unavailable
+        #endif
     }
 
     private func requestAlarmKitPermission() -> PermissionStatus {

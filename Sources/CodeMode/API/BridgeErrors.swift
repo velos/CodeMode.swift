@@ -4,8 +4,10 @@ enum BridgeError: Error, Sendable {
     case invalidRequest(String)
     case invalidArguments(String)
     case capabilityDenied(CapabilityID)
+    case capabilityKeyDenied(CodeModeCapabilityKey)
     case capabilityNotFound(String)
     case permissionDenied(PermissionKind)
+    case customPermissionDenied(String)
     case unsupportedPlatform(String)
     case uiPresenterUnavailable
     case timeout(milliseconds: Int)
@@ -24,10 +26,14 @@ extension BridgeError: LocalizedError {
             return message
         case let .capabilityDenied(capability):
             return "Capability denied: \(capability.rawValue)"
+        case let .capabilityKeyDenied(capabilityKey):
+            return "Capability denied: \(capabilityKey.rawValue)"
         case let .capabilityNotFound(name):
             return "Capability not found: \(name)"
         case let .permissionDenied(permission):
             return "Permission denied: \(permission.rawValue)"
+        case let .customPermissionDenied(message):
+            return message
         case let .unsupportedPlatform(feature):
             return "Unsupported platform for \(feature)"
         case .uiPresenterUnavailable:
@@ -51,11 +57,11 @@ extension BridgeError: LocalizedError {
             return "INVALID_REQUEST"
         case .invalidArguments:
             return "INVALID_ARGUMENTS"
-        case .capabilityDenied:
+        case .capabilityDenied, .capabilityKeyDenied:
             return "CAPABILITY_DENIED"
         case .capabilityNotFound:
             return "CAPABILITY_NOT_FOUND"
-        case .permissionDenied:
+        case .permissionDenied, .customPermissionDenied:
             return "PERMISSION_DENIED"
         case .unsupportedPlatform:
             return "UNSUPPORTED_PLATFORM"

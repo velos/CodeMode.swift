@@ -16,7 +16,7 @@ GitHub: [velos/CodeMode.swift](https://github.com/velos/CodeMode.swift)
 - Structured failures via `CodeModeToolError`
 - Hybrid JS surface:
   - web-style globals: `fetch`, `URL`, `URLSearchParams`, `setTimeout`, `console`
-  - cross-platform Apple namespaces: `apple.keychain`, `apple.location`, `apple.weather`, `apple.calendar`, `apple.reminders`, `apple.contacts`, `apple.photos`, `apple.vision`, `apple.notifications`, `apple.health`, `apple.home`, `apple.media`, `apple.fs`
+  - cross-platform Apple namespaces: `apple.keychain`, `apple.location`, `apple.weather`, `apple.calendar`, `apple.reminders`, `apple.contacts`, `apple.photos`, `apple.vision`, `apple.notifications`, `apple.health`, `apple.home`, `apple.media`, `apple.fs`, `apple.cloudkit`, `apple.maps`, `apple.storekit`, `apple.speech`, `apple.appIntents`, `apple.activity`, `apple.foundationModels`, `apple.music`, `apple.wallet`
   - platform-specific namespaces when needed: `ios.alarm`
 - iOS/visionOS system UI helpers through an injected presenter, including alerts, calendar editors, photo/contact/document pickers, share sheets, Quick Look previews, web authentication, and iOS-only camera/scan/mail/message compose flows
 - Node-style aliases for file operations through `globalThis.fs.promises`
@@ -52,6 +52,7 @@ Then add the product to your target:
 - `CodeModeFileSystem`
 - `LocalCodeModeFileSystem`
 - `CodeModeAgentToolDescriptions`
+- `CodeModeEvaluation` SwiftPM product for deterministic scenario evaluation
 - `SystemUIPresenter`
 - `UIKitSystemUIPresenter` on iOS/visionOS
 
@@ -144,6 +145,8 @@ Available in search code:
 ```ts
 interface JavaScriptAPIReference {
   capability: string;
+  capabilityKey: string;
+  builtInCapability: string | null;
   jsNames: string[];
   summary: string;
   tags: string[];
@@ -152,6 +155,7 @@ interface JavaScriptAPIReference {
   optionalArguments: string[];
   argumentTypes: Record<string, string>;
   argumentHints: Record<string, string>;
+  argumentConstraints: { allowedStringValues: Record<string, string[]> };
   resultSummary: string;
 }
 
@@ -294,52 +298,40 @@ swift run --package-path Tools/CodeModeEval codemode-eval run fs.round-trip --sh
 swift run --package-path Tools/CodeModeEval codemode-eval run --json
 ```
 
-The eval harness runs 26 built-in user-style scenarios through the same
+The eval harness runs 49 built-in user-style scenarios through the same
 `searchJavaScriptAPI` and `executeJavaScript` APIs that host apps expose to
 agents. It validates tool order, discovered catalog output, generated JavaScript
 fragments, exact `allowedCapabilities`, structured errors, repair suggestions,
 console logs, diagnostics, and final output. The scenarios cover filesystem
 workflows, capability minimization, path policy failures, permission failures,
 catalog search behavior, helper suggestions, API argument-shape confusion,
-recovery after structured tool errors, and execution timeouts.
+recovery after structured tool errors, execution timeouts, and catalog coverage
+for the expanded Apple API families.
 
-- Run Wavelike-backed LLM evals:
+- Preview LLM eval suites and work with saved live reports:
 
 ```sh
-swift run --package-path Tools/CodeModeEval codemode-eval llm fs.round-trip --show-code
 swift run --package-path Tools/CodeModeEval codemode-eval plan --suite core --repeat 5 --request-delay-ms 1000
-swift run --package-path Tools/CodeModeEval codemode-eval llm --suite smoke --repeat 3
-swift run --package-path Tools/CodeModeEval codemode-eval llm --suite core --repeat 5 --request-delay-ms 1000 --output Tools/CodeModeEval/.build/reports/core-baseline.json
 swift run --package-path Tools/CodeModeEval codemode-eval summarize Tools/CodeModeEval/.build/reports/core-baseline.json --output Tools/CodeModeEval/.build/reports/core-summary.json
 swift run --package-path Tools/CodeModeEval codemode-eval report Tools/CodeModeEval/.build/reports/core-baseline.json --output Tools/CodeModeEval/.build/reports/core-baseline.md
 swift run --package-path Tools/CodeModeEval codemode-eval compare Tools/CodeModeEval/.build/reports/core-baseline.json Tools/CodeModeEval/.build/reports/core-candidate.json
 ```
 
-The LLM runner reads `WAVELIKE_MODEL_ID`, `WAVELIKE_APP_ID`,
-`WAVELIKE_API_KEY`, and optional `WAVELIKE_ENV` from the process environment or
-`.env`. It gives the model the real CodeMode tool descriptions, captures actual
-model tool calls, executes those calls against the local CodeMode runtime, and
-grades the final repaired transcript with the same deterministic expectations.
-When no scenario IDs are supplied, `llm` defaults to `--suite smoke`; available
-suites are `smoke`, `core`, `failures`, and `all`. The JSON output is an eval
-report envelope with raw run results plus aggregate pass rate, average turns,
-retry count, exact/minimal capability success, per-scenario metrics, and failure
-categories such as `wrong_tool`, `wrong_js`, `overbroad_capability`,
-`failed_recovery`, and `no_final_answer`.
-Interactive live runs show an in-place progress bar with colored pass/fail
-states; CI output falls back to line-oriented progress. Use `plan` to preview
-request budgets, `--output` to save a JSON report, `summarize` to strip raw
-transcripts before committing baselines, `report` to generate Markdown
-diagnostics with tool-attempt retry traces, then `compare` to fail on pass-rate,
-exact-capability, retry, or turn-count regressions. Tolerances are configurable
-with `--pass-rate-tolerance`, `--capability-rate-tolerance`, `--retry-tolerance`,
-and `--turn-tolerance`. Live LLM evals retry transient transport errors by
-default; use `--request-delay-ms`, `--model-retries`, and `--retry-delay-ms` to
-pace larger repeated runs against provider rate limits.
+The default eval package intentionally avoids private Wavelike dependencies, so
+`swift build --package-path Tools/CodeModeEval` works in public or unauthenticated
+CI. Use `plan` to preview request budgets, `summarize` to strip raw transcripts
+before committing baselines, `report` to generate Markdown diagnostics with
+tool-attempt retry traces, then `compare` to fail on pass-rate, exact-capability,
+retry, or turn-count regressions. Tolerances are configurable with
+`--pass-rate-tolerance`, `--capability-rate-tolerance`, `--retry-tolerance`, and
+`--turn-tolerance`. The saved JSON report envelope includes raw run results plus
+aggregate pass rate, average turns, retry count, exact/minimal capability
+success, per-scenario metrics, and failure categories such as `wrong_tool`,
+`wrong_js`, `overbroad_capability`, `failed_recovery`, and `no_final_answer`.
 See [EVALS.md](EVALS.md) for CI/nightly policy, baseline handling, and
 recommended commands.
 The CLI lives in `Tools/CodeModeEval` so library consumers do not resolve
-ArgumentParser or Wavelike dependencies when they use the `CodeMode` product.
+ArgumentParser when they use the `CodeMode` product.
 
 - License: MIT. See [LICENSE](LICENSE)
 
@@ -357,10 +349,19 @@ This repository is an independent implementation and is not affiliated with Clou
 
 Development of `CodeMode.swift` was done exclusively with Codex, initiated by an interactively built plan, executed by the model after the plan was finalized.
 
+## Shipped Expanded Families
+
+These API families are represented in the catalog and local bridge layer on this
+branch:
+
+- APNs / remote-notification token and settings lifecycle under `apple.notifications.*`
+- PassKit wallet APIs under `apple.wallet.*`
+- Speech, MusicKit, Foundation Models, CloudKit, Maps, StoreKit, App Intents, and ActivityKit namespaces
+
 ## Deferred in v1
 
 The package intentionally defers these to later phases:
 
-- Push notifications / APNs token lifecycle
-- PassKit wallet APIs
-- Other frameworks such as Speech, MusicKit, Foundation Models
+- Production host entitlement provisioning and app-specific UX for newly bridged frameworks
+- Broader executable eval coverage for every catalog-only capability family
+- Behavior-preserving refactors that generate more JavaScript bindings from registration metadata

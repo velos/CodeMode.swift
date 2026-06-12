@@ -99,7 +99,7 @@ public final class SystemUIBridge: @unchecked Sendable {
     }
 
     public func captureCamera(arguments: [String: JSONValue], context: BridgeInvocationContext) throws -> JSONValue {
-        try validatePhotoPickerArguments(arguments, capability: "camera.ui.capture")
+        try validateCameraCaptureArguments(arguments)
         try context.checkCancellation()
         return try context.systemUIPresenter.captureCamera(arguments: arguments, context: context)
     }
@@ -197,6 +197,7 @@ public final class SystemUIBridge: @unchecked Sendable {
                 throw BridgeError.invalidArguments("calendar.ui.presentNewEvent requires \(key) to be an ISO8601 timestamp when provided")
             }
         }
+        try validateTimeoutMs(arguments, capability: "calendar.ui.presentNewEvent")
     }
 
     private func validatePhotoPickerArguments(_ arguments: [String: JSONValue], capability: String = "photos.ui.pick") throws {
@@ -212,6 +213,33 @@ public final class SystemUIBridge: @unchecked Sendable {
 
         try validateNonemptyOptionalString(arguments, key: "outputDirectory", capability: capability)
         try validateTimeoutMs(arguments, capability: capability)
+    }
+
+    private func validateCameraCaptureArguments(_ arguments: [String: JSONValue]) throws {
+        try validatePhotoPickerArguments(arguments, capability: "camera.ui.capture")
+        try validateOptionalBool(arguments, key: "allowsEditing", capability: "camera.ui.capture")
+
+        if let cameraDevice = arguments.string("cameraDevice")?.lowercased(),
+           ["rear", "front"].contains(cameraDevice) == false
+        {
+            throw BridgeError.invalidArguments("camera.ui.capture cameraDevice must be rear or front")
+        }
+
+        if let flashMode = arguments.string("flashMode")?.lowercased(),
+           ["auto", "on", "off"].contains(flashMode) == false
+        {
+            throw BridgeError.invalidArguments("camera.ui.capture flashMode must be auto, on, or off")
+        }
+
+        if let videoQuality = arguments.string("videoQuality")?.lowercased(),
+           ["high", "medium", "low", "640x480", "iframe1280x720", "iframe960x540"].contains(videoQuality) == false
+        {
+            throw BridgeError.invalidArguments("camera.ui.capture videoQuality must be high, medium, low, 640x480, iFrame1280x720, or iFrame960x540")
+        }
+
+        if let maximumDurationSeconds = arguments.double("maximumDurationSeconds"), maximumDurationSeconds <= 0 {
+            throw BridgeError.invalidArguments("camera.ui.capture maximumDurationSeconds must be greater than 0")
+        }
     }
 
     private func validateContactPickerArguments(_ arguments: [String: JSONValue]) throws {
@@ -257,6 +285,7 @@ public final class SystemUIBridge: @unchecked Sendable {
             throw BridgeError.invalidArguments("ui.alert.present supports at most one cancel button")
         }
 
+        try validateSourceRect(arguments, capability: "ui.alert.present")
         try validateTimeoutMs(arguments, capability: "ui.alert.present")
     }
 
@@ -344,6 +373,9 @@ public final class SystemUIBridge: @unchecked Sendable {
            ["balanced", "fast", "accurate"].contains(qualityLevel) == false
         {
             throw BridgeError.invalidArguments("camera.ui.scanData qualityLevel must be balanced, fast, or accurate")
+        }
+        for key in ["recognizesMultipleItems", "returnsOnFirstResult", "isGuidanceEnabled", "isHighlightingEnabled", "isPinchToZoomEnabled", "isHighFrameRateTrackingEnabled"] {
+            try validateOptionalBool(arguments, key: key, capability: "camera.ui.scanData")
         }
         try validateTimeoutMs(arguments, capability: "camera.ui.scanData")
     }
@@ -442,6 +474,36 @@ public final class SystemUIBridge: @unchecked Sendable {
 
         if values.contains(where: { $0.stringValue == nil }) {
             throw BridgeError.invalidArguments("\(capability) \(key) must contain only strings")
+        }
+    }
+
+    private func validateOptionalBool(_ arguments: [String: JSONValue], key: String, capability: String) throws {
+        guard arguments.keys.contains(key) else {
+            return
+        }
+
+        if arguments.bool(key) == nil {
+            throw BridgeError.invalidArguments("\(capability) \(key) must be a boolean")
+        }
+    }
+
+    private func validateSourceRect(_ arguments: [String: JSONValue], capability: String) throws {
+        guard arguments.keys.contains("sourceRect") else {
+            return
+        }
+
+        guard let sourceRect = arguments.object("sourceRect") else {
+            throw BridgeError.invalidArguments("\(capability) sourceRect must be an object")
+        }
+        for key in ["x", "y", "width", "height"] where sourceRect.double(key) == nil {
+            throw BridgeError.invalidArguments("\(capability) sourceRect requires numeric x/y/width/height")
+        }
+
+        if let width = sourceRect.double("width"), width < 0 {
+            throw BridgeError.invalidArguments("\(capability) sourceRect width must be greater than or equal to 0")
+        }
+        if let height = sourceRect.double("height"), height < 0 {
+            throw BridgeError.invalidArguments("\(capability) sourceRect height must be greater than or equal to 0")
         }
     }
 

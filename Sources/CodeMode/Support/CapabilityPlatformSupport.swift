@@ -40,13 +40,22 @@ enum CapabilityPlatformSupport {
         return registrations.filter { supported.contains($0.descriptor.id) }
     }
 
+    static func unsupportedJavaScriptNames(from registrations: [CapabilityRegistration], for platform: HostPlatform = .current) -> [String] {
+        let supported = supportedCapabilities(for: platform)
+        return registrations
+            .filter { supported.contains($0.descriptor.id) == false }
+            .flatMap(\.jsNames)
+    }
+
     private static let crossAppleCapabilities: Set<CapabilityID> = [
         .locationRead,
         .weatherRead,
         .calendarRead,
         .calendarWrite,
+        .calendarDelete,
         .remindersRead,
         .remindersWrite,
+        .remindersDelete,
         .contactsRead,
         .contactsSearch,
         .photosRead,
@@ -56,6 +65,8 @@ enum CapabilityPlatformSupport {
         .notificationsSchedule,
         .notificationsPendingRead,
         .notificationsPendingDelete,
+        .notificationsDeliveredRead,
+        .notificationsDeliveredDelete,
         .healthPermissionRequest,
         .healthRead,
         .healthWrite,
@@ -64,6 +75,46 @@ enum CapabilityPlatformSupport {
         .mediaMetadataRead,
         .mediaFrameExtract,
         .mediaTranscode,
+        .cloudKitAccountStatus,
+        .cloudKitRecordsQuery,
+        .cloudKitRecordSave,
+        .cloudKitRecordDelete,
+        .cloudKitSubscriptionSave,
+        .cloudKitSubscriptionEventsRead,
+        .notificationsRemoteRegister,
+        .notificationsRemoteTokenRead,
+        .notificationsSettingsRead,
+        .notificationsCategoriesSet,
+        .notificationsResponsesRead,
+        .speechPermissionRequest,
+        .speechStatus,
+        .speechFileTranscribe,
+        .speechMicrophoneTranscribe,
+        .appIntentsList,
+        .appIntentsRun,
+        .appIntentsDonate,
+        .appIntentsOpen,
+        .appIntentsHandoffsRead,
+        .foundationModelsStatus,
+        .foundationModelsGenerate,
+        .foundationModelsExtract,
+        .mapsGeocode,
+        .mapsReverseGeocode,
+        .mapsSearch,
+        .mapsRouteEstimate,
+        .mapsOpen,
+        .musicPermissionRequest,
+        .musicSubscriptionStatus,
+        .musicCatalogSearch,
+        .musicCatalogDetails,
+        .musicLibraryRead,
+        .musicPlaylistWrite,
+        .musicPlaybackControl,
+        .storeKitProductsRead,
+        .storeKitEntitlementsRead,
+        .storeKitPurchase,
+        .storeKitRestore,
+        .storeKitTransactionsRead,
     ]
 
     private static let iOSCapabilities = crossAppleCapabilities.union([
@@ -96,6 +147,17 @@ enum CapabilityPlatformSupport {
         .alarmRead,
         .alarmSchedule,
         .alarmCancel,
+        .activityList,
+        .activityStart,
+        .activityUpdate,
+        .activityEnd,
+        .activityPushTokenRead,
+        .passKitWalletStatus,
+        .passKitPassesRead,
+        .passKitPassAdd,
+        .passKitPassPresent,
+        .passKitApplePayStatus,
+        .passKitApplePayPresent,
     ])
 
     private static let macOSCapabilities = crossAppleCapabilities

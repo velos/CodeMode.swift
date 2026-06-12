@@ -244,6 +244,41 @@ import Testing
     }
 
     do {
+        _ = try bridge.captureCamera(arguments: ["cameraDevice": .string("side")], context: context)
+        Issue.record("Expected invalid cameraDevice to fail")
+    } catch {
+        #expect(requireBridgeErrorCode(error) == "INVALID_ARGUMENTS")
+    }
+
+    do {
+        _ = try bridge.captureCamera(arguments: ["flashMode": .string("blink")], context: context)
+        Issue.record("Expected invalid flashMode to fail")
+    } catch {
+        #expect(requireBridgeErrorCode(error) == "INVALID_ARGUMENTS")
+    }
+
+    do {
+        _ = try bridge.captureCamera(arguments: ["videoQuality": .string("4k")], context: context)
+        Issue.record("Expected invalid videoQuality to fail")
+    } catch {
+        #expect(requireBridgeErrorCode(error) == "INVALID_ARGUMENTS")
+    }
+
+    do {
+        _ = try bridge.captureCamera(arguments: ["maximumDurationSeconds": .number(0)], context: context)
+        Issue.record("Expected invalid maximumDurationSeconds to fail")
+    } catch {
+        #expect(requireBridgeErrorCode(error) == "INVALID_ARGUMENTS")
+    }
+
+    do {
+        _ = try bridge.scanData(arguments: ["isGuidanceEnabled": .string("yes")], context: context)
+        Issue.record("Expected invalid scanner toggle to fail")
+    } catch {
+        #expect(requireBridgeErrorCode(error) == "INVALID_ARGUMENTS")
+    }
+
+    do {
         _ = try bridge.presentWeb(arguments: ["url": .string("file:///tmp/a.html")], context: context)
         Issue.record("Expected non-HTTP web URL to fail")
     } catch {
@@ -260,6 +295,19 @@ import Testing
     do {
         _ = try bridge.presentAlert(arguments: ["buttons": .array([])], context: context)
         Issue.record("Expected empty alert buttons to fail")
+    } catch {
+        #expect(requireBridgeErrorCode(error) == "INVALID_ARGUMENTS")
+    }
+
+    do {
+        _ = try bridge.presentAlert(
+            arguments: [
+                "buttons": .array([.object(["title": .string("OK")])]),
+                "sourceRect": .object(["x": .number(0), "y": .number(0), "width": .number(10)]),
+            ],
+            context: context
+        )
+        Issue.record("Expected invalid alert sourceRect to fail")
     } catch {
         #expect(requireBridgeErrorCode(error) == "INVALID_ARGUMENTS")
     }
@@ -291,6 +339,64 @@ import Testing
     } catch {
         #expect(requireBridgeErrorCode(error) == "INVALID_ARGUMENTS")
     }
+}
+
+@Test func systemUIBridgeForwardsExpandedUIKitArguments() throws {
+    let bridge = SystemUIBridge()
+    let calendarArgs: [String: JSONValue] = [
+        "title": .string("Standup"),
+        "start": .string("2026-02-22T16:00:00Z"),
+        "end": .string("2026-02-22T16:15:00Z"),
+        "timeoutMs": .number(2_500),
+    ]
+    let cameraArgs: [String: JSONValue] = [
+        "mediaType": .string("video"),
+        "allowsEditing": .bool(true),
+        "cameraDevice": .string("front"),
+        "flashMode": .string("off"),
+        "videoQuality": .string("medium"),
+        "maximumDurationSeconds": .number(12),
+        "timeoutMs": .number(5_000),
+    ]
+    let scannerArgs: [String: JSONValue] = [
+        "mode": .string("text"),
+        "isGuidanceEnabled": .bool(false),
+        "isHighlightingEnabled": .bool(false),
+        "isPinchToZoomEnabled": .bool(false),
+        "isHighFrameRateTrackingEnabled": .bool(false),
+        "timeoutMs": .number(5_000),
+    ]
+    let alertArgs: [String: JSONValue] = [
+        "preferredStyle": .string("actionSheet"),
+        "sourceRect": .object([
+            "x": .number(10),
+            "y": .number(20),
+            "width": .number(30),
+            "height": .number(40),
+        ]),
+        "buttons": .array([.object(["id": .string("ok"), "title": .string("OK")])]),
+    ]
+    let presenter = FakeSystemUIPresenter(
+        calendarResult: .object(["action": .string("saved")]),
+        extraResults: [
+            .cameraUICapture: .object(["artifactID": .string("camera-1")]),
+            .cameraUIScanData: .object(["action": .string("recognized")]),
+            .uiAlertPresent: .object(["buttonID": .string("ok")]),
+        ],
+        expectedArguments: [
+            .calendarUIPresentNewEvent: calendarArgs,
+            .cameraUICapture: cameraArgs,
+            .cameraUIScanData: scannerArgs,
+            .uiAlertPresent: alertArgs,
+        ]
+    )
+    let (context, sandbox) = try makeInvocationContext(systemUIPresenter: presenter)
+    defer { cleanup(sandbox) }
+
+    #expect(try bridge.presentNewCalendarEvent(arguments: calendarArgs, context: context).objectValue?.string("action") == "saved")
+    #expect(try bridge.captureCamera(arguments: cameraArgs, context: context).objectValue?.string("artifactID") == "camera-1")
+    #expect(try bridge.scanData(arguments: scannerArgs, context: context).objectValue?.string("action") == "recognized")
+    #expect(try bridge.presentAlert(arguments: alertArgs, context: context).objectValue?.string("buttonID") == "ok")
 }
 
 @Test func systemUIBridgeHonorsCancellationBeforePresentation() throws {

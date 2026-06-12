@@ -40,11 +40,18 @@ public enum HostConfigurationValidator {
             keys.insert("NSCalendarsWriteOnlyAccessUsageDescription")
         }
 
-        if capabilities.contains(.calendarRead) || capabilities.contains(.calendarUIPresentEvent) {
+        if capabilities.contains(.calendarRead) ||
+            capabilities.contains(.calendarWrite) ||
+            capabilities.contains(.calendarDelete) ||
+            capabilities.contains(.calendarUIPresentEvent)
+        {
             keys.insert("NSCalendarsFullAccessUsageDescription")
         }
 
-        if capabilities.contains(.remindersRead) || capabilities.contains(.remindersWrite) {
+        if capabilities.contains(.remindersRead) ||
+            capabilities.contains(.remindersWrite) ||
+            capabilities.contains(.remindersDelete)
+        {
             keys.insert("NSRemindersFullAccessUsageDescription")
         }
 
@@ -64,6 +71,25 @@ public enum HostConfigurationValidator {
 
         if capabilities.contains(.cameraUICapture) {
             keys.insert("NSMicrophoneUsageDescription")
+        }
+
+        if capabilities.contains(.speechPermissionRequest) ||
+            capabilities.contains(.speechFileTranscribe) ||
+            capabilities.contains(.speechMicrophoneTranscribe)
+        {
+            keys.insert("NSSpeechRecognitionUsageDescription")
+        }
+
+        if capabilities.contains(.speechMicrophoneTranscribe) {
+            keys.insert("NSMicrophoneUsageDescription")
+        }
+
+        if capabilities.contains(.musicPermissionRequest) ||
+            capabilities.contains(.musicLibraryRead) ||
+            capabilities.contains(.musicPlaylistWrite) ||
+            capabilities.contains(.musicPlaybackControl)
+        {
+            keys.insert("NSAppleMusicUsageDescription")
         }
 
         if capabilities.contains(.homeRead) || capabilities.contains(.homeWrite) {
@@ -123,6 +149,13 @@ public enum HostConfigurationValidator {
         if requiredCapabilities.contains(.notificationsSchedule) ||
             requiredCapabilities.contains(.notificationsPendingRead) ||
             requiredCapabilities.contains(.notificationsPendingDelete) ||
+            requiredCapabilities.contains(.notificationsDeliveredRead) ||
+            requiredCapabilities.contains(.notificationsDeliveredDelete) ||
+            requiredCapabilities.contains(.notificationsRemoteRegister) ||
+            requiredCapabilities.contains(.notificationsRemoteTokenRead) ||
+            requiredCapabilities.contains(.notificationsSettingsRead) ||
+            requiredCapabilities.contains(.notificationsCategoriesSet) ||
+            requiredCapabilities.contains(.notificationsResponsesRead) ||
             requiredCapabilities.contains(.notificationsPermissionRequest)
         {
             issues.append(
@@ -130,6 +163,151 @@ public enum HostConfigurationValidator {
                     severity: .warning,
                     key: "UserNotifications authorization",
                     message: "Schedule/management calls require user authorization via notifications.permission.request at runtime."
+                )
+            )
+        }
+
+        if requiredCapabilities.contains(.cloudKitAccountStatus) ||
+            requiredCapabilities.contains(.cloudKitRecordsQuery) ||
+            requiredCapabilities.contains(.cloudKitRecordSave) ||
+            requiredCapabilities.contains(.cloudKitRecordDelete) ||
+            requiredCapabilities.contains(.cloudKitSubscriptionSave) ||
+            requiredCapabilities.contains(.cloudKitSubscriptionEventsRead)
+        {
+            issues.append(
+                HostConfigurationIssue(
+                    severity: .warning,
+                    key: "CloudKit capability",
+                    message: "Ensure iCloud/CloudKit entitlements, containers, and host CloudKitClient configuration are enabled before using cloudkit.* capabilities."
+                )
+            )
+        }
+
+        if requiredCapabilities.contains(.notificationsRemoteRegister) ||
+            requiredCapabilities.contains(.notificationsRemoteTokenRead) ||
+            requiredCapabilities.contains(.notificationsCategoriesSet) ||
+            requiredCapabilities.contains(.notificationsResponsesRead)
+        {
+            issues.append(
+                HostConfigurationIssue(
+                    severity: .warning,
+                    key: "APNs client configuration",
+                    message: "Remote notification capabilities are client-side only; ensure APS environment entitlement, AppDelegate token plumbing, categories/actions, and any background modes are configured by the host."
+                )
+            )
+        }
+
+        if requiredCapabilities.contains(.speechPermissionRequest) ||
+            requiredCapabilities.contains(.speechStatus) ||
+            requiredCapabilities.contains(.speechFileTranscribe) ||
+            requiredCapabilities.contains(.speechMicrophoneTranscribe)
+        {
+            issues.append(
+                HostConfigurationIssue(
+                    severity: .warning,
+                    key: "Speech capability",
+                    message: "Ensure Speech framework availability and a host SpeechClient adapter before using speech.* transcription capabilities."
+                )
+            )
+        }
+
+        if requiredCapabilities.contains(.appIntentsList) ||
+            requiredCapabilities.contains(.appIntentsRun) ||
+            requiredCapabilities.contains(.appIntentsDonate) ||
+            requiredCapabilities.contains(.appIntentsOpen) ||
+            requiredCapabilities.contains(.appIntentsHandoffsRead)
+        {
+            issues.append(
+                HostConfigurationIssue(
+                    severity: .warning,
+                    key: "App Intents adapters",
+                    message: "App Intents capabilities require host-registered adapters; dynamic AppIntent generation from JavaScript is not supported."
+                )
+            )
+        }
+
+        if requiredCapabilities.contains(.foundationModelsStatus) ||
+            requiredCapabilities.contains(.foundationModelsGenerate) ||
+            requiredCapabilities.contains(.foundationModelsExtract)
+        {
+            issues.append(
+                HostConfigurationIssue(
+                    severity: .warning,
+                    key: "Foundation Models availability",
+                    message: "Ensure Foundation Models platform availability and host-defined schemas/adapters before using foundationModels.* capabilities."
+                )
+            )
+        }
+
+        if requiredCapabilities.contains(.activityList) ||
+            requiredCapabilities.contains(.activityStart) ||
+            requiredCapabilities.contains(.activityUpdate) ||
+            requiredCapabilities.contains(.activityEnd) ||
+            requiredCapabilities.contains(.activityPushTokenRead)
+        {
+            issues.append(
+                HostConfigurationIssue(
+                    severity: .warning,
+                    key: "ActivityKit adapters",
+                    message: "Live Activity capabilities require ActivityKit support, host-registered activity adapters, and Widget/remote-update configuration when push tokens are used."
+                )
+            )
+        }
+
+        if requiredCapabilities.contains(.musicPermissionRequest) ||
+            requiredCapabilities.contains(.musicSubscriptionStatus) ||
+            requiredCapabilities.contains(.musicCatalogSearch) ||
+            requiredCapabilities.contains(.musicCatalogDetails) ||
+            requiredCapabilities.contains(.musicLibraryRead) ||
+            requiredCapabilities.contains(.musicPlaylistWrite) ||
+            requiredCapabilities.contains(.musicPlaybackControl)
+        {
+            issues.append(
+                HostConfigurationIssue(
+                    severity: .warning,
+                    key: "MusicKit capability",
+                    message: "Ensure MusicKit/media-library entitlement, subscription handling, and host MusicClient configuration before using music.* capabilities."
+                )
+            )
+        }
+
+        if requiredCapabilities.contains(.passKitWalletStatus) ||
+            requiredCapabilities.contains(.passKitPassesRead) ||
+            requiredCapabilities.contains(.passKitPassAdd) ||
+            requiredCapabilities.contains(.passKitPassPresent)
+        {
+            issues.append(
+                HostConfigurationIssue(
+                    severity: .warning,
+                    key: "PassKit Wallet capability",
+                    message: "Ensure Wallet capability, pass type identifiers, and host PassKitClient configuration before using wallet pass capabilities."
+                )
+            )
+        }
+
+        if requiredCapabilities.contains(.passKitApplePayStatus) ||
+            requiredCapabilities.contains(.passKitApplePayPresent)
+        {
+            issues.append(
+                HostConfigurationIssue(
+                    severity: .warning,
+                    key: "Apple Pay merchant configuration",
+                    message: "Apple Pay capabilities must use host merchant configuration and explicit user-visible confirmation; arbitrary merchant setup is not accepted from JavaScript."
+                )
+            )
+        }
+
+        if requiredCapabilities.contains(.storeKitProductsRead) ||
+            requiredCapabilities.contains(.storeKitEntitlementsRead) ||
+            requiredCapabilities.contains(.storeKitPurchase) ||
+            requiredCapabilities.contains(.storeKitRestore) ||
+            requiredCapabilities.contains(.storeKitTransactionsRead)
+        {
+            issues.append(
+                HostConfigurationIssue(
+                    severity: .warning,
+                    key: "StoreKit configuration",
+                    message: "Ensure StoreKit products are host-configured and purchase/restore flows require explicit user-visible confirmation."
                 )
             )
         }
