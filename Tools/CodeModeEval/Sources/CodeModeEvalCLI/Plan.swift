@@ -10,7 +10,7 @@ struct Plan: ParsableCommand {
     @Argument(help: "Scenario IDs to run. Omit to use --suite.")
     var scenarioIDs: [String] = []
 
-    @Option(name: .long, help: "Scenario suite to plan when no scenario IDs are provided: smoke, core, failures, or all.")
+    @Option(name: .long, help: "Scenario suite to plan when no scenario IDs are provided: smoke, core, failures, catalog, or all.")
     var suite: LLMEvalSuite = .smoke
 
     @Option(name: .customLong("repeat"), help: "Number of times each selected scenario would run.")
