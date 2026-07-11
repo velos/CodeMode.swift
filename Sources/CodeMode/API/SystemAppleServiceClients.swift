@@ -207,13 +207,24 @@ public struct SystemMapsClient: MapsClient {
         let limit = arguments.int("limit") ?? 10
         let geocoder = CLGeocoder()
         let placemarks: [CLPlacemark] = try waitForSystemClient(timeoutMs: timeoutMs, feature: "MapKit geocoding") { completion in
-            geocoder.geocodeAddressString(address, in: SystemMapsMapping.coreLocationRegion(arguments.object("region"))) { placemarks, error in
+            let handler: ([CLPlacemark]?, Error?) -> Void = { placemarks, error in
                 if let error {
                     completion.complete(.failure(error))
                 } else {
                     completion.complete(.success(placemarks ?? []))
                 }
             }
+            // CLRegion (and the region-scoped geocode overload) are unavailable
+            // on visionOS; fall back to an unscoped geocode there.
+            #if os(visionOS)
+            geocoder.geocodeAddressString(address, completionHandler: handler)
+            #else
+            geocoder.geocodeAddressString(
+                address,
+                in: SystemMapsMapping.coreLocationRegion(arguments.object("region")),
+                completionHandler: handler
+            )
+            #endif
         }
         return .array(placemarks.prefix(limit).map(SystemMapsMapping.placemarkJSON))
         #else
@@ -659,6 +670,9 @@ enum SystemMapsMapping {
     }
 
     #if canImport(CoreLocation)
+    // CLRegion / CLCircularRegion are unavailable on visionOS; the region-scoped
+    // geocode overload is guarded out there, so this helper is too.
+    #if !os(visionOS)
     static func coreLocationRegion(_ arguments: [String: JSONValue]?) -> CLRegion? {
         guard let arguments else {
             return nil
@@ -686,6 +700,7 @@ enum SystemMapsMapping {
         }
         return nil
     }
+    #endif
 
     static func placemarkJSON(_ placemark: CLPlacemark) -> JSONValue {
         var object: [String: JSONValue] = [:]
