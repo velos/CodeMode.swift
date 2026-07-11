@@ -426,10 +426,13 @@ public final class SystemPermissionBroker: PermissionBroker, @unchecked Sendable
         if Thread.isMainThread {
             manager.requestWhenInUseAuthorization()
             return locationStatus()
-        } else {
-            DispatchQueue.main.sync {
-                manager.requestWhenInUseAuthorization()
-            }
+        }
+
+        // async, not sync: execution runs on a background queue, and the host may be
+        // blocking the main thread waiting on the result — main.sync would deadlock.
+        // If main never runs the request, the delegate wait below times out instead.
+        DispatchQueue.main.async {
+            manager.requestWhenInUseAuthorization()
         }
 
         _ = delegate.wait(timeout: 10)
