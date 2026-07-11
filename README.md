@@ -30,7 +30,13 @@ GitHub: [velos/CodeMode.swift](https://github.com/velos/CodeMode.swift)
 Add `CodeMode.swift` with Swift Package Manager:
 
 ```swift
-.package(name: "CodeMode", url: "https://github.com/velos/CodeMode.swift", from: "0.1.0")
+.package(url: "https://github.com/velos/CodeMode.swift", branch: "main")
+```
+
+No release has been tagged yet, so depend on `main` for now. Once `0.1.0` is tagged, prefer the versioned form:
+
+```swift
+.package(url: "https://github.com/velos/CodeMode.swift", from: "0.1.0")
 ```
 
 Then add the product to your target:
