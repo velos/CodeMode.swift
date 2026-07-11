@@ -104,15 +104,29 @@ just the watchdog:
 ## STRUCTURAL IMPROVEMENTS (bridge/registry metadata drift)
 
 Biggest maintenance risk: ~115 capabilities / ~2,540 lines of hand-written
-registrations with four parallel sources of truth. None addressed yet.
-- [ ] Move argument types/constraints to per-capability, co-located declarations;
-  **fail loudly instead of degrading unknown args to `.any`**
-  (`CapabilityRegistry.swift:223-398`).
-- [ ] Add a test asserting registration metadata matches bridge reality
-  (allowed-string sets vs what bridges accept; golden-test `resultSummary`
-  against bridge JSON encoders) — would have caught the calendar-span drift.
-- [ ] Standardize on one registration idiom (three coexist across
-  `CapabilityRegistrations+*.swift`).
+registrations with four parallel sources of truth. Phase 1 of
+`PLAN-registration-macros.md` landed 2026-07-11 (owner approved swift-syntax
+in the core graph, so Phase 2 is unblocked):
+- [/] Move argument types/constraints to per-capability, co-located declarations
+  — `BuiltInCodeModeTool` protocol + `CodeModeStringEnum` (constrained string
+  args declared once: advertised values, decode, and bridge parsing all come
+  from the enum). EventKit migrated (9 registrations, 5 enums); the
+  calendarWrite/calendarDelete/calendarUIPickCalendar/remindersWrite rows are
+  deleted from the central constraint table. Remaining: 7 registration files.
+  - [ ] **fail loudly instead of degrading unknown args to `.any`**
+    (`inferArgumentTypes`) — still pending; goes away as domains migrate.
+- [/] Add a test asserting registration metadata matches bridge reality —
+  `constrainedArgumentMetadataIsCoherentForAllRegistrations` (every constrained
+  arg must be declared) + span test now pins enum↔descriptor↔bridge agreement.
+  Golden-testing `resultSummary` against bridge JSON encoders still open.
+- [/] Standardize on one registration idiom — target idiom is
+  `BuiltInCodeModeTool`; EventKit, Keychain, Location/Weather converged
+  (the raw-`CodeModeRegistration` and `builtInCapability:` glue idioms are
+  deleted). 7 `CapabilityRegistrations+*.swift` files still on the flat init.
+- [ ] **Fifth metadata surface found during migration:** the hand-written JS
+  function table in `RuntimeJavaScript.swift` (e.g. `completeReminder` injects
+  `operation: 'complete', isCompleted: true`). Candidate for generation from
+  registrations in Phase 3.
 - [ ] Unify permission ownership — `calendarRead` checks in both registry and
   bridge; `calendarWrite` checks only in the bridge.
 - [/] Decide the fate of `Tools/CodeModeAuthoring` — investigated 2026-07-11;

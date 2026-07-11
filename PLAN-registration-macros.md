@@ -10,6 +10,18 @@ registration idioms. Verdict up front: **there is a real path forward, in three
 phases, and the first phase pays for itself even if the macro phase is later
 rejected.**
 
+**Status:** owner approved swift-syntax in the core graph (2026-07-11).
+Phase 1 landed the same day: `BuiltInCodeModeTool` + `CodeModeStringEnum`
+shipped, EventKit/Keychain/Location/Weather converged on the idiom, the four
+EventKit-domain rows are gone from the central constraint table, and the
+coherence test guards the remainder. Two Phase-1 notes for Phase 2:
+(1) transitional tools carry a `raw: [String: JSONValue]` passthrough because
+bridges still consume raw dictionaries — the macro design should keep
+generating that until a domain's bridge goes fully typed (Phase 3);
+(2) a fifth metadata surface surfaced during migration — the hand-written JS
+function table in `RuntimeJavaScript.swift` — worth folding into Phase 3 as
+"generate the JS shim table from registrations".
+
 ---
 
 ## 1. What exists today

@@ -522,23 +522,51 @@ private func jsNames(for capability: CapabilityID) -> [String] {
 }
 
 @Test func calendarDeleteSpanConstraintAcceptsEverySpellingTheBridgeAccepts() throws {
-    let constraints = CapabilityArgumentConstraints.defaults(for: .calendarDelete)
+    // The constraint now comes from CalendarEventSpan on the tool; the bridge
+    // parses through the same enum, so advertised and accepted cannot drift.
+    let registration = try #require(
+        DefaultCapabilityLoader.loadAllRegistrations().first { $0.descriptor.id == .calendarDelete }
+    )
+    let constraints = registration.descriptor.argumentConstraints
+    let advertised = try #require(constraints.allowedStringValues["span"])
+    #expect(advertised.contains("thisEvent"))
+    #expect(advertised.contains("futureEvents"))
+    #expect(advertised.contains("this_event"))
+    #expect(advertised.contains("future"))
 
-    // Keep in sync with EventKitBridge.eventSpan, which lowercases its input
-    // and accepts these aliases.
-    let bridgeAcceptedSpellings = [
-        "thisEvent", "thisevent", "this_event", "this",
-        "futureEvents", "futureevents", "future_events", "future",
-    ]
-    for spelling in bridgeAcceptedSpellings {
+    for spelling in advertised {
         try constraints.validate(
             arguments: ["span": .string(spelling)],
             capabilityName: "calendar.delete"
         )
+        #expect(CalendarEventSpan.codeModeValue(matching: spelling) != nil)
+        #expect(CalendarEventSpan.codeModeValue(matching: spelling.uppercased()) != nil)
     }
 
     #expect(throws: (any Error).self) {
         try constraints.validate(arguments: ["span": .string("allEvents")], capabilityName: "calendar.delete")
+    }
+    #expect(CalendarEventSpan.codeModeValue(matching: "allEvents") == nil)
+}
+
+@Test func constrainedArgumentMetadataIsCoherentForAllRegistrations() {
+    // Every constrained top-level argument a registration advertises must be a
+    // declared argument of that registration — catches metadata typos and
+    // constraint entries that outlive a renamed argument.
+    for registration in DefaultCapabilityLoader.loadAllRegistrations() {
+        let descriptor = registration.descriptor
+        let declared = Set(descriptor.requiredArguments + descriptor.optionalArguments)
+        for (path, allowed) in descriptor.argumentConstraints.allowedStringValues {
+            #expect(
+                allowed.isEmpty == false,
+                "\(descriptor.id.rawValue) advertises an empty allowed-value list for \(path)"
+            )
+            guard path.contains(".") == false else { continue }
+            #expect(
+                declared.contains(path),
+                "\(descriptor.id.rawValue) constrains '\(path)' but does not declare it as an argument"
+            )
+        }
     }
 }
 

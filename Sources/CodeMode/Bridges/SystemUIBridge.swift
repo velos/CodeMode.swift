@@ -172,16 +172,16 @@ public final class SystemUIBridge: @unchecked Sendable {
     }
 
     private func validateCalendarPickerArguments(_ arguments: [String: JSONValue]) throws {
-        if let selectionStyle = arguments.string("selectionStyle")?.lowercased(),
-           ["single", "multiple"].contains(selectionStyle) == false
+        if let selectionStyle = arguments.string("selectionStyle"),
+           CalendarPickerSelectionStyle.codeModeValue(matching: selectionStyle) == nil
         {
-            throw BridgeError.invalidArguments("calendar.ui.pickCalendar selectionStyle must be single or multiple")
+            throw BridgeError.invalidArguments("calendar.ui.pickCalendar selectionStyle must be one of \(CalendarPickerSelectionStyle.codeModeAllowedValues.joined(separator: ", "))")
         }
 
-        if let displayStyle = arguments.string("displayStyle")?.lowercased(),
-           ["writable", "all"].contains(displayStyle) == false
+        if let displayStyle = arguments.string("displayStyle"),
+           CalendarPickerDisplayStyle.codeModeValue(matching: displayStyle) == nil
         {
-            throw BridgeError.invalidArguments("calendar.ui.pickCalendar displayStyle must be writable or all")
+            throw BridgeError.invalidArguments("calendar.ui.pickCalendar displayStyle must be one of \(CalendarPickerDisplayStyle.codeModeAllowedValues.joined(separator: ", "))")
         }
 
         try validateTimeoutMs(arguments, capability: "calendar.ui.pickCalendar")

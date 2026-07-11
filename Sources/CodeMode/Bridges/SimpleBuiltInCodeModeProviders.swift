@@ -4,131 +4,14 @@ protocol BuiltInCodeModeProvider: Sendable {
     func capabilityRegistrations() -> [CapabilityRegistration]
 }
 
-private struct BuiltInToolArgument {
-    var name: String
-    var type: CapabilityArgumentType
-    var optional: Bool
-    var hint: String
-
-    init(_ name: String, _ type: CapabilityArgumentType, optional: Bool = false, hint: String) {
-        self.name = name
-        self.type = type
-        self.optional = optional
-        self.hint = hint
-    }
-}
-
-private protocol BuiltInCodeModeTool: Sendable {
-    associatedtype Arguments: Sendable
-
-    static var codeModePath: String { get }
-    static var codeModeTitle: String { get }
-    static var codeModeSummary: String { get }
-    static var codeModeTags: [String] { get }
-    static var codeModeExample: String { get }
-    static var codeModeArguments: [BuiltInToolArgument] { get }
-    static var codeModeResultSummary: String { get }
-
-    func decode(arguments: [String: JSONValue]) throws -> Arguments
-    func call(arguments: Arguments, context: BridgeInvocationContext) throws -> JSONValue
-}
-
-private extension BuiltInCodeModeTool {
-    static var requiredArguments: [String] {
-        codeModeArguments.filter { $0.optional == false }.map(\.name)
-    }
-
-    static var optionalArguments: [String] {
-        codeModeArguments.filter(\.optional).map(\.name)
-    }
-
-    static var argumentTypes: [String: CapabilityArgumentType] {
-        Dictionary(uniqueKeysWithValues: codeModeArguments.map { ($0.name, $0.type) })
-    }
-
-    static var argumentHints: [String: String] {
-        Dictionary(uniqueKeysWithValues: codeModeArguments.map { ($0.name, $0.hint) })
-    }
-
-    func codeModeRegistration(capabilityKey: CodeModeCapabilityKey) -> CodeModeRegistration {
-        CodeModeRegistration(
-            capabilityKey: capabilityKey,
-            jsPath: Self.codeModePath,
-            title: Self.codeModeTitle,
-            summary: Self.codeModeSummary,
-            tags: Self.codeModeTags,
-            example: Self.codeModeExample,
-            requiredArguments: Self.requiredArguments,
-            optionalArguments: Self.optionalArguments,
-            argumentTypes: Self.argumentTypes,
-            argumentHints: Self.argumentHints,
-            resultSummary: Self.codeModeResultSummary
-        ) { rawArguments, context in
-            let decodedArguments = try decode(arguments: rawArguments)
-            return try call(arguments: decodedArguments, context: context)
-        }
-    }
-}
-
-extension CapabilityRegistration {
-    init(
-        builtInCapability: CapabilityID,
-        jsNames: [String]? = nil,
-        registration: CodeModeRegistration,
-        requiredPermissions: [PermissionKind] = []
-    ) {
-        self.init(
-            jsNames: jsNames ?? [registration.jsPath],
-            descriptor: CapabilityDescriptor(
-                id: builtInCapability,
-                title: registration.title,
-                summary: registration.summary,
-                tags: registration.tags,
-                example: registration.example,
-                requiredPermissions: requiredPermissions,
-                requiredArguments: registration.requiredArguments,
-                optionalArguments: registration.optionalArguments,
-                argumentTypes: registration.argumentTypes,
-                argumentHints: registration.argumentHints,
-                argumentConstraints: registration.argumentConstraints == .none ? nil : registration.argumentConstraints,
-                resultSummary: registration.resultSummary
-            ),
-            handler: registration.handler
-        )
-    }
-
-    fileprivate init<Tool: BuiltInCodeModeTool>(
-        builtInCapability: CapabilityID,
-        jsNames: [String]? = nil,
-        tool: Tool,
-        requiredPermissions: [PermissionKind] = []
-    ) {
-        self.init(
-            builtInCapability: builtInCapability,
-            jsNames: jsNames,
-            registration: tool.codeModeRegistration(capabilityKey: builtInCapability.codeModeKey),
-            requiredPermissions: requiredPermissions
-        )
-    }
-}
-
 struct KeychainCodeModeBuiltIns: BuiltInCodeModeProvider {
     let keychain: KeychainBridge
 
     func capabilityRegistrations() -> [CapabilityRegistration] {
         [
-            CapabilityRegistration(
-                builtInCapability: .keychainRead,
-                tool: KeychainReadTool(keychain: keychain)
-            ),
-            CapabilityRegistration(
-                builtInCapability: .keychainWrite,
-                tool: KeychainWriteTool(keychain: keychain)
-            ),
-            CapabilityRegistration(
-                builtInCapability: .keychainDelete,
-                tool: KeychainDeleteTool(keychain: keychain)
-            ),
+            CapabilityRegistration(tool: KeychainReadTool(keychain: keychain)),
+            CapabilityRegistration(tool: KeychainWriteTool(keychain: keychain)),
+            CapabilityRegistration(tool: KeychainDeleteTool(keychain: keychain)),
         ]
     }
 }
@@ -139,34 +22,9 @@ struct LocationWeatherCodeModeBuiltIns: BuiltInCodeModeProvider {
 
     func capabilityRegistrations() -> [CapabilityRegistration] {
         [
-            CapabilityRegistration(
-                builtInCapability: .locationRead,
-                jsNames: ["apple.location.getPermissionStatus", "apple.location.getCurrentPosition"],
-                registration: CodeModeRegistration(
-                    capabilityKey: CapabilityID.locationRead.codeModeKey,
-                    jsPath: "apple.location.getCurrentPosition",
-                    title: "Read location state or coordinates",
-                    summary: "Read location permission status or current coordinates.",
-                    tags: ["location", "permission", "geospatial"],
-                    example: "await apple.location.getCurrentPosition()",
-                    optionalArguments: ["mode"],
-                    argumentTypes: ["mode": .string],
-                    argumentHints: [
-                        "mode": "permissionStatus or current (default current).",
-                    ],
-                    resultSummary: "Permission status string or coordinates object."
-                ) { args, context in
-                    try location.read(arguments: args, context: context)
-                }
-            ),
-            CapabilityRegistration(
-                builtInCapability: .locationPermissionRequest,
-                tool: LocationPermissionRequestTool(location: location)
-            ),
-            CapabilityRegistration(
-                builtInCapability: .weatherRead,
-                tool: WeatherReadTool(weather: weather)
-            ),
+            CapabilityRegistration(tool: LocationReadTool(location: location)),
+            CapabilityRegistration(tool: LocationPermissionRequestTool(location: location)),
+            CapabilityRegistration(tool: WeatherReadTool(weather: weather)),
         ]
     }
 }
@@ -176,6 +34,7 @@ private struct KeychainReadTool: BuiltInCodeModeTool {
         var key: String
     }
 
+    static let codeModeCapability: CapabilityID = .keychainRead
     static let codeModePath = "apple.keychain.get"
     static let codeModeTitle = "Read Keychain value"
     static let codeModeSummary = "Read a string value from app-scoped Keychain storage."
@@ -203,6 +62,7 @@ private struct KeychainWriteTool: BuiltInCodeModeTool {
         var value: String?
     }
 
+    static let codeModeCapability: CapabilityID = .keychainWrite
     static let codeModePath = "apple.keychain.set"
     static let codeModeTitle = "Write Keychain value"
     static let codeModeSummary = "Store or update a string value in app-scoped Keychain storage."
@@ -237,6 +97,7 @@ private struct KeychainDeleteTool: BuiltInCodeModeTool {
         var key: String
     }
 
+    static let codeModeCapability: CapabilityID = .keychainDelete
     static let codeModePath = "apple.keychain.delete"
     static let codeModeTitle = "Delete Keychain value"
     static let codeModeSummary = "Delete an app-scoped Keychain value."
@@ -258,9 +119,42 @@ private struct KeychainDeleteTool: BuiltInCodeModeTool {
     }
 }
 
+private struct LocationReadTool: BuiltInCodeModeTool {
+    struct Arguments: Sendable {
+        var mode: String?
+    }
+
+    static let codeModeCapability: CapabilityID = .locationRead
+    static let codeModePath = "apple.location.getCurrentPosition"
+    static let codeModeAliasPaths = ["apple.location.getPermissionStatus"]
+    static let codeModeTitle = "Read location state or coordinates"
+    static let codeModeSummary = "Read location permission status or current coordinates."
+    static let codeModeTags = ["location", "permission", "geospatial"]
+    static let codeModeExample = "await apple.location.getCurrentPosition()"
+    static let codeModeArguments = [
+        BuiltInToolArgument("mode", .string, optional: true, hint: "permissionStatus or current (default current)."),
+    ]
+    static let codeModeResultSummary = "Permission status string or coordinates object."
+
+    let location: LocationBridge
+
+    func decode(arguments: [String: JSONValue]) throws -> Arguments {
+        Arguments(mode: try CodeModeArgumentDecoder.optional("mode", as: String.self, in: arguments))
+    }
+
+    func call(arguments: Arguments, context: BridgeInvocationContext) throws -> JSONValue {
+        var payload: [String: JSONValue] = [:]
+        if let mode = arguments.mode {
+            payload["mode"] = .string(mode)
+        }
+        return try location.read(arguments: payload, context: context)
+    }
+}
+
 private struct LocationPermissionRequestTool: BuiltInCodeModeTool {
     struct Arguments: Sendable {}
 
+    static let codeModeCapability: CapabilityID = .locationPermissionRequest
     static let codeModePath = "apple.location.requestPermission"
     static let codeModeTitle = "Request location permission"
     static let codeModeSummary = "Trigger location when-in-use permission request flow."
@@ -286,6 +180,7 @@ private struct WeatherReadTool: BuiltInCodeModeTool {
         var longitude: Double
     }
 
+    static let codeModeCapability: CapabilityID = .weatherRead
     static let codeModePath = "apple.weather.getCurrentWeather"
     static let codeModeTitle = "Read WeatherKit weather"
     static let codeModeSummary = "Fetch current weather for a latitude/longitude pair."

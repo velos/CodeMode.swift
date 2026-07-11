@@ -48,23 +48,9 @@ public struct CapabilityArgumentConstraints: Sendable, Codable, Equatable {
             return .init(allowedStringValues: [
                 "options.responseEncoding": ["text", "base64"],
             ])
-        case .calendarWrite:
-            return .init(allowedStringValues: [
-                "operation": ["create", "update"],
-            ])
-        case .calendarDelete:
-            return .init(allowedStringValues: [
-                "span": ["thisEvent", "futureEvents", "this_event", "future_events", "this", "future"],
-            ])
-        case .calendarUIPickCalendar:
-            return .init(allowedStringValues: [
-                "selectionStyle": ["single", "multiple"],
-                "displayStyle": ["writable", "all"],
-            ])
-        case .remindersWrite:
-            return .init(allowedStringValues: [
-                "operation": ["create", "update", "complete"],
-            ])
+        // calendarWrite / calendarDelete / calendarUIPickCalendar / remindersWrite
+        // constraints now come from their tools' CodeModeStringEnum arguments
+        // (EventKitCodeModeTools.swift), not this table.
         case .photosRead:
             return .init(allowedStringValues: [
                 "mediaType": ["any", "image", "photo", "video"],
