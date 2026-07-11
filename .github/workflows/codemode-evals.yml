@@ -81,12 +81,15 @@ jobs:
       - name: List package schemes
         run: xcodebuild -list -json | tee schemes.json
 
+      # -skipMacroValidation: the package builds its own CodeModeMacros compiler
+      # plugin, and xcodebuild refuses unvalidated macros in noninteractive runs.
       - name: Build CodeMode for ${{ matrix.platform }}
         run: |
           set -o pipefail
           xcodebuild build \
             -scheme CodeMode \
             -destination '${{ matrix.destination }}' \
+            -skipMacroValidation \
             CODE_SIGNING_ALLOWED=NO
 
   llm-plan:

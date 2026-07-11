@@ -14,13 +14,23 @@ rejected.**
 Phase 1 landed the same day: `BuiltInCodeModeTool` + `CodeModeStringEnum`
 shipped, EventKit/Keychain/Location/Weather converged on the idiom, the four
 EventKit-domain rows are gone from the central constraint table, and the
-coherence test guards the remainder. Two Phase-1 notes for Phase 2:
-(1) transitional tools carry a `raw: [String: JSONValue]` passthrough because
-bridges still consume raw dictionaries — the macro design should keep
-generating that until a domain's bridge goes fully typed (Phase 3);
-(2) a fifth metadata surface surfaced during migration — the hand-written JS
-function table in `RuntimeJavaScript.swift` — worth folding into Phase 3 as
-"generate the JS shim table from registrations".
+coherence test guards the remainder.
+
+**Phase 2 landed 2026-07-11 as well.** `CodeModeMacros` moved into the root
+package (Tools/CodeModeAuthoring is now the `CodeModeAuthoring` product);
+`@BuiltInCodeMode` + `@ToolParam` generate the identity statics,
+`codeModeArguments`, and `decode(arguments:)` from the `Arguments` struct. The
+EventKit domain is macro-authored. Design choices that differ slightly from
+the sketch below: the macro treats unrecognized field types as
+`CodeModeStringEnum` and emits them through constrained overloads
+(`BuiltInToolArgument(_:oneOf:)`, `CodeModeToolRawArguments.canonicalize`), so
+the *compiler* enforces the semantics on the expansion rather than the macro
+guessing; and the transitional `raw: [String: JSONValue]` passthrough is a
+convention the macro fills (canonicalized) when declared as the last stored
+property — it disappears per-domain in Phase 3 when a bridge goes typed.
+Remaining Phase-2 notes: the fifth metadata surface (hand-written JS function
+table in `RuntimeJavaScript.swift`) is still a Phase-3 item, and the
+authoring-facing `@CodeMode` has not yet gained enum-constraint support.
 
 ---
 

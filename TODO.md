@@ -129,12 +129,13 @@ in the core graph, so Phase 2 is unblocked):
   registrations in Phase 3.
 - [ ] Unify permission ownership — `calendarRead` checks in both registry and
   bridge; `calendarWrite` checks only in the bridge.
-- [/] Decide the fate of `Tools/CodeModeAuthoring` — investigated 2026-07-11;
-  concrete three-phase plan written up in `PLAN-registration-macros.md`
-  (typed-tool protocol first, then promote the macro into the core package —
-  swift-syntax cost measured at 24s clean/~0 incremental with prebuilts
-  default-on — then per-domain migration). Awaiting owner decision on
-  swift-syntax in the core graph; Phase 1 is worthwhile standalone.
+- [x] Decide the fate of `Tools/CodeModeAuthoring` — resolved 2026-07-11: owner
+  approved swift-syntax in the core graph; the package is folded into the root
+  package as the `CodeModeAuthoring` product and its `CodeModeMacros` plugin now
+  also backs the internal `@BuiltInCodeMode` macro (Phases 1+2 of
+  `PLAN-registration-macros.md` landed; EventKit is macro-authored). Remaining:
+  per-domain migration (Phase 3) and enum-constraint support for the
+  host-facing `@CodeMode`.
 
 ---
 
