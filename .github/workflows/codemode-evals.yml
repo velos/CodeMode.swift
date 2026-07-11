@@ -31,7 +31,19 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Toolchain
-        run: swift --version
+        run: |
+          swift --version
+          xcodebuild -version
+
+      - name: Cache SwiftPM build
+        uses: actions/cache@v4
+        with:
+          path: |
+            .build
+            Tools/CodeModeEval/.build
+          key: spm-${{ runner.os }}-${{ hashFiles('Package.swift', 'Tools/CodeModeEval/Package.swift') }}
+          restore-keys: |
+            spm-${{ runner.os }}-
 
       - name: Test package
         run: swift test
@@ -41,6 +53,41 @@ jobs:
 
       - name: Run deterministic evals
         run: swift run --package-path Tools/CodeModeEval codemode-eval run
+
+  platform-build:
+    name: Build (${{ matrix.platform }})
+    runs-on: macos-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: iOS
+            destination: generic/platform=iOS
+          - platform: visionOS
+            destination: generic/platform=visionOS
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Toolchain
+        run: |
+          swift --version
+          xcodebuild -version
+
+      # The library-only CodeMode product must compile for every declared
+      # platform. `swift test` on macOS never builds the UIKit presenters or the
+      # CCodeModeJSC shim against the iOS/visionOS SDKs, so exercise them here.
+      # CODE_SIGNING_ALLOWED=NO keeps the library build from requiring a profile.
+      - name: List package schemes
+        run: xcodebuild -list -json | tee schemes.json
+
+      - name: Build CodeMode for ${{ matrix.platform }}
+        run: |
+          set -o pipefail
+          xcodebuild build \
+            -scheme CodeMode \
+            -destination '${{ matrix.destination }}' \
+            CODE_SIGNING_ALLOWED=NO
 
   llm-plan:
     name: LLM eval planning

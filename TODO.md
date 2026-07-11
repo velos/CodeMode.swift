@@ -114,13 +114,19 @@ registrations with four parallel sources of truth. None addressed yet.
   `PathPolicy` (traversal/symlink-escape), `SystemPermissionBroker`
   (permission-denial), `ArtifactStore`, `AuditLogger`. (Quick win, protects the
   trust boundary.)
-- [ ] **CI never compiles iOS/visionOS code.** Single workflow runs `swift test`
-  on macOS only; all five `UIKitSystemUIPresenter*.swift` never build in CI. Add
-  an `xcodebuild -destination` matrix. Also missing: lint/format config + check,
-  build/dependency caching, Xcode/toolchain pinning, artifact upload of eval
-  reports.
-  - [ ] Add the macOS `swift test` CI job specifically — it's what would have
-    caught the watchdog compile blocker automatically.
+- [/] **CI never compiles iOS/visionOS code.**
+  - [x] Added a `platform-build` matrix job (`xcodebuild build` for iOS +
+    visionOS) so the UIKit presenters and the `CCodeModeJSC` shim compile
+    against those SDKs on every PR/push.
+  - [x] Added SwiftPM build caching and `xcodebuild -version` toolchain logging
+    to the deterministic job.
+  - [x] macOS `swift test` job already existed and links the new C shim +
+    watchdog on macOS — this is what verifies the private-symbol link.
+  - [ ] Still missing: lint/format config + check, explicit Xcode/SDK pinning
+    (currently uses runner default), artifact upload of eval reports.
+  - Note: the iOS/visionOS build verifies *compilation*; the private JSC symbol's
+    dynamic-link resolution is exercised by the macOS `swift test` link. Full
+    iOS link verification would need a test bundle / host app.
 - [ ] **Eval coverage gaps.** `health.*`, `vision.*`, `photos.read/export`,
   `reminders.write` have zero scenarios among the 49, though the LLM prompt
   advertises photos/health/home/alarms. Add catalog + execution/validation
