@@ -23,8 +23,18 @@ executing. The full "make the runtime resource-bounded" milestone is bigger than
 just the watchdog:
 - [x] Preemptive watchdog via `JSContextGroupSetExecutionTimeLimit` (through the
   `CCodeModeJSC` shim) → real `timeoutMs`, `while(true){}` terminates.
+  - [x] **macOS verification found the Linux-authored version completely broken:**
+    on current OS releases (observed macOS 26.5) JSC does *not* re-arm the time
+    limit when the callback returns false — the callback fires exactly once at
+    50ms and the watchdog is dead for the rest of the execution, so nothing was
+    ever terminated (first full `swift test` hung indefinitely with six runaway
+    JS threads). Root-caused with a minimal C reproduction; fixed by having the
+    callback re-install the time limit itself before returning false
+    (`codeModeWatchdogShouldTerminate` in `ExecutionWatchdog.swift`).
 - [x] Real cancellation — `cancel()` interrupts in-flight JS.
-- [~] Tests for the above (`ExecutionWatchdogTests.swift`) — unverified.
+- [x] Tests for the above (`ExecutionWatchdogTests.swift`) — all 8 pass on
+  macOS after the re-arm fix (loop, promise-chain loop, runaway getter during
+  serialization, cancellation, catch-proof termination, context recovery).
 - [ ] **JS heap / memory cap** — nothing bounds `JSContext`/`JSContextGroup`
   heap; `new Array(1e9)` can still exhaust host memory. NOT addressed.
 - [ ] **Bound on concurrent executions** — `executionQueue` is `.concurrent`
@@ -45,7 +55,7 @@ just the watchdog:
   unrestricted behavior.
 - [x] Request destinations (allowed + declined) now recorded in the audit log,
   not just the execution transcript.
-- [~] Tests (`NetworkAccessPolicyTests.swift`) — unverified.
+- [x] Tests (`NetworkAccessPolicyTests.swift`) — pass on macOS (2026-07-11).
 
 ### 3. Package not installable as documented  [/]
 - [x] README no longer tells users to depend on `from: "0.1.0"` against a
@@ -67,19 +77,23 @@ just the watchdog:
 - [x] **Serialization hang** (self-review): a runaway getter/`toJSON` could
   occupy the thread because the watchdog was uninstalled before decode. Fixed via
   rearm.
-- [ ] **HealthKit always denied through the default broker.**
-  `healthKitStatus()` unconditionally returns `.notDetermined`
-  (`SystemPermissionBroker.swift:398-407`); registry treats
-  requested→notDetermined as denial. Fails closed silently. NOT addressed.
-- [ ] **Calendar-span validation drift.** Registry constraint table accepts only
-  `["thisEvent","futureEvents"]` case-sensitively
-  (`CapabilityRegistry.swift:56-58`) while `EventKitBridge` accepts
-  `this_event`/`future`/etc. case-insensitively
-  (`EventKitBridge.swift:471-479`) — registry rejects inputs the bridge
-  supports. NOT addressed. (Quick win.)
-- [ ] **`DispatchQueue.main.sync` in `requestLocationPermission`**
-  (`SystemPermissionBroker.swift:430`) deadlocks if reached from the main
-  thread. NOT addressed.
+- [x] **HealthKit always denied through the default broker.** Investigated on
+  macOS (2026-07-11): the claimed mechanism does not exist in current code — no
+  built-in registration declares `.healthKit` in `requiredPermissions`, so the
+  registry's requested→notDetermined→denied path never fires for health.
+  `HealthBridge` treats `.notDetermined` as passable and performs real per-type
+  `requestAuthorization` itself. Added a registry test pinning the invariant
+  (no registration may gate on `.healthKit`, since the default broker can never
+  report `.granted` for it).
+- [x] **Calendar-span validation drift.** Fixed: constraint validation is now
+  case-insensitive (matching the `lowercased()` idiom used by effectively every
+  bridge), and the `calendarDelete` span list includes the alias spellings
+  `EventKitBridge` accepts. Also removed the now-redundant lowercase
+  `videoQuality` duplicates. Tests added.
+- [x] **`DispatchQueue.main.sync` in `requestLocationPermission`.** Fixed:
+  `main.async` + the existing 10s delegate wait. (The deadlock was background
+  execution thread → `main.sync` while the host blocks main waiting on the JS
+  result; the `Thread.isMainThread` branch already covered the direct case.)
 - [ ] **Duplicated eval model types will drift.** `LLM.swift` is excluded from
   the build; ~250 lines of report/suite types are defined twice (there and in
   compiled `LLMEvalModels.swift`) with nothing keeping them in sync. NOT
@@ -112,10 +126,15 @@ registrations with four parallel sources of truth. None addressed yet.
 
 ## TESTING, CI, AND EVALS
 
-- [ ] **Core policy layer has zero dedicated tests.** Add direct unit tests for
-  `PathPolicy` (path resolution: `..`, symlinks, allowed roots),
-  `SystemPermissionBroker` (permission grant/deny paths), `ArtifactStore`,
-  `AuditLogger`. (Quick win, covers the layer hosts rely on.)
+- [/] **Core policy layer has zero dedicated tests.**
+  - [x] `PathPolicy` (`PathPolicyTests.swift`): empty/whitespace, scoped roots,
+    appGroup configured/unconfigured, absolute in/out, `..` escapes vs internal
+    `..`, nonexistent nested paths, symlink escape vs symlink between roots.
+  - [x] `ArtifactStore` + `AuditLogger` (`CorePolicySupportTests.swift`).
+  - [ ] `SystemPermissionBroker` — not unit-testable as written: every path
+    terminates in a real OS framework call (CLLocationManager, EKEventStore,
+    CNContactStore…), so tests would prompt/flake. Needs seams (injectable
+    status providers) first; fold into the metadata/permission refactor.
 - [/] **CI never compiles iOS/visionOS code.**
   - [x] Added a `platform-build` matrix job (`xcodebuild build` for iOS +
     visionOS) so the UIKit presenters and the `CCodeModeJSC` shim compile
@@ -181,11 +200,15 @@ registrations with four parallel sources of truth. None addressed yet.
 ---
 
 ## MUST-DO BEFORE MERGE
-- [ ] **Verify on macOS** (nothing was compiled or run in this Linux env):
-  - [ ] `CCodeModeJSC` shim links against JavaScriptCore and the private symbol
-    resolves at load time on iOS/macOS/visionOS.
-  - [ ] `swift test` passes (all new + existing tests).
-  - [ ] Watchdog actually terminates `while(true){}` on device/simulator.
+- [/] **Verify on macOS** — done 2026-07-11 (macOS 26.5, Swift 6.3.2 / Xcode 26.5):
+  - [x] `CCodeModeJSC` shim links and the private symbols resolve at load time
+    on macOS. (iOS/visionOS remain compile-verified only, via CI.)
+  - [x] `swift test` passes — 206 tests, 0 failures, ~5s. Note: the *first*
+    verification run hung indefinitely and exposed the watchdog re-arm bug
+    (see CRITICAL ISSUES §1); after the fix the suite is green.
+  - [ ] Watchdog terminates `while(true){}` on an iOS device/simulator —
+    verified on macOS only; JSC ships per-OS, so worth one manual check on a
+    simulator before tagging.
 
 ## SUGGESTED ORDER OF ATTACK
 1. Quick wins: tag `0.1.0`, fix calendar-span drift, add core-policy-layer tests,
