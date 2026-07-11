@@ -125,6 +125,27 @@ let tools = CodeModeAgentTools(
 
 `CodeModeFileSystem` receives paths after `PathPolicy` resolution, so sandbox root enforcement stays in CodeMode while the host can route reads, writes, listings, moves, copies, deletes, and stats through another backing implementation. `LocalCodeModeFileSystem` preserves the default `FileManager` behavior.
 
+## Network Access Policy
+
+`network.fetch` egress is governed by `CodeModeConfiguration.networkAccessPolicy`:
+
+- The default `NetworkAccessPolicy.standard` refuses loopback, RFC 1918, link-local (including cloud metadata addresses such as `169.254.169.254`), CGNAT, and unique-local destinations, plus `localhost` and `.local`/`.localhost`/`.internal` names, and caps buffered response bodies at 10 MB.
+- Redirect targets are re-validated against the policy before they are followed.
+- Refusals throw structured `NETWORK_POLICY_VIOLATION` errors and are written to the audit logger along with successful fetch destinations.
+- `allowedHosts` restricts fetch to an explicit list (entries match the host and its subdomains, and deliberately allowlisted private hosts such as `localhost` are honored); `blockedHosts` refuses specific hosts; `NetworkAccessPolicy.permissive` restores unrestricted behavior.
+- Matching is by URL host only; DNS resolution is not performed, so a public hostname that resolves to a private address is not detected. Hosts that need stricter guarantees should set `allowedHosts`.
+
+```swift
+let tools = CodeModeAgentTools(
+    config: CodeModeConfiguration(
+        networkAccessPolicy: NetworkAccessPolicy(
+            allowedHosts: ["api.example.com"],
+            maxResponseBytes: 2_000_000
+        )
+    )
+)
+```
+
 ## Search
 
 `searchJavaScriptAPI` accepts `JavaScriptAPISearchRequest`:

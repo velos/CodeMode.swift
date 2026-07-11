@@ -13,6 +13,7 @@ enum BridgeError: Error, Sendable {
     case timeout(milliseconds: Int)
     case cancelled
     case pathViolation(String)
+    case networkPolicyViolation(String)
     case javascriptError(String)
     case nativeFailure(String)
 }
@@ -44,6 +45,8 @@ extension BridgeError: LocalizedError {
             return "Execution cancelled"
         case let .pathViolation(message):
             return message
+        case let .networkPolicyViolation(message):
+            return message
         case let .javascriptError(message):
             return message
         case let .nativeFailure(message):
@@ -73,6 +76,8 @@ extension BridgeError: LocalizedError {
             return "CANCELLED"
         case .pathViolation:
             return "PATH_POLICY_VIOLATION"
+        case .networkPolicyViolation:
+            return "NETWORK_POLICY_VIOLATION"
         case .javascriptError:
             return "JAVASCRIPT_ERROR"
         case .nativeFailure:

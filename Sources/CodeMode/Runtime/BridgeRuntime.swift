@@ -902,6 +902,12 @@ final class BridgeRuntime: @unchecked Sendable {
                 "Configure CodeModeConfiguration.systemUIPresenter before using UI-presenting helpers.",
                 "Do not retry this helper until the host provides a SystemUIPresenter.",
             ]
+        case .networkPolicyViolation:
+            suggestions = [
+                "The host app's network access policy refused this destination.",
+                "This is not repaired by adding more allowedCapabilities; do not retry the same URL.",
+                "Only public HTTP(S) destinations permitted by CodeModeConfiguration.networkAccessPolicy are reachable.",
+            ]
         default:
             suggestions = bridgeSuggestions(for: capability, capabilityKey: capabilityKey)
         }
@@ -964,6 +970,7 @@ final class BridgeRuntime: @unchecked Sendable {
             "UI_PRESENTER_UNAVAILABLE",
             "EXECUTION_TIMEOUT",
             "PATH_POLICY_VIOLATION",
+            "NETWORK_POLICY_VIOLATION",
             "JAVASCRIPT_ERROR",
             "NATIVE_FAILURE",
             "CANCELLED",
