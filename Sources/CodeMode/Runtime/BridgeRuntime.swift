@@ -436,16 +436,36 @@ final class BridgeRuntime: @unchecked Sendable {
         });
         """
 
+        let watchdog = ExecutionWatchdog(timeoutMs: timeoutMs, cancellationController: cancellationController)
+        watchdog.install(on: context)
+        defer { watchdog.uninstall(from: context) }
+
         lastException.set(nil)
         let evaluation = context.evaluateScript(script)
+
+        switch watchdog.termination {
+        case .timedOut:
+            throw toolError(
+                code: "EXECUTION_TIMEOUT",
+                message: "Execution timed out after \(timeoutMs)ms",
+                transcript: invocationContext
+            )
+        case .cancelled:
+            throw toolError(
+                code: "CANCELLED",
+                message: "Execution cancelled",
+                transcript: invocationContext
+            )
+        case nil:
+            break
+        }
+
         let snapshot = lastException.get() ?? Self.snapshot(from: context.exception)
         if snapshot != nil || evaluation == nil {
             throw syntaxError(from: snapshot, lineOffset: 4)
         }
 
-        let deadline = Date().addingTimeInterval(Double(timeoutMs) / 1000.0)
-
-        while Date() < deadline {
+        while Date() < watchdog.deadline {
             if cancellationController.isCancelled || Task.isCancelled {
                 cancellationController.cancel()
                 throw toolError(
@@ -458,12 +478,14 @@ final class BridgeRuntime: @unchecked Sendable {
             let state = context.evaluateScript("globalThis.__codemode.state")?.toString() ?? "unknown"
             switch state {
             case "fulfilled":
+                watchdog.uninstall(from: context)
                 let output = try decodeOutput(from: context)
                 if output == nil {
                     invocationContext.recordDiagnostic(Self.noReturnValueDiagnostic(for: code))
                 }
                 return output
             case "rejected":
+                watchdog.uninstall(from: context)
                 let payload = rejectionPayload(from: context)
                 throw classifyRejectedError(payload, invocationContext: invocationContext)
             default:
@@ -547,16 +569,36 @@ final class BridgeRuntime: @unchecked Sendable {
         });
         """
 
+        let watchdog = ExecutionWatchdog(timeoutMs: timeoutMs, cancellationController: cancellationController)
+        watchdog.install(on: context)
+        defer { watchdog.uninstall(from: context) }
+
         lastException.set(nil)
         let evaluation = context.evaluateScript(script)
+
+        switch watchdog.termination {
+        case .timedOut:
+            throw toolError(
+                code: "SEARCH_TIMEOUT",
+                message: "Search timed out after \(timeoutMs)ms",
+                transcript: invocationContext
+            )
+        case .cancelled:
+            throw toolError(
+                code: "CANCELLED",
+                message: "Search cancelled",
+                transcript: invocationContext
+            )
+        case nil:
+            break
+        }
+
         let snapshot = lastException.get() ?? Self.snapshot(from: context.exception)
         if snapshot != nil || evaluation == nil {
             throw syntaxError(from: snapshot, lineOffset: 5)
         }
 
-        let deadline = Date().addingTimeInterval(Double(timeoutMs) / 1000.0)
-
-        while Date() < deadline {
+        while Date() < watchdog.deadline {
             if cancellationController.isCancelled || Task.isCancelled {
                 cancellationController.cancel()
                 throw toolError(
@@ -569,12 +611,14 @@ final class BridgeRuntime: @unchecked Sendable {
             let state = context.evaluateScript("globalThis.__codemode.state")?.toString() ?? "unknown"
             switch state {
             case "fulfilled":
+                watchdog.uninstall(from: context)
                 return try decodeOutput(
                     from: context,
                     errorCode: "INVALID_SEARCH_RESULT",
                     errorMessagePrefix: "Search result must be JSON-serializable"
                 )
             case "rejected":
+                watchdog.uninstall(from: context)
                 let payload = rejectionPayload(from: context)
                 throw classifySearchRejectedError(payload, invocationContext: invocationContext)
             default:
