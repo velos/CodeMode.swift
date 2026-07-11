@@ -20,7 +20,14 @@ let package = Package(
     ],
     targets: [
         .target(
-            name: "CodeMode"
+            name: "CCodeModeJSC",
+            linkerSettings: [
+                .linkedFramework("JavaScriptCore")
+            ]
+        ),
+        .target(
+            name: "CodeMode",
+            dependencies: ["CCodeModeJSC"]
         ),
         .target(
             name: "CodeModeEvaluation",

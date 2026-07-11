@@ -240,7 +240,24 @@ System UI helpers are installed only on supported UI platforms. Shared iOS/visio
 
 - on success it returns `JavaScriptExecutionResult`
 - on failure it throws `CodeModeToolError`
-- `call.cancel()` performs best-effort cancellation
+- `call.cancel()` interrupts in-flight JavaScript
+
+### Timeout and cancellation
+
+`timeoutMs` and `cancel()` are enforced preemptively: a JavaScriptCore execution
+time limit terminates CPU-bound scripts (for example `while (true) {}`) instead
+of relying on a wall-clock check that cannot interrupt running JavaScript.
+
+- `timeoutMs` bounds total wall-clock for the execution, including the
+  synchronous portion of the script and any time already elapsed while a bridge
+  call blocked on native I/O (network, a UI picker). Hosts that present
+  long-running UI or issue slow requests should size `timeoutMs` accordingly;
+  the default is `10000`.
+- Preemption uses `JSContextGroupSetExecutionTimeLimit`, which JavaScriptCore
+  exports but declares only in a private WebKit header. CodeMode reaches it
+  through a thin C shim (`CCodeModeJSC`). This is JavaScriptCore's only
+  mechanism for interrupting runaway scripts; hosts submitting to the App Store
+  should be aware they rely on this exported-but-private symbol.
 
 `CodeModeToolError` includes structured fields such as:
 

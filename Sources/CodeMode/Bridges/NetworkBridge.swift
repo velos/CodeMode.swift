@@ -100,10 +100,11 @@ public final class NetworkBridge: @unchecked Sendable {
             partial[String(describing: pair.key)] = .string(String(describing: pair.value))
         }
 
-        context.log(.info, message: "fetch \(request.httpMethod ?? "GET") \(urlString) -> \(httpResponse.statusCode)")
+        let summary = "fetch \(request.httpMethod ?? "GET") \(urlString) -> \(httpResponse.statusCode)"
+        context.log(.info, message: summary)
         context.auditLogger.log(AuditEvent(
             capability: CapabilityID.networkFetch.rawValue,
-            message: "fetch \(request.httpMethod ?? "GET") \(urlString) -> \(httpResponse.statusCode)"
+            message: summary
         ))
 
         var object: [String: JSONValue] = [
@@ -188,6 +189,11 @@ private final class FetchTaskHandler: NSObject, URLSessionDataDelegate, @uncheck
 
         lock.lock()
         self.response = response as? HTTPURLResponse
+        // Content-Length is known and within the cap here: reserve once instead
+        // of growing the buffer through repeated reallocations as chunks arrive.
+        if response.expectedContentLength > 0 {
+            data.reserveCapacity(Int(response.expectedContentLength))
+        }
         lock.unlock()
         completionHandler(.allow)
     }

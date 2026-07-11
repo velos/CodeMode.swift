@@ -42,6 +42,30 @@ private func violation(_ policy: NetworkAccessPolicy, _ urlString: String) -> St
     #expect(violation(policy, "http://metadata.google.internal/computeMetadata/v1/") != nil)
 }
 
+@Test func standardPolicyBlocksFullyQualifiedTrailingDotHosts() {
+    let policy = NetworkAccessPolicy.standard
+
+    // A trailing root dot resolves to the same host and must not bypass the block.
+    #expect(violation(policy, "http://localhost./") != nil)
+    #expect(violation(policy, "http://metadata.google.internal./") != nil)
+    #expect(violation(policy, "http://printer.local./") != nil)
+}
+
+@Test func allowlistMatchesTrailingDotHosts() {
+    let policy = NetworkAccessPolicy(allowedHosts: ["example.com"])
+
+    #expect(violation(policy, "https://example.com./") == nil)
+    #expect(violation(policy, "https://api.example.com./") == nil)
+}
+
+@Test func standardPolicyBlocksIPv4EmbeddedIPv6Forms() {
+    let policy = NetworkAccessPolicy.standard
+
+    #expect(violation(policy, "http://[::7f00:1]/") != nil)      // IPv4-compatible ::127.0.0.1
+    #expect(violation(policy, "http://[64:ff9b::7f00:1]/") != nil) // NAT64 127.0.0.1
+    #expect(violation(policy, "http://[64:ff9b::a00:1]/") != nil)  // NAT64 10.0.0.1
+}
+
 @Test func standardPolicyBlocksPrivateIPv6() {
     let policy = NetworkAccessPolicy.standard
 

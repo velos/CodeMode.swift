@@ -83,6 +83,11 @@ public struct NetworkAccessPolicy: Sendable, Equatable {
         if host.hasPrefix("["), host.hasSuffix("]") {
             host = String(host.dropFirst().dropLast())
         }
+        // A trailing root dot ("localhost.", "example.com.") denotes the same
+        // host to DNS; strip it so suffix and literal matching cannot be bypassed.
+        while host.hasSuffix(".") {
+            host.removeLast()
+        }
         return host
     }
 
@@ -140,6 +145,10 @@ public struct NetworkAccessPolicy: Sendable, Equatable {
     private static func isPrivateOrLocal(ipv6 address: in6_addr) -> Bool {
         let bytes = withUnsafeBytes(of: address) { Array($0) }
 
+        func embeddedIPv4() -> UInt32 {
+            UInt32(bytes[12]) << 24 | UInt32(bytes[13]) << 16 | UInt32(bytes[14]) << 8 | UInt32(bytes[15])
+        }
+
         if bytes[0..<15].allSatisfy({ $0 == 0 }) {
             return bytes[15] == 0 || bytes[15] == 1 // unspecified or loopback
         }
@@ -150,9 +159,14 @@ public struct NetworkAccessPolicy: Sendable, Equatable {
             return true // link-local fe80::/10
         }
         if bytes[0..<10].allSatisfy({ $0 == 0 }), bytes[10] == 0xff, bytes[11] == 0xff {
-            // IPv4-mapped ::ffff:a.b.c.d
-            let embedded = UInt32(bytes[12]) << 24 | UInt32(bytes[13]) << 16 | UInt32(bytes[14]) << 8 | UInt32(bytes[15])
-            return isPrivateOrLocal(ipv4: embedded)
+            return isPrivateOrLocal(ipv4: embeddedIPv4()) // IPv4-mapped ::ffff:a.b.c.d
+        }
+        if bytes[0..<12].allSatisfy({ $0 == 0 }) {
+            return isPrivateOrLocal(ipv4: embeddedIPv4()) // IPv4-compatible ::a.b.c.d (deprecated)
+        }
+        if bytes[0] == 0x00, bytes[1] == 0x64, bytes[2] == 0xff, bytes[3] == 0x9b,
+           bytes[4..<12].allSatisfy({ $0 == 0 }) {
+            return isPrivateOrLocal(ipv4: embeddedIPv4()) // NAT64 64:ff9b::/96
         }
         return false
     }
