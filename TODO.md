@@ -1,10 +1,10 @@
 # CodeMode.swift — Working TODO
 
-Branch: `fixes-and-improvements` (pushed, 5 commits on top of `main`).
-This file is intentionally **not committed** — scratch tracking only.
+Branch: `fixes-and-improvements` (pushed on top of `main`).
+Scratch tracking for the follow-up work surfaced by the repo evaluation; kept on
+the branch so the remaining items travel with it.
 
-Derived from the full repo evaluation. Everything from that evaluation is
-represented below, with honest status.
+Everything from that evaluation is represented below, with honest status.
 
 ## Status legend
 - [x] done and pushed
@@ -19,30 +19,31 @@ represented below, with honest status.
 ### 1. Timeouts don't actually interrupt running JavaScript  [/]
 Root cause: synchronous bridge model settles the whole promise graph inside one
 `evaluateScript` call, so the old wall-clock poll loop never ran while JS was
-executing. The full "make the runtime resource-safe" milestone is bigger than
+executing. The full "make the runtime resource-bounded" milestone is bigger than
 just the watchdog:
 - [x] Preemptive watchdog via `JSContextGroupSetExecutionTimeLimit` (through the
   `CCodeModeJSC` shim) → real `timeoutMs`, `while(true){}` terminates.
 - [x] Real cancellation — `cancel()` interrupts in-flight JS.
 - [~] Tests for the above (`ExecutionWatchdogTests.swift`) — unverified.
 - [ ] **JS heap / memory cap** — nothing bounds `JSContext`/`JSContextGroup`
-  heap; `new Array(1e9)` can still OOM the host. NOT addressed.
+  heap; `new Array(1e9)` can still exhaust host memory. NOT addressed.
 - [ ] **Bound on concurrent executions** — `executionQueue` is `.concurrent`
-  with spin-waiting workers (`BridgeRuntime.swift:25-29`), so N hung/slow
-  scripts pin N threads. No concurrency cap. NOT addressed.
+  with spin-waiting workers (`BridgeRuntime.swift:25-29`), so N long-running
+  scripts occupy N threads. No concurrency cap. NOT addressed.
 - [ ] `runOnExecutionQueue` still has no task-cancellation handler wired into the
   dispatched block (best-effort only). NOT addressed.
 
-### 2. `fetch` has no egress policy (SSRF)  [x]
-- [x] `NetworkAccessPolicy` on `CodeModeConfiguration`: default blocks
-  loopback/RFC-1918/link-local/CGNAT/metadata (incl. encoded IPv4 literals and
-  IPv4-in-IPv6 / NAT64 forms), `localhost`/`.local`/`.internal`, trailing-dot
-  FQDNs.
-- [x] Redirect targets re-validated before being followed.
+### 2. `fetch` has no destination restrictions or size limits  [x]
+- [x] `NetworkAccessPolicy` on `CodeModeConfiguration`: by default requests are
+  limited to public hosts — private / loopback / link-local / local-network
+  addresses (including alternate numeric and IPv6-embedded spellings) and
+  `localhost`/`.local`/`.internal`/trailing-dot names are declined.
+- [x] Redirect targets re-checked against the policy before being followed.
 - [x] Response-size cap (default 10 MB), enforced by Content-Length pre-check +
   streaming cancel.
-- [x] Allow/deny host lists; `.permissive` opt-out.
-- [x] Egress destinations (allowed + denied) now written to the audit logger,
+- [x] Allow/deny host lists; `.permissive` opt-out for hosts that want the old
+  unrestricted behavior.
+- [x] Request destinations (allowed + declined) now recorded in the audit log,
   not just the execution transcript.
 - [~] Tests (`NetworkAccessPolicyTests.swift`) — unverified.
 
@@ -63,8 +64,9 @@ just the watchdog:
     review risk. Keep+document (current) vs gate vs accept.
 - [x] **Spurious timeout** (self-review): poll loop discarded an already-settled
   result at/just past deadline. Fixed via shared `waitForSettlement`.
-- [x] **Serialization hang** (self-review): runaway getter/`toJSON` hung the
-  thread because the watchdog was uninstalled before decode. Fixed via rearm.
+- [x] **Serialization hang** (self-review): a runaway getter/`toJSON` could
+  occupy the thread because the watchdog was uninstalled before decode. Fixed via
+  rearm.
 - [ ] **HealthKit always denied through the default broker.**
   `healthKitStatus()` unconditionally returns `.notDetermined`
   (`SystemPermissionBroker.swift:398-407`); registry treats
@@ -97,8 +99,8 @@ registrations with four parallel sources of truth. None addressed yet.
   against bridge JSON encoders) — would have caught the calendar-span drift.
 - [ ] Standardize on one registration idiom (three coexist across
   `CapabilityRegistrations+*.swift`).
-- [ ] Unify permission ownership — `calendarRead` gates in both registry and
-  bridge; `calendarWrite` gates only in the bridge.
+- [ ] Unify permission ownership — `calendarRead` checks in both registry and
+  bridge; `calendarWrite` checks only in the bridge.
 - [ ] Decide the fate of `Tools/CodeModeAuthoring` (macro package fully built,
   tested, but unwired; `SimpleBuiltInCodeModeProviders.swift` hand-rolls the
   same pattern). Either extend it to back the built-ins (permissions,
@@ -110,10 +112,10 @@ registrations with four parallel sources of truth. None addressed yet.
 
 ## TESTING, CI, AND EVALS
 
-- [ ] **Security layer has zero dedicated tests.** Add direct unit tests for
-  `PathPolicy` (traversal/symlink-escape), `SystemPermissionBroker`
-  (permission-denial), `ArtifactStore`, `AuditLogger`. (Quick win, protects the
-  trust boundary.)
+- [ ] **Core policy layer has zero dedicated tests.** Add direct unit tests for
+  `PathPolicy` (path resolution: `..`, symlinks, allowed roots),
+  `SystemPermissionBroker` (permission grant/deny paths), `ArtifactStore`,
+  `AuditLogger`. (Quick win, covers the layer hosts rely on.)
 - [/] **CI never compiles iOS/visionOS code.**
   - [x] Added a `platform-build` matrix job (`xcodebuild build` for iOS +
     visionOS) so the UIKit presenters and the `CCodeModeJSC` shim compile
@@ -149,8 +151,8 @@ registrations with four parallel sources of truth. None addressed yet.
   runtime" milestone.
 - [ ] **Structured audit pipeline.** Today's events are capability + free-text
   "success" with a pull-based drain. Move to a push-based sink with argument
-  digests, decisions, path/egress targets, and a per-execution correlation ID.
-  (Partial down payment already made: fetch egress destinations now audited.)
+  digests, outcomes, path/destination targets, and a per-execution correlation
+  ID. (Partial down payment already made: fetch destinations now recorded.)
 - [ ] **`Examples/` host app.** Minimal SwiftUI demo wiring `CodeModeAgentTools`
   + a real `UIKitSystemUIPresenter` + an LLM loop — concrete integration story
   and a manual test bed for the UIKit presenters automation can't reach.
@@ -166,10 +168,11 @@ registrations with four parallel sources of truth. None addressed yet.
 ---
 
 ## MISC DEFERRED / NOTED (not bugs)
-- [ ] Apply egress policy to `apple.web.present` / `apple.auth.webAuthenticate`
-  (visible browser flows, not silent egress; README scopes the policy claim to
-  `network.fetch` for now).
-- [ ] Data-driven CIDR blocklist in `NetworkAccessPolicy` (hardcoded ranges today).
+- [ ] Apply the network destination policy to `apple.web.present` /
+  `apple.auth.webAuthenticate` (these open a visible browser view; the policy
+  currently covers `network.fetch`).
+- [ ] Data-driven address-range list in `NetworkAccessPolicy` (ranges are
+  hardcoded today).
 - [ ] Reconcile network audit entries with the runtime's generic success/failure
   audit (two entries per fetch — kept intentionally for destination detail).
 - [ ] Migrate bespoke `NSLock` state (`ExecutionWatchdog`, `FetchTaskHandler`) to
@@ -185,13 +188,12 @@ registrations with four parallel sources of truth. None addressed yet.
   - [ ] Watchdog actually terminates `while(true){}` on device/simulator.
 
 ## SUGGESTED ORDER OF ATTACK
-1. Quick wins: tag `0.1.0`, fix calendar-span drift, add Security-layer tests,
+1. Quick wins: tag `0.1.0`, fix calendar-span drift, add core-policy-layer tests,
    add lint + iOS build job to CI.
 2. Runtime hardening milestone: (watchdog ✔) + JS heap cap + concurrency bound
-   → "resource- and egress-safe sandbox."
+   → "resource- and network-bounded runtime."
 3. Metadata-consolidation refactor + macro decision, protected by new drift tests.
 
 ## OPEN QUESTIONS FOR THE USER
-- [ ] Open a PR for `fixes-and-improvements`?
-- [ ] Add the macOS CI job next?
 - [ ] Decision on the private-but-exported JSC symbol (App Store risk)?
+- [ ] After CI is green: tag `0.1.0` and restore the versioned install snippet?
