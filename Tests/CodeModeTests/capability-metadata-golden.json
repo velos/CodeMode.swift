@@ -1,0 +1,4954 @@
+[
+  {
+    "allowedStringValues" : {
+      "dismissalPolicy" : [
+        "default",
+        "immediate"
+      ]
+    },
+    "argumentHints" : {
+
+    },
+    "argumentTypes" : {
+      "contentState" : "object",
+      "dismissalPolicy" : "string",
+      "identifier" : "string"
+    },
+    "example" : "await apple.activity.end({ identifier: 'activity-1', dismissalPolicy: 'immediate' })",
+    "id" : "activity.end",
+    "jsNames" : [
+      "apple.activity.end"
+    ],
+    "optionalArguments" : [
+      "contentState",
+      "dismissalPolicy"
+    ],
+    "requiredArguments" : [
+      "identifier"
+    ],
+    "requiredPermissions" : [
+
+    ],
+    "resultSummary" : "Object with identifier\/ended\/state.",
+    "summary" : "End a host-registered Live Activity, optionally with final content state.",
+    "tags" : [
+      "activitykit",
+      "live-activities",
+      "host-adapter"
+    ],
+    "title" : "End Live Activity"
+  },
+  {
+    "allowedStringValues" : {
+
+    },
+    "argumentHints" : {
+
+    },
+    "argumentTypes" : {
+      "activityType" : "string",
+      "limit" : "number"
+    },
+    "example" : "await apple.activity.list()",
+    "id" : "activity.list",
+    "jsNames" : [
+      "apple.activity.list"
+    ],
+    "optionalArguments" : [
+      "activityType",
+      "limit"
+    ],
+    "requiredArguments" : [
+
+    ],
+    "requiredPermissions" : [
+
+    ],
+    "resultSummary" : "Array of activities with identifier\/activityType\/state\/contentState\/attributes.",
+    "summary" : "List host-registered ActivityKit Live Activities visible to CodeMode.",
+    "tags" : [
+      "activitykit",
+      "live-activities",
+      "host-adapter"
+    ],
+    "title" : "List Live Activities"
+  },
+  {
+    "allowedStringValues" : {
+
+    },
+    "argumentHints" : {
+
+    },
+    "argumentTypes" : {
+      "identifier" : "string"
+    },
+    "example" : "await apple.activity.getPushToken({ identifier: 'activity-1' })",
+    "id" : "activity.pushToken.read",
+    "jsNames" : [
+      "apple.activity.getPushToken"
+    ],
+    "optionalArguments" : [
+
+    ],
+    "requiredArguments" : [
+      "identifier"
+    ],
+    "requiredPermissions" : [
+
+    ],
+    "resultSummary" : "Object with identifier\/pushToken\/environment.",
+    "summary" : "Read a Live Activity push token when the host adapter supports push updates.",
+    "tags" : [
+      "activitykit",
+      "live-activities",
+      "push-token"
+    ],
+    "title" : "Read Live Activity push token"
+  },
+  {
+    "allowedStringValues" : {
+
+    },
+    "argumentHints" : {
+      "activityType" : "Host-registered activity adapter type.",
+      "attributes" : "Adapter-defined immutable attributes.",
+      "contentState" : "Adapter-defined mutable content state.",
+      "pushType" : "Optional push token request mode when the adapter supports remote updates.",
+      "staleDate" : "Optional ISO8601 stale date."
+    },
+    "argumentTypes" : {
+      "activityType" : "string",
+      "attributes" : "object",
+      "contentState" : "object",
+      "pushType" : "string",
+      "staleDate" : "string"
+    },
+    "example" : "await apple.activity.start({ activityType: 'delivery', attributes: {}, contentState: {} })",
+    "id" : "activity.start",
+    "jsNames" : [
+      "apple.activity.start"
+    ],
+    "optionalArguments" : [
+      "contentState",
+      "pushType",
+      "staleDate"
+    ],
+    "requiredArguments" : [
+      "activityType",
+      "attributes"
+    ],
+    "requiredPermissions" : [
+
+    ],
+    "resultSummary" : "Object with identifier\/activityType\/state\/pushToken when available.",
+    "summary" : "Start a host-registered ActivityKit Live Activity adapter.",
+    "tags" : [
+      "activitykit",
+      "live-activities",
+      "host-adapter"
+    ],
+    "title" : "Start Live Activity"
+  },
+  {
+    "allowedStringValues" : {
+
+    },
+    "argumentHints" : {
+
+    },
+    "argumentTypes" : {
+      "alert" : "object",
+      "contentState" : "object",
+      "identifier" : "string",
+      "staleDate" : "string"
+    },
+    "example" : "await apple.activity.update({ identifier: 'activity-1', contentState: { progress: 0.7 } })",
+    "id" : "activity.update",
+    "jsNames" : [
+      "apple.activity.update"
+    ],
+    "optionalArguments" : [
+      "alert",
+      "staleDate"
+    ],
+    "requiredArguments" : [
+      "identifier",
+      "contentState"
+    ],
+    "requiredPermissions" : [
+
+    ],
+    "resultSummary" : "Object with identifier\/updated\/state.",
+    "summary" : "Update an existing host-registered Live Activity content state.",
+    "tags" : [
+      "activitykit",
+      "live-activities",
+      "host-adapter"
+    ],
+    "title" : "Update Live Activity"
+  },
+  {
+    "allowedStringValues" : {
+
+    },
+    "argumentHints" : {
+      "identifier" : "Single alarm identifier UUID string.",
+      "identifiers" : "Array of alarm identifier UUID strings. Omit both to cancel all known alarms."
+    },
+    "argumentTypes" : {
+      "identifier" : "string",
+      "identifiers" : "array"
+    },
+    "example" : "await ios.alarm.cancel({ identifiers: ['8F11679B-92E8-4D2F-84B4-4D0A7C95E3C3'] })",
+    "id" : "alarm.cancel",
+    "jsNames" : [
+      "ios.alarm.cancel"
+    ],
+    "optionalArguments" : [
+      "identifier",
+      "identifiers"
+    ],
+    "requiredArguments" : [
+
+    ],
+    "requiredPermissions" : [
+      "alarmKit"
+    ],
+    "resultSummary" : "Object with deleted\/count fields.",
+    "summary" : "Cancel one or more scheduled alarms by identifier, or clear all known alarms.",
+    "tags" : [
+      "alarmkit",
+      "alarms",
+      "schedule"
+    ],
+    "title" : "Cancel scheduled alarms"
+  },
+  {
+    "allowedStringValues" : {
+
+    },
+    "argumentHints" : {
+
+    },
+    "argumentTypes" : {
+
+    },
+    "example" : "await ios.alarm.requestPermission()",
+    "id" : "alarm.permission.request",
+    "jsNames" : [
+      "ios.alarm.requestPermission"
+    ],
+    "optionalArguments" : [
+
+    ],
+    "requiredArguments" : [
+
+    ],
+    "requiredPermissions" : [
+
+    ],
+    "resultSummary" : "Object with status\/granted fields.",
+    "summary" : "Request AlarmKit authorization from the user.",
+    "tags" : [
+      "alarmkit",
+      "permission",
+      "alarms"
+    ],
+    "title" : "Request AlarmKit permission"
+  },
+  {
+    "allowedStringValues" : {
+
+    },
+    "argumentHints" : {
+      "limit" : "Max number of scheduled alarms returned, default 50."
+    },
+    "argumentTypes" : {
+      "limit" : "number"
+    },
+    "example" : "await ios.alarm.list({ limit: 20 })",
+    "id" : "alarm.read",
+    "jsNames" : [
+      "ios.alarm.list"
+    ],
+    "optionalArguments" : [
+      "limit"
+    ],
+    "requiredArguments" : [
+
+    ],
+    "requiredPermissions" : [
+      "alarmKit"
+    ],
+    "resultSummary" : "Array of scheduled alarms with identifier\/title\/timing fields.",
+    "summary" : "List scheduled alarms known to the bridge runtime.",
+    "tags" : [
+      "alarmkit",
+      "alarms",
+      "schedule"
+    ],
+    "title" : "List scheduled alarms"
+  },
+  {
+    "allowedStringValues" : {
+
+    },
+    "argumentHints" : {
+      "fireDate" : "Optional absolute ISO8601 date; used when provided.",
+      "identifier" : "Optional UUID string; generated when omitted.",
+      "secondsFromNow" : "Fallback relative delay in seconds, default 60.",
+      "title" : "Alarm title shown in presentation."
+    },
+    "argumentTypes" : {
+      "fireDate" : "string",
+      "identifier" : "string",
+      "secondsFromNow" : "number",
+      "title" : "string"
+    },
+    "example" : "await ios.alarm.schedule({ title: 'Wake up', secondsFromNow: 1800 })",
+    "id" : "alarm.schedule",
+    "jsNames" : [
+      "ios.alarm.schedule"
+    ],
+    "optionalArguments" : [
+      "identifier",
+      "secondsFromNow",
+      "fireDate"
+    ],
+    "requiredArguments" : [
+      "title"
+    ],
+    "requiredPermissions" : [
+      "alarmKit"
+    ],
+    "resultSummary" : "Object with identifier\/scheduled\/title.",
+    "summary" : "Schedule an AlarmKit alarm using secondsFromNow or fireDate.",
+    "tags" : [
+      "alarmkit",
+      "alarms",
+      "schedule"
+    ],
+    "title" : "Schedule AlarmKit alarm"
+  },
+  {
+    "allowedStringValues" : {
+
+    },
+    "argumentHints" : {
+      "identifier" : "Host-registered action identifier.",
+      "parameters" : "Structured action parameters used for the donation."
+    },
+    "argumentTypes" : {
+      "identifier" : "string",
+      "parameters" : "object"
+    },
+    "example" : "await apple.appIntents.donate({ identifier: 'createNote', parameters: { title: 'Draft' } })",
+    "id" : "appintents.donate",
+    "jsNames" : [
+      "apple.appIntents.donate"
+    ],
+    "optionalArguments" : [
+      "parameters"
+    ],
+    "requiredArguments" : [
+      "identifier"
+    ],
+    "requiredPermissions" : [
+
+    ],
+    "resultSummary" : "Object with donated\/status.",
+    "summary" : "Ask the host to donate a supported action to Shortcuts\/Siri suggestions where feasible.",
+    "tags" : [
+      "appintents",
+      "shortcuts",
+      "donation",
+      "host-adapter"
+    ],
+    "title" : "Donate host App Intent action"
+  },
+  {
+    "allowedStringValues" : {
+
+    },
+    "argumentHints" : {
+      "afterCursor" : "Optional host-provided cursor for incremental reads.",
+      "identifier" : "Optional action identifier filter.",
+      "limit" : "Maximum handoff events to return."
+    },
+    "argumentTypes" : {
+      "afterCursor" : "string",
+      "identifier" : "string",
+      "limit" : "number"
+    },
+    "example" : "await apple.appIntents.listHandoffs({ limit: 20 })",
+    "id" : "appintents.handoffs.read",
+    "jsNames" : [
+      "apple.appIntents.listHandoffs"
+    ],
+    "optionalArguments" : [
+      "identifier",
+      "limit",
+      "afterCursor"
+    ],
+    "requiredArguments" : [
+
+    ],
+    "requiredPermissions" : [
+
+    ],
+    "resultSummary" : "Array of handoff events with cursor\/identifier\/parameters\/date\/source.",
+    "summary" : "Read bounded App Intent handoff events captured by the host app.",
+    "tags" : [
+      "appintents",
+      "shortcuts",
+      "handoff",
+      "inbox",
+      "events"
+    ],
+    "title" : "Read App Intent handoff inbox"
+  },
+  {
+    "allowedStringValues" : {
+
+    },
+    "argumentHints" : {
+      "domain" : "Optional host-defined action domain filter.",
+      "limit" : "Maximum actions to return."
+    },
+    "argumentTypes" : {
+      "domain" : "string",
+      "limit" : "number"
+    },
+    "example" : "await apple.appIntents.list()",
+    "id" : "appintents.list",
+    "jsNames" : [
+      "apple.appIntents.list"
+    ],
+    "optionalArguments" : [
+      "domain",
+      "limit"
+    ],
+    "requiredArguments" : [
+
+    ],
+    "requiredPermissions" : [
+
+    ],
+    "resultSummary" : "Array of actions with identifier\/title\/summary\/requiredParameters.",
+    "summary" : "List host-registered App Intents or Shortcuts actions exposed to CodeMode.",
+    "tags" : [
+      "appintents",
+      "shortcuts",
+      "actions",
+      "host-adapter"
+    ],
+    "title" : "List host App Intent adapters"
+  },
+  {
+    "allowedStringValues" : {
+
+    },
+    "argumentHints" : {
+      "identifier" : "Host-registered open action identifier.",
+      "parameters" : "Structured parameters for the host open action."
+    },
+    "argumentTypes" : {
+      "identifier" : "string",
+      "parameters" : "object"
+    },
+    "example" : "await apple.appIntents.open({ identifier: 'showTask', parameters: { id: 'task-1' } })",
+    "id" : "appintents.open",
+    "jsNames" : [
+      "apple.appIntents.open"
+    ],
+    "optionalArguments" : [
+      "parameters"
+    ],
+    "requiredArguments" : [
+      "identifier"
+    ],
+    "requiredPermissions" : [
+
+    ],
+    "resultSummary" : "Object with opened\/status.",
+    "summary" : "Open a host-provided App Intent, Shortcuts, or app surface for user-mediated continuation.",
+    "tags" : [
+      "appintents",
+      "shortcuts",
+      "open",
+      "host-adapter"
+    ],
+    "title" : "Open host App Intent surface"
+  },
+  {
+    "allowedStringValues" : {
+
+    },
+    "argumentHints" : {
+      "identifier" : "Host-registered action identifier from apple.appIntents.list.",
+      "parameters" : "Structured parameters validated by the host adapter.",
+      "timeoutMs" : "Maximum wait time in milliseconds."
+    },
+    "argumentTypes" : {
+      "identifier" : "string",
+      "parameters" : "object",
+      "timeoutMs" : "number"
+    },
+    "example" : "await apple.appIntents.run({ identifier: 'createNote', parameters: { title: 'Draft' } })",
+    "id" : "appintents.run",
+    "jsNames" : [
+      "apple.appIntents.run"
+    ],
+    "optionalArguments" : [
+      "parameters",
+      "timeoutMs"
+    ],
+    "requiredArguments" : [
+      "identifier"
+    ],
+    "requiredPermissions" : [
+
+    ],
+    "resultSummary" : "Adapter-defined structured result.",
+    "summary" : "Run a host-registered App Intent adapter with structured parameters.",
+    "tags" : [
+      "appintents",
+      "shortcuts",
+      "actions",
+      "host-adapter"
+    ],
+    "title" : "Run host App Intent adapter"
+  },
+  {
+    "allowedStringValues" : {
+
+    },
+    "argumentHints" : {
+      "callbackURLScheme" : "Optional custom URL scheme that completes the session.",
+      "prefersEphemeralSession" : "Whether to prefer a private browser session; default false.",
+      "timeoutMs" : "Optional timeout for waiting on callback\/cancellation.",
+      "url" : "Absolute HTTP(S) authentication URL."
+    },
+    "argumentTypes" : {
+      "callbackURLScheme" : "string",
+      "prefersEphemeralSession" : "bool",
+      "timeoutMs" : "number",
+      "url" : "string"
+    },
+    "example" : "await apple.auth.webAuthenticate({ url: 'https:\/\/example.com\/oauth', callbackURLScheme: 'myapp' })",
+    "id" : "auth.ui.webAuthenticate",
+    "jsNames" : [
+      "apple.auth.webAuthenticate"
+    ],
+    "optionalArguments" : [
+      "callbackURLScheme",
+      "prefersEphemeralSession",
+      "timeoutMs"
+    ],
+    "requiredArguments" : [
+      "url"
+    ],
+    "requiredPermissions" : [
+
+    ],
+    "resultSummary" : "Object with action callback\/cancelled and callbackURL when available.",
+    "summary" : "Start an ASWebAuthenticationSession for OAuth-style browser authentication.",
+    "tags" : [
+      "auth",
+      "oauth",
+      "web",
+      "browser",
+      "system-ui"
+    ],
+    "title" : "Authenticate with system web UI"
+  },
+  {
+    "allowedStringValues" : {
+      "span" : [
+        "thisEvent",
+        "futureEvents",
+        "future",
+        "future_events",
+        "this",
+        "this_event"
+      ]
+    },
+    "argumentHints" : {
+      "identifier" : "EventKit eventIdentifier from apple.calendar.listEvents.",
+      "span" : "thisEvent (default) or futureEvents for recurring events."
+    },
+    "argumentTypes" : {
+      "identifier" : "string",
+      "span" : "string"
+    },
+    "example" : "await apple.calendar.deleteEvent({ identifier: 'EVENT_ID', span: 'thisEvent' })",
+    "id" : "calendar.delete",
+    "jsNames" : [
+      "apple.calendar.deleteEvent"
+    ],
+    "optionalArguments" : [
+      "span"
+    ],
+    "requiredArguments" : [
+      "identifier"
+    ],
+    "requiredPermissions" : [
+      "calendar"
+    ],
+    "resultSummary" : "Object with identifier\/deleted.",
+    "summary" : "Delete an existing EventKit event by identifier.",
+    "tags" : [
+      "calendar",
+      "eventkit",
+      "schedule",
+      "delete"
+    ],
+    "title" : "Delete calendar event"
+  },
+  {
+    "allowedStringValues" : {
+
+    },
+    "argumentHints" : {
+      "calendarIdentifier" : "Optional EventKit calendarIdentifier to restrict results.",
+      "calendarIdentifiers" : "Optional array of EventKit calendarIdentifier strings to restrict results.",
+      "end" : "ISO8601 timestamp; defaults to start + 14 days.",
+      "limit" : "Max number of items, default 50.",
+      "start" : "ISO8601 timestamp; defaults to now."
+    },
+    "argumentTypes" : {
+      "calendarIdentifier" : "string",
+      "calendarIdentifiers" : "array",
+      "end" : "string",
+      "limit" : "number",
+      "start" : "string"
+    },
+    "example" : "await apple.calendar.listEvents({ start: '2026-02-21T00:00:00Z', end: '2026-03-01T00:00:00Z' })",
+    "id" : "calendar.read",
+    "jsNames" : [
+      "apple.calendar.listEvents"
+    ],
+    "optionalArguments" : [
+      "start",
+      "end",
+      "limit",
+      "calendarIdentifier",
+      "calendarIdentifiers"
+    ],
+    "requiredArguments" : [
+
+    ],
+    "requiredPermissions" : [
+      "calendar"
+    ],
+    "resultSummary" : "Array of events with identifier\/title\/startDate\/endDate\/notes\/calendarIdentifier\/calendarTitle\/location\/url\/isAllDay.",
+    "summary" : "List events in a date range from EventKit.",
+    "tags" : [
+      "calendar",
+      "eventkit",
+      "schedule"
+    ],
+    "title" : "Read calendar events"
+  },
+  {
+    "allowedStringValues" : {
+      "displayStyle" : [
+        "writable",
+        "all"
+      ],
+      "selectionStyle" : [
+        "single",
+        "multiple"
+      ]
+    },
+    "argumentHints" : {
+      "displayStyle" : "writable (default) or all.",
+      "selectionStyle" : "single (default) or multiple.",
+      "timeoutMs" : "Optional timeout for waiting on user selection."
+    },
+    "argumentTypes" : {
+      "displayStyle" : "string",
+      "selectionStyle" : "string",
+      "timeoutMs" : "number"
+    },
+    "example" : "await apple.calendar.pickCalendar({ selectionStyle: 'single' })",
+    "id" : "calendar.ui.pickCalendar",
+    "jsNames" : [
+      "apple.calendar.pickCalendar"
+    ],
+    "optionalArguments" : [
+      "selectionStyle",
+      "displayStyle",
+      "timeoutMs"
+    ],
+    "requiredArguments" : [
+
+    ],
+    "requiredPermissions" : [
+      "calendar.writeOnly"
+    ],
+    "resultSummary" : "Array of selected calendars with identifier\/title\/type\/allowsContentModifications.",
+    "summary" : "Present EventKit calendar chooser UI and return the user-selected writable calendars.",
+    "tags" : [
+      "calendar",
+      "eventkit",
+      "system-ui",
+      "picker"
+    ],
+    "title" : "Pick calendar with system UI"
+  },
+  {
+    "allowedStringValues" : {
+
+    },
+    "argumentHints" : {
+      "allowsCalendarPreview" : "Whether the UI may show calendar day previews; default true.",
+      "allowsEditing" : "Whether the user can edit from the detail UI; default false.",
+      "identifier" : "EventKit eventIdentifier from apple.calendar.listEvents.",
+      "timeoutMs" : "Optional timeout for waiting on dismissal."
+    },
+    "argumentTypes" : {
+      "allowsCalendarPreview" : "bool",
+      "allowsEditing" : "bool",
+      "identifier" : "string",
+      "timeoutMs" : "number"
+    },
+    "example" : "await apple.calendar.presentEvent({ identifier: 'EVENT_ID', allowsEditing: false })",
+    "id" : "calendar.ui.presentEvent",
+    "jsNames" : [
+      "apple.calendar.presentEvent"
+    ],
+    "optionalArguments" : [
+      "allowsEditing",
+      "allowsCalendarPreview",
+      "timeoutMs"
+    ],
+    "requiredArguments" : [
+      "identifier"
+    ],
+    "requiredPermissions" : [
+      "calendar"
+    ],
+    "resultSummary" : "Object with action dismissed.",
+    "summary" : "Present system UI for an existing calendar event identifier.",
+    "tags" : [
+      "calendar",
+      "eventkit",
+      "system-ui",
+      "details"
+    ],
+    "title" : "Present calendar event details"
+  },
+  {
+    "allowedStringValues" : {
+
+    },
+    "argumentHints" : {
+      "end" : "Optional ISO8601 end timestamp.",
+      "location" : "Optional location string.",
+      "notes" : "Optional event notes\/body text.",
+      "start" : "Optional ISO8601 start timestamp.",
+      "timeoutMs" : "Optional timeout for waiting on user save\/cancel.",
+      "title" : "Optional event title shown in the editor."
+    },
+    "argumentTypes" : {
+      "end" : "string",
+      "location" : "string",
+      "notes" : "string",
+      "start" : "string",
+      "timeoutMs" : "number",
+      "title" : "string"
+    },
+    "example" : "await apple.calendar.presentNewEvent({ title: 'Standup', start: '2026-02-22T16:00:00Z', end: '2026-02-22T16:15:00Z' })",
+    "id" : "calendar.ui.presentNewEvent",
+    "jsNames" : [
+      "apple.calendar.presentNewEvent"
+    ],
+    "optionalArguments" : [
+      "title",
+      "start",
+      "end",
+      "notes",
+      "location",
+      "timeoutMs"
+    ],
+    "requiredArguments" : [
+
+    ],
+    "requiredPermissions" : [
+      "calendar.writeOnly"
+    ],
+    "resultSummary" : "Object with action plus identifier\/title when the user saves.",
+    "summary" : "Present system UI to let the user create or edit a new calendar event draft.",
+    "tags" : [
+      "calendar",
+      "eventkit",
+      "system-ui",
+      "picker"
+    ],
+    "title" : "Present calendar event editor"
+  },
+  {
+    "allowedStringValues" : {
+      "operation" : [
+        "create",
+        "update"
+      ]
+    },
+    "argumentHints" : {
+      "calendarIdentifier" : "Optional destination EventKit calendarIdentifier.",
+      "end" : "ISO8601 end timestamp.",
+      "identifier" : "EventKit eventIdentifier to update. Updates require full calendar access at runtime.",
+      "isAllDay" : "Whether the event is all-day.",
+      "location" : "Optional location string.",
+      "notes" : "Optional notes\/body string.",
+      "operation" : "create (default without identifier) or update (default with identifier).",
+      "start" : "ISO8601 start timestamp.",
+      "title" : "Event title string.",
+      "url" : "Optional absolute URL string attached to the event."
+    },
+    "argumentTypes" : {
+      "calendarIdentifier" : "string",
+      "end" : "string",
+      "identifier" : "string",
+      "isAllDay" : "bool",
+      "location" : "string",
+      "notes" : "string",
+      "operation" : "string",
+      "start" : "string",
+      "title" : "string",
+      "url" : "string"
+    },
+    "example" : "await apple.calendar.createEvent({ title: 'Standup', start: '2026-02-22T16:00:00Z', end: '2026-02-22T16:15:00Z' })",
+    "id" : "calendar.write",
+    "jsNames" : [
+      "apple.calendar.createEvent",
+      "apple.calendar.updateEvent"
+    ],
+    "optionalArguments" : [
+      "operation",
+      "identifier",
+      "title",
+      "start",
+      "end",
+      "notes",
+      "location",
+      "url",
+      "isAllDay",
+      "calendarIdentifier"
+    ],
+    "requiredArguments" : [
+
+    ],
+    "requiredPermissions" : [
+
+    ],
+    "resultSummary" : "Object with identifier\/title\/startDate\/endDate\/notes\/calendarIdentifier\/calendarTitle\/location\/url\/isAllDay.",
+    "summary" : "Create a calendar event or patch an existing event by identifier.",
+    "tags" : [
+      "calendar",
+      "eventkit",
+      "schedule"
+    ],
+    "title" : "Create or update calendar event"
+  },
+  {
+    "allowedStringValues" : {
+      "cameraDevice" : [
+        "rear",
+        "front"
+      ],
+      "flashMode" : [
+        "auto",
+        "on",
+        "off"
+      ],
+      "mediaType" : [
+        "any",
+        "image",
+        "photo",
+        "video"
+      ],
+      "videoQuality" : [
+        "high",
+        "medium",
+        "low",
+        "640x480",
+        "iFrame1280x720",
+        "iFrame960x540"
+      ]
+    },
+    "argumentHints" : {
+      "allowsEditing" : "Whether the system editor is shown before returning media; default false.",
+      "cameraDevice" : "rear (default) or front.",
+      "flashMode" : "auto (default), on, or off.",
+      "maximumDurationSeconds" : "Optional maximum duration for video capture.",
+      "mediaType" : "any (default), image\/photo, or video.",
+      "outputDirectory" : "Optional sandbox directory for captured media; defaults to tmp:.",
+      "timeoutMs" : "Optional timeout for waiting on capture\/export.",
+      "videoQuality" : "UIImagePickerController quality name such as high, medium, low, 640x480, iFrame1280x720, or iFrame960x540."
+    },
+    "argumentTypes" : {
+      "allowsEditing" : "bool",
+      "cameraDevice" : "string",
+      "flashMode" : "string",
+      "maximumDurationSeconds" : "number",
+      "mediaType" : "string",
+      "outputDirectory" : "string",
+      "timeoutMs" : "number",
+      "videoQuality" : "string"
+    },
+    "example" : "await apple.camera.capture({ mediaType: 'image', outputDirectory: 'tmp:camera' })",
+    "id" : "camera.ui.capture",
+    "jsNames" : [
+      "apple.camera.capture"
+    ],
+    "optionalArguments" : [
+      "mediaType",
+      "outputDirectory",
+      "timeoutMs",
+      "allowsEditing",
+      "cameraDevice",
+      "flashMode",
+      "videoQuality",
+      "maximumDurationSeconds"
+    ],
+    "requiredArguments" : [
+
+    ],
+    "requiredPermissions" : [
+
+    ],
+    "resultSummary" : "Object with path\/artifactID\/mediaType\/uniformTypeIdentifier\/bytes.",
+    "summary" : "Present system camera UI and export captured media into the sandbox artifact store.",
+    "tags" : [
+      "camera",
+      "capture",
+      "photos",
+      "system-ui",
+      "artifact"
+    ],
+    "title" : "Capture photo or video with camera UI"
+  },
+  {
+    "allowedStringValues" : {
+      "mode" : [
+        "any",
+        "text",
+        "barcode"
+      ],
+      "qualityLevel" : [
+        "balanced",
+        "fast",
+        "accurate"
+      ]
+    },
+    "argumentHints" : {
+      "isGuidanceEnabled" : "Whether VisionKit guidance UI is shown; default true.",
+      "isHighFrameRateTrackingEnabled" : "Whether high-frame-rate tracking is enabled; default true.",
+      "isHighlightingEnabled" : "Whether recognized items are highlighted; default true.",
+      "isPinchToZoomEnabled" : "Whether pinch-to-zoom is enabled; default true.",
+      "languages" : "Optional text recognition language identifiers.",
+      "mode" : "any (default), text, or barcode.",
+      "qualityLevel" : "balanced (default), fast, or accurate.",
+      "recognizedDataTypes" : "Optional array containing text and\/or barcode; overrides mode.",
+      "recognizesMultipleItems" : "Whether the scanner tracks multiple items at once; default false.",
+      "returnsOnFirstResult" : "Whether to dismiss as soon as data is recognized; default true.",
+      "timeoutMs" : "Optional timeout for waiting on a scan result or cancellation."
+    },
+    "argumentTypes" : {
+      "isGuidanceEnabled" : "bool",
+      "isHighFrameRateTrackingEnabled" : "bool",
+      "isHighlightingEnabled" : "bool",
+      "isPinchToZoomEnabled" : "bool",
+      "languages" : "array",
+      "mode" : "string",
+      "qualityLevel" : "string",
+      "recognizedDataTypes" : "array",
+      "recognizesMultipleItems" : "bool",
+      "returnsOnFirstResult" : "bool",
+      "timeoutMs" : "number"
+    },
+    "example" : "await apple.camera.scanData({ mode: 'barcode', returnsOnFirstResult: true })",
+    "id" : "camera.ui.scanData",
+    "jsNames" : [
+      "apple.camera.scanData"
+    ],
+    "optionalArguments" : [
+      "mode",
+      "recognizedDataTypes",
+      "languages",
+      "qualityLevel",
+      "recognizesMultipleItems",
+      "returnsOnFirstResult",
+      "isGuidanceEnabled",
+      "isHighlightingEnabled",
+      "isPinchToZoomEnabled",
+      "isHighFrameRateTrackingEnabled",
+      "timeoutMs"
+    ],
+    "requiredArguments" : [
+
+    ],
+    "requiredPermissions" : [
+
+    ],
+    "resultSummary" : "Object with action and items containing text transcripts or barcode payloads.",
+    "summary" : "Present VisionKit live data scanner UI and return recognized text or barcode payloads.",
+    "tags" : [
+      "camera",
+      "scan",
+      "barcode",
+      "text",
+      "visionkit",
+      "system-ui"
+    ],
+    "title" : "Scan text or barcodes with camera UI"
+  },
+  {
+    "allowedStringValues" : {
+
+    },
+    "argumentHints" : {
+      "containerIdentifier" : "Optional iCloud container identifier; defaults to the host client's configured container."
+    },
+    "argumentTypes" : {
+      "containerIdentifier" : "string"
+    },
+    "example" : "await apple.cloudkit.getAccountStatus({ containerIdentifier: 'iCloud.com.example.app' })",
+    "id" : "cloudkit.account.status",
+    "jsNames" : [
+      "apple.cloudkit.getAccountStatus"
+    ],
+    "optionalArguments" : [
+      "containerIdentifier"
+    ],
+    "requiredArguments" : [
+
+    ],
+    "requiredPermissions" : [
+
+    ],
+    "resultSummary" : "Object with status\/accountAvailable and containerIdentifier when available.",
+    "summary" : "Read iCloud account availability for CloudKit-backed agent state.",
+    "tags" : [
+      "cloudkit",
+      "icloud",
+      "sync",
+      "account"
+    ],
+    "title" : "Read CloudKit account status"
+  },
+  {
+    "allowedStringValues" : {
+      "database" : [
+        "private",
+        "shared",
+        "public"
+      ]
+    },
+    "argumentHints" : {
+      "containerIdentifier" : "Optional iCloud container identifier.",
+      "database" : "private (default), shared, or public.",
+      "recordName" : "CloudKit recordName to delete.",
+      "zoneID" : "Optional custom zone identifier."
+    },
+    "argumentTypes" : {
+      "containerIdentifier" : "string",
+      "database" : "string",
+      "recordName" : "string",
+      "zoneID" : "string"
+    },
+    "example" : "await apple.cloudkit.deleteRecord({ database: 'private', recordName: 'task-1' })",
+    "id" : "cloudkit.record.delete",
+    "jsNames" : [
+      "apple.cloudkit.deleteRecord"
+    ],
+    "optionalArguments" : [
+      "database",
+      "containerIdentifier",
+      "zoneID"
+    ],
+    "requiredArguments" : [
+      "recordName"
+    ],
+    "requiredPermissions" : [
+
+    ],
+    "resultSummary" : "Object with recordName\/deleted\/database.",
+    "summary" : "Delete a CloudKit record by recordName from a configured database.",
+    "tags" : [
+      "cloudkit",
+      "icloud",
+      "database",
+      "delete"
+    ],
+    "title" : "Delete CloudKit record"
+  },
+  {
+    "allowedStringValues" : {
+      "database" : [
+        "private",
+        "shared",
+        "public"
+      ]
+    },
+    "argumentHints" : {
+      "containerIdentifier" : "Optional iCloud container identifier.",
+      "database" : "private (default), shared, or public.",
+      "fields" : "JSON object mapped by the host client into supported CloudKit field values.",
+      "recordName" : "Optional CloudKit recordName; omitted means create a new record.",
+      "recordType" : "CloudKit record type to create or update.",
+      "savePolicy" : "Host-supported save policy such as changedKeys or allKeys.",
+      "zoneID" : "Optional custom zone identifier."
+    },
+    "argumentTypes" : {
+      "containerIdentifier" : "string",
+      "database" : "string",
+      "fields" : "object",
+      "recordName" : "string",
+      "recordType" : "string",
+      "savePolicy" : "string",
+      "zoneID" : "string"
+    },
+    "example" : "await apple.cloudkit.saveRecord({ database: 'private', recordType: 'Task', recordName: 'task-1', fields: { title: 'Review' } })",
+    "id" : "cloudkit.record.save",
+    "jsNames" : [
+      "apple.cloudkit.saveRecord"
+    ],
+    "optionalArguments" : [
+      "recordName",
+      "database",
+      "containerIdentifier",
+      "zoneID",
+      "savePolicy"
+    ],
+    "requiredArguments" : [
+      "recordType",
+      "fields"
+    ],
+    "requiredPermissions" : [
+
+    ],
+    "resultSummary" : "Saved record object with recordName\/recordType\/fields\/changeTag\/database.",
+    "summary" : "Create or update a CloudKit record in a private\/shared\/public database.",
+    "tags" : [
+      "cloudkit",
+      "icloud",
+      "database",
+      "write"
+    ],
+    "title" : "Save CloudKit record"
+  },
+  {
+    "allowedStringValues" : {
+      "database" : [
+        "private",
+        "shared",
+        "public"
+      ]
+    },
+    "argumentHints" : {
+      "containerIdentifier" : "Optional iCloud container identifier.",
+      "database" : "private (default), shared, or public.",
+      "desiredKeys" : "Optional array of field keys to return.",
+      "limit" : "Max records to return; default is host-defined.",
+      "predicate" : "Host-supported predicate object or string; keep predicates bounded and repairable.",
+      "recordType" : "CloudKit record type to query.",
+      "sortDescriptors" : "Optional array of sort descriptor objects.",
+      "zoneID" : "Optional custom zone identifier."
+    },
+    "argumentTypes" : {
+      "containerIdentifier" : "string",
+      "database" : "string",
+      "desiredKeys" : "array",
+      "limit" : "number",
+      "predicate" : "any",
+      "recordType" : "string",
+      "sortDescriptors" : "array",
+      "zoneID" : "string"
+    },
+    "example" : "await apple.cloudkit.queryRecords({ database: 'private', recordType: 'Task', limit: 20 })",
+    "id" : "cloudkit.records.query",
+    "jsNames" : [
+      "apple.cloudkit.queryRecords"
+    ],
+    "optionalArguments" : [
+      "database",
+      "containerIdentifier",
+      "zoneID",
+      "predicate",
+      "sortDescriptors",
+      "desiredKeys",
+      "limit"
+    ],
+    "requiredArguments" : [
+      "recordType"
+    ],
+    "requiredPermissions" : [
+
+    ],
+    "resultSummary" : "Array of records with recordName\/recordType\/fields\/modifiedAt\/database.",
+    "summary" : "Query records from a private\/shared\/public CloudKit database for synced agent state.",
+    "tags" : [
+      "cloudkit",
+      "icloud",
+      "database",
+      "query"
+    ],
+    "title" : "Query CloudKit records"
+  },
+  {
+    "allowedStringValues" : {
+      "database" : [
+        "private",
+        "shared",
+        "public"
+      ]
+    },
+    "argumentHints" : {
+      "database" : "private (default), shared, or public.",
+      "firesOnRecordCreation" : "Whether creation events are enqueued; default true.",
+      "firesOnRecordDeletion" : "Whether delete events are enqueued; default true.",
+      "firesOnRecordUpdate" : "Whether update events are enqueued; default true.",
+      "predicate" : "Host-supported predicate object or string.",
+      "recordType" : "CloudKit record type to observe.",
+      "subscriptionID" : "Stable host-visible subscription identifier."
+    },
+    "argumentTypes" : {
+      "containerIdentifier" : "string",
+      "database" : "string",
+      "firesOnRecordCreation" : "bool",
+      "firesOnRecordDeletion" : "bool",
+      "firesOnRecordUpdate" : "bool",
+      "predicate" : "any",
+      "recordType" : "string",
+      "subscriptionID" : "string",
+      "zoneID" : "string"
+    },
+    "example" : "await apple.cloudkit.subscribe({ subscriptionID: 'tasks', database: 'private', recordType: 'Task' })",
+    "id" : "cloudkit.subscription.save",
+    "jsNames" : [
+      "apple.cloudkit.subscribe"
+    ],
+    "optionalArguments" : [
+      "database",
+      "containerIdentifier",
+      "zoneID",
+      "predicate",
+      "firesOnRecordCreation",
+      "firesOnRecordUpdate",
+      "firesOnRecordDeletion"
+    ],
+    "requiredArguments" : [
+      "subscriptionID",
+      "recordType"
+    ],
+    "requiredPermissions" : [
+
+    ],
+    "resultSummary" : "Object with subscriptionID\/saved\/database.",
+    "summary" : "Register a bounded CloudKit query subscription so the host can enqueue subscription events later.",
+    "tags" : [
+      "cloudkit",
+      "icloud",
+      "subscription",
+      "inbox"
+    ],
+    "title" : "Save CloudKit subscription"
+  },
+  {
+    "allowedStringValues" : {
+
+    },
+    "argumentHints" : {
+      "afterCursor" : "Optional host-provided cursor for incremental reads.",
+      "limit" : "Maximum number of inbox events to read.",
+      "subscriptionID" : "Optional subscription filter."
+    },
+    "argumentTypes" : {
+      "afterCursor" : "string",
+      "limit" : "number",
+      "subscriptionID" : "string"
+    },
+    "example" : "await apple.cloudkit.listEvents({ subscriptionID: 'tasks', limit: 20 })",
+    "id" : "cloudkit.subscriptionEvents.read",
+    "jsNames" : [
+      "apple.cloudkit.listEvents"
+    ],
+    "optionalArguments" : [
+      "subscriptionID",
+      "limit",
+      "afterCursor"
+    ],
+    "requiredArguments" : [
+
+    ],
+    "requiredPermissions" : [
+
+    ],
+    "resultSummary" : "Array of subscription event objects with cursor\/subscriptionID\/recordName\/reason\/database.",
+    "summary" : "Read bounded CloudKit subscription events previously received by the host.",
+    "tags" : [
+      "cloudkit",
+      "icloud",
+      "subscription",
+      "inbox",
+      "events"
+    ],
+    "title" : "Read CloudKit subscription inbox"
+  },
+  {
+    "allowedStringValues" : {
+
+    },
+    "argumentHints" : {
+      "identifiers" : "Optional array of contact identifiers for targeted read.",
+      "limit" : "Max number of contacts, default 50."
+    },
+    "argumentTypes" : {
+      "identifiers" : "array",
+      "limit" : "number"
+    },
+    "example" : "await apple.contacts.list({ limit: 25 })",
+    "id" : "contacts.read",
+    "jsNames" : [
+      "apple.contacts.list"
+    ],
+    "optionalArguments" : [
+      "limit",
+      "identifiers"
+    ],
+    "requiredArguments" : [
+
+    ],
+    "requiredPermissions" : [
+      "contacts"
+    ],
+    "resultSummary" : "Array of contacts with identifier\/name\/organization\/phones\/emails.",
+    "summary" : "Read contacts with bounded fields.",
+    "tags" : [
+      "contacts",
+      "address-book",
+      "people"
+    ],
+    "title" : "Read contacts"
+  },
+  {
+    "allowedStringValues" : {
+
+    },
+    "argumentHints" : {
+      "limit" : "Max number of contacts, default 20.",
+      "query" : "Name text to match."
+    },
+    "argumentTypes" : {
+      "limit" : "number",
+      "query" : "string"
+    },
+    "example" : "await apple.contacts.search({ query: 'Alex', limit: 10 })",
+    "id" : "contacts.search",
+    "jsNames" : [
+      "apple.contacts.search"
+    ],
+    "optionalArguments" : [
+      "limit"
+    ],
+    "requiredArguments" : [
+      "query"
+    ],
+    "requiredPermissions" : [
+      "contacts"
+    ],
+    "resultSummary" : "Array of contact objects.",
+    "summary" : "Search contacts by name.",
+    "tags" : [
+      "contacts",
+      "search",
+      "people"
+    ],
+    "title" : "Search contacts"
+  },
+  {
+    "allowedStringValues" : {
+      "mode" : [
+        "single",
+        "multiple"
+      ]
+    },
+    "argumentHints" : {
+      "displayedPropertyKeys" : "Optional array of CNContact property key strings to display.",
+      "mode" : "single (default) or multiple.",
+      "timeoutMs" : "Optional timeout for waiting on user selection."
+    },
+    "argumentTypes" : {
+      "displayedPropertyKeys" : "array",
+      "mode" : "string",
+      "timeoutMs" : "number"
+    },
+    "example" : "await apple.contacts.pick({ mode: 'single', displayedPropertyKeys: ['phoneNumbers', 'emailAddresses'] })",
+    "id" : "contacts.ui.pick",
+    "jsNames" : [
+      "apple.contacts.pick"
+    ],
+    "optionalArguments" : [
+      "mode",
+      "displayedPropertyKeys",
+      "timeoutMs"
+    ],
+    "requiredArguments" : [
+
+    ],
+    "requiredPermissions" : [
+
+    ],
+    "resultSummary" : "Array of selected contacts with identifier\/name\/organization\/phones\/emails.",
+    "summary" : "Present system contact picker UI and return selected contacts without requiring full Contacts permission.",
+    "tags" : [
+      "contacts",
+      "people",
+      "system-ui",
+      "picker"
+    ],
+    "title" : "Pick contacts with system UI"
+  },
+  {
+    "allowedStringValues" : {
+
+    },
+    "argumentHints" : {
+      "allowsActions" : "Whether built-in actions like call\/message are shown; default true.",
+      "allowsEditing" : "Whether the user can edit the contact; default false.",
+      "displayedPropertyKeys" : "Optional array of CNContact property key strings to display.",
+      "identifier" : "Contact identifier from apple.contacts.list\/search\/pick.",
+      "timeoutMs" : "Optional timeout for waiting on dismissal."
+    },
+    "argumentTypes" : {
+      "allowsActions" : "bool",
+      "allowsEditing" : "bool",
+      "displayedPropertyKeys" : "array",
+      "identifier" : "string",
+      "timeoutMs" : "number"
+    },
+    "example" : "await apple.contacts.presentContact({ identifier: 'CONTACT_ID', allowsEditing: false })",
+    "id" : "contacts.ui.presentContact",
+    "jsNames" : [
+      "apple.contacts.presentContact"
+    ],
+    "optionalArguments" : [
+      "allowsEditing",
+      "allowsActions",
+      "displayedPropertyKeys",
+      "timeoutMs"
+    ],
+    "requiredArguments" : [
+      "identifier"
+    ],
+    "requiredPermissions" : [
+      "contacts"
+    ],
+    "resultSummary" : "Object with action and contact when available.",
+    "summary" : "Present system contact card UI for a contact identifier.",
+    "tags" : [
+      "contacts",
+      "people",
+      "system-ui",
+      "details"
+    ],
+    "title" : "Present contact card"
+  },
+  {
+    "allowedStringValues" : {
+
+    },
+    "argumentHints" : {
+      "emailAddresses" : "Optional array of email address strings.",
+      "familyName" : "Optional family name to prefill.",
+      "givenName" : "Optional given name to prefill.",
+      "organization" : "Optional organization to prefill.",
+      "phoneNumbers" : "Optional array of phone number strings.",
+      "timeoutMs" : "Optional timeout for waiting on user completion."
+    },
+    "argumentTypes" : {
+      "emailAddresses" : "array",
+      "familyName" : "string",
+      "givenName" : "string",
+      "organization" : "string",
+      "phoneNumbers" : "array",
+      "timeoutMs" : "number"
+    },
+    "example" : "await apple.contacts.presentNewContact({ givenName: 'Alex', familyName: 'Lee', emailAddresses: ['alex@example.com'] })",
+    "id" : "contacts.ui.presentNewContact",
+    "jsNames" : [
+      "apple.contacts.presentNewContact"
+    ],
+    "optionalArguments" : [
+      "givenName",
+      "familyName",
+      "organization",
+      "phoneNumbers",
+      "emailAddresses",
+      "timeoutMs"
+    ],
+    "requiredArguments" : [
+
+    ],
+    "requiredPermissions" : [
+      "contacts"
+    ],
+    "resultSummary" : "Object with action and contact when the user saves.",
+    "summary" : "Present system UI for creating a new contact draft.",
+    "tags" : [
+      "contacts",
+      "people",
+      "system-ui",
+      "create"
+    ],
+    "title" : "Present new contact editor"
+  },
+  {
+    "allowedStringValues" : {
+
+    },
+    "argumentHints" : {
+      "asCopy" : "Whether to export as a copy; default true.",
+      "path" : "Single sandbox file path to export.",
+      "paths" : "Optional array of sandbox file paths to export.",
+      "timeoutMs" : "Optional timeout for waiting on export completion."
+    },
+    "argumentTypes" : {
+      "asCopy" : "bool",
+      "path" : "string",
+      "paths" : "array",
+      "timeoutMs" : "number"
+    },
+    "example" : "await apple.documents.export({ path: 'tmp:report.pdf' })",
+    "id" : "documents.ui.export",
+    "jsNames" : [
+      "apple.documents.export",
+      "apple.documents.save"
+    ],
+    "optionalArguments" : [
+      "path",
+      "paths",
+      "asCopy",
+      "timeoutMs"
+    ],
+    "requiredArguments" : [
+
+    ],
+    "requiredPermissions" : [
+
+    ],
+    "resultSummary" : "Object with action\/count and destination URLs when the provider returns them.",
+    "summary" : "Present Files export UI to save one or more sandbox files to a user-selected destination.",
+    "tags" : [
+      "documents",
+      "files",
+      "system-ui",
+      "export",
+      "save"
+    ],
+    "title" : "Export documents with system UI"
+  },
+  {
+    "allowedStringValues" : {
+
+    },
+    "argumentHints" : {
+      "name" : "Optional display name for the document interaction controller.",
+      "path" : "Sandbox file path to hand off.",
+      "timeoutMs" : "Optional timeout for waiting on the Open In menu dismissal.",
+      "uti" : "Optional uniform type identifier override."
+    },
+    "argumentTypes" : {
+      "name" : "string",
+      "path" : "string",
+      "timeoutMs" : "number",
+      "uti" : "string"
+    },
+    "example" : "await apple.documents.openIn({ path: 'tmp:report.pdf' })",
+    "id" : "documents.ui.openIn",
+    "jsNames" : [
+      "apple.documents.openIn"
+    ],
+    "optionalArguments" : [
+      "name",
+      "uti",
+      "timeoutMs"
+    ],
+    "requiredArguments" : [
+      "path"
+    ],
+    "requiredPermissions" : [
+
+    ],
+    "resultSummary" : "Object with action and application bundle identifier when the user hands off the file.",
+    "summary" : "Present the system Open In menu for a sandbox file.",
+    "tags" : [
+      "documents",
+      "files",
+      "system-ui",
+      "open-in",
+      "handoff"
+    ],
+    "title" : "Open document in another app"
+  },
+  {
+    "allowedStringValues" : {
+
+    },
+    "argumentHints" : {
+      "allowMultiple" : "Whether multiple files may be selected; default false.",
+      "contentTypes" : "Optional array of UTType identifiers; defaults to public.item.",
+      "outputDirectory" : "Optional sandbox directory for copied files; defaults to tmp:.",
+      "timeoutMs" : "Optional timeout for waiting on user selection\/copy."
+    },
+    "argumentTypes" : {
+      "allowMultiple" : "bool",
+      "contentTypes" : "array",
+      "outputDirectory" : "string",
+      "timeoutMs" : "number"
+    },
+    "example" : "await apple.documents.pick({ contentTypes: ['public.item'], allowMultiple: true, outputDirectory: 'tmp:imports' })",
+    "id" : "documents.ui.pick",
+    "jsNames" : [
+      "apple.documents.pick"
+    ],
+    "optionalArguments" : [
+      "contentTypes",
+      "allowMultiple",
+      "outputDirectory",
+      "timeoutMs"
+    ],
+    "requiredArguments" : [
+
+    ],
+    "requiredPermissions" : [
+
+    ],
+    "resultSummary" : "Array of selected documents with path\/artifactID\/filename\/uniformTypeIdentifier\/bytes.",
+    "summary" : "Present Files document picker UI and copy selected documents into the sandbox artifact store.",
+    "tags" : [
+      "documents",
+      "files",
+      "system-ui",
+      "picker",
+      "artifact"
+    ],
+    "title" : "Pick documents with system UI"
+  },
+  {
+    "allowedStringValues" : {
+
+    },
+    "argumentHints" : {
+      "outputDirectory" : "Optional sandbox directory for scanned page images; defaults to tmp:.",
+      "timeoutMs" : "Optional timeout for waiting on user scanning\/export."
+    },
+    "argumentTypes" : {
+      "outputDirectory" : "string",
+      "timeoutMs" : "number"
+    },
+    "example" : "await apple.documents.scan({ outputDirectory: 'tmp:scans' })",
+    "id" : "documents.ui.scan",
+    "jsNames" : [
+      "apple.documents.scan"
+    ],
+    "optionalArguments" : [
+      "outputDirectory",
+      "timeoutMs"
+    ],
+    "requiredArguments" : [
+
+    ],
+    "requiredPermissions" : [
+
+    ],
+    "resultSummary" : "Array of scanned page artifacts with path\/artifactID\/pageIndex\/mediaType\/bytes.",
+    "summary" : "Present VisionKit document scanner UI and export scanned pages into the sandbox artifact store.",
+    "tags" : [
+      "documents",
+      "scan",
+      "camera",
+      "system-ui",
+      "artifact"
+    ],
+    "title" : "Scan documents with system UI"
+  },
+  {
+    "allowedStringValues" : {
+
+    },
+    "argumentHints" : {
+      "input" : "Input text to classify or extract from.",
+      "instructions" : "Optional task-specific instructions.",
+      "schema" : "Optional JSON schema object accepted by the host adapter.",
+      "schemaIdentifier" : "Preferred host-defined schema identifier.",
+      "timeoutMs" : "Maximum extraction wait time in milliseconds."
+    },
+    "argumentTypes" : {
+      "input" : "string",
+      "instructions" : "string",
+      "schema" : "object",
+      "schemaIdentifier" : "string",
+      "timeoutMs" : "number"
+    },
+    "example" : "await apple.foundationModels.extract({ input: text, schemaIdentifier: 'todo' })",
+    "id" : "foundationModels.extract",
+    "jsNames" : [
+      "apple.foundationModels.extract"
+    ],
+    "optionalArguments" : [
+      "schema",
+      "schemaIdentifier",
+      "instructions",
+      "timeoutMs"
+    ],
+    "requiredArguments" : [
+      "input"
+    ],
+    "requiredPermissions" : [
+
+    ],
+    "resultSummary" : "Object with values\/classification\/confidence\/schemaIdentifier.",
+    "summary" : "Run host-defined structured extraction or classification with Foundation Models.",
+    "tags" : [
+      "foundationmodels",
+      "apple-intelligence",
+      "llm",
+      "structured-output"
+    ],
+    "title" : "Extract structured data with Foundation Models"
+  },
+  {
+    "allowedStringValues" : {
+
+    },
+    "argumentHints" : {
+      "instructions" : "Optional host-approved system instructions.",
+      "maxTokens" : "Optional maximum output tokens.",
+      "prompt" : "Prompt text sent to the host Foundation Models session.",
+      "schemaIdentifier" : "Optional host-defined output schema identifier.",
+      "temperature" : "Optional sampling temperature when supported.",
+      "timeoutMs" : "Maximum generation wait time in milliseconds."
+    },
+    "argumentTypes" : {
+      "instructions" : "string",
+      "maxTokens" : "number",
+      "prompt" : "any",
+      "schemaIdentifier" : "string",
+      "temperature" : "number",
+      "timeoutMs" : "number"
+    },
+    "example" : "await apple.foundationModels.generate({ prompt: 'Summarize this note', maxTokens: 200 })",
+    "id" : "foundationModels.generate",
+    "jsNames" : [
+      "apple.foundationModels.generate"
+    ],
+    "optionalArguments" : [
+      "instructions",
+      "temperature",
+      "maxTokens",
+      "schemaIdentifier",
+      "timeoutMs"
+    ],
+    "requiredArguments" : [
+      "prompt"
+    ],
+    "requiredPermissions" : [
+
+    ],
+    "resultSummary" : "Object with text\/finishReason\/usage when available.",
+    "summary" : "Generate text locally through the host Foundation Models adapter when available.",
+    "tags" : [
+      "foundationmodels",
+      "apple-intelligence",
+      "llm",
+      "generation"
+    ],
+    "title" : "Generate text with Foundation Models"
+  },
+  {
+    "allowedStringValues" : {
+
+    },
+    "argumentHints" : {
+
+    },
+    "argumentTypes" : {
+
+    },
+    "example" : "await apple.foundationModels.getStatus()",
+    "id" : "foundationModels.status",
+    "jsNames" : [
+      "apple.foundationModels.getStatus"
+    ],
+    "optionalArguments" : [
+
+    ],
+    "requiredArguments" : [
+
+    ],
+    "requiredPermissions" : [
+
+    ],
+    "resultSummary" : "Object with available\/status\/reason\/modelIdentifier when available.",
+    "summary" : "Read host Foundation Models availability\/status before attempting local generation.",
+    "tags" : [
+      "foundationmodels",
+      "apple-intelligence",
+      "llm",
+      "availability"
+    ],
+    "title" : "Read Foundation Models availability"
+  },
+  {
+    "allowedStringValues" : {
+
+    },
+    "argumentHints" : {
+      "path" : "File or directory path to inspect."
+    },
+    "argumentTypes" : {
+      "path" : "string"
+    },
+    "example" : "await apple.fs.access({ path: 'tmp:data.json' })",
+    "id" : "fs.access",
+    "jsNames" : [
+      "apple.fs.access",
+      "fs.promises.access"
+    ],
+    "optionalArguments" : [
+
+    ],
+    "requiredArguments" : [
+      "path"
+    ],
+    "requiredPermissions" : [
+
+    ],
+    "resultSummary" : "Object with readable\/writable\/path.",
+    "summary" : "Check read\/write access for path within allowed sandbox roots.",
+    "tags" : [
+      "filesystem",
+      "io",
+      "fs"
+    ],
+    "title" : "Check path access"
+  },
+  {
+    "allowedStringValues" : {
+
+    },
+    "argumentHints" : {
+      "from" : "Source sandbox path.",
+      "to" : "Destination sandbox path."
+    },
+    "argumentTypes" : {
+      "from" : "string",
+      "to" : "string"
+    },
+    "example" : "await apple.fs.copy({ from: 'tmp:a.txt', to: 'tmp:b.txt' })",
+    "id" : "fs.copy",
+    "jsNames" : [
+      "apple.fs.copy",
+      "fs.promises.copyFile"
+    ],
+    "optionalArguments" : [
+
+    ],
+    "requiredArguments" : [
+      "from",
+      "to"
+    ],
+    "requiredPermissions" : [
+
+    ],
+    "resultSummary" : "Object with from\/to resolved paths.",
+    "summary" : "Copy file\/directory within allowed sandbox roots.",
+    "tags" : [
+      "filesystem",
+      "io",
+      "fs"
+    ],
+    "title" : "Copy file"
+  },
+  {
+    "allowedStringValues" : {
+
+    },
+    "argumentHints" : {
+      "path" : "Path to file or directory.",
+      "recursive" : "Required as true when deleting a directory."
+    },
+    "argumentTypes" : {
+      "path" : "string",
+      "recursive" : "bool"
+    },
+    "example" : "await apple.fs.delete({ path: 'tmp:data.json' })",
+    "id" : "fs.delete",
+    "jsNames" : [
+      "apple.fs.delete",
+      "fs.promises.rm"
+    ],
+    "optionalArguments" : [
+      "recursive"
+    ],
+    "requiredArguments" : [
+      "path"
+    ],
+    "requiredPermissions" : [
+
+    ],
+    "resultSummary" : "Object with deleted flag and path.",
+    "summary" : "Delete file\/directory within allowed sandbox roots.",
+    "tags" : [
+      "filesystem",
+      "io",
+      "fs"
+    ],
+    "title" : "Delete file"
+  },
+  {
+    "allowedStringValues" : {
+
+    },
+    "argumentHints" : {
+      "path" : "File or directory path to check."
+    },
+    "argumentTypes" : {
+      "path" : "string"
+    },
+    "example" : "await apple.fs.exists({ path: 'tmp:data.json' })",
+    "id" : "fs.exists",
+    "jsNames" : [
+      "apple.fs.exists"
+    ],
+    "optionalArguments" : [
+
+    ],
+    "requiredArguments" : [
+      "path"
+    ],
+    "requiredPermissions" : [
+
+    ],
+    "resultSummary" : "Boolean.",
+    "summary" : "Check if file\/directory exists within allowed sandbox roots.",
+    "tags" : [
+      "filesystem",
+      "io",
+      "fs"
+    ],
+    "title" : "Check path exists"
+  },
+  {
+    "allowedStringValues" : {
+
+    },
+    "argumentHints" : {
+      "path" : "Directory path using allowed root prefix (tmp:, caches:, documents:)."
+    },
+    "argumentTypes" : {
+      "path" : "string"
+    },
+    "example" : "await apple.fs.list({ path: 'tmp:' })",
+    "id" : "fs.list",
+    "jsNames" : [
+      "apple.fs.list",
+      "fs.promises.readdir"
+    ],
+    "optionalArguments" : [
+
+    ],
+    "requiredArguments" : [
+      "path"
+    ],
+    "requiredPermissions" : [
+
+    ],
+    "resultSummary" : "Array of entry objects with name\/path\/isDirectory\/size. Use entry.name for filenames; fs.promises.readdir returns the same entry objects, not strings.",
+    "summary" : "List files\/directories within allowed sandbox roots as entry objects.",
+    "tags" : [
+      "filesystem",
+      "io",
+      "fs"
+    ],
+    "title" : "List directory"
+  },
+  {
+    "allowedStringValues" : {
+
+    },
+    "argumentHints" : {
+      "path" : "Directory path to create.",
+      "recursive" : "Boolean; default true."
+    },
+    "argumentTypes" : {
+      "path" : "string",
+      "recursive" : "bool"
+    },
+    "example" : "await apple.fs.mkdir({ path: 'tmp:artifacts', recursive: true })",
+    "id" : "fs.mkdir",
+    "jsNames" : [
+      "apple.fs.mkdir",
+      "fs.promises.mkdir"
+    ],
+    "optionalArguments" : [
+      "recursive"
+    ],
+    "requiredArguments" : [
+      "path"
+    ],
+    "requiredPermissions" : [
+
+    ],
+    "resultSummary" : "Object with created flag and path.",
+    "summary" : "Create directories within allowed sandbox roots.",
+    "tags" : [
+      "filesystem",
+      "io",
+      "fs"
+    ],
+    "title" : "Create directory"
+  },
+  {
+    "allowedStringValues" : {
+
+    },
+    "argumentHints" : {
+      "from" : "Source sandbox path.",
+      "to" : "Destination sandbox path."
+    },
+    "argumentTypes" : {
+      "from" : "string",
+      "to" : "string"
+    },
+    "example" : "await apple.fs.move({ from: 'tmp:a.txt', to: 'tmp:b.txt' })",
+    "id" : "fs.move",
+    "jsNames" : [
+      "apple.fs.move",
+      "fs.promises.rename"
+    ],
+    "optionalArguments" : [
+
+    ],
+    "requiredArguments" : [
+      "from",
+      "to"
+    ],
+    "requiredPermissions" : [
+
+    ],
+    "resultSummary" : "Object with from\/to resolved paths.",
+    "summary" : "Move file\/directory within allowed sandbox roots.",
+    "tags" : [
+      "filesystem",
+      "io",
+      "fs"
+    ],
+    "title" : "Move file"
+  },
+  {
+    "allowedStringValues" : {
+
+    },
+    "argumentHints" : {
+      "encoding" : "utf8 (default) or base64.",
+      "path" : "File path using allowed root prefix."
+    },
+    "argumentTypes" : {
+      "encoding" : "string",
+      "path" : "string"
+    },
+    "example" : "await apple.fs.read({ path: 'tmp:data.json', encoding: 'utf8' })",
+    "id" : "fs.read",
+    "jsNames" : [
+      "apple.fs.read",
+      "fs.promises.readFile"
+    ],
+    "optionalArguments" : [
+      "encoding"
+    ],
+    "requiredArguments" : [
+      "path"
+    ],
+    "requiredPermissions" : [
+
+    ],
+    "resultSummary" : "Object with path plus text or base64 field.",
+    "summary" : "Read text\/base64 file data within allowed sandbox roots.",
+    "tags" : [
+      "filesystem",
+      "io",
+      "fs"
+    ],
+    "title" : "Read file"
+  },
+  {
+    "allowedStringValues" : {
+
+    },
+    "argumentHints" : {
+      "path" : "File or directory path."
+    },
+    "argumentTypes" : {
+      "path" : "string"
+    },
+    "example" : "await apple.fs.stat({ path: 'tmp:data.json' })",
+    "id" : "fs.stat",
+    "jsNames" : [
+      "apple.fs.stat",
+      "fs.promises.stat"
+    ],
+    "optionalArguments" : [
+
+    ],
+    "requiredArguments" : [
+      "path"
+    ],
+    "requiredPermissions" : [
+
+    ],
+    "resultSummary" : "Object with path\/isDirectory\/size\/createdAt\/modifiedAt.",
+    "summary" : "Read file metadata within allowed sandbox roots.",
+    "tags" : [
+      "filesystem",
+      "io",
+      "fs"
+    ],
+    "title" : "Stat path"
+  },
+  {
+    "allowedStringValues" : {
+
+    },
+    "argumentHints" : {
+      "data" : "UTF-8 text or base64 string depending on encoding.",
+      "encoding" : "utf8 (default) or base64.",
+      "path" : "File path using allowed root prefix."
+    },
+    "argumentTypes" : {
+      "data" : "string",
+      "encoding" : "string",
+      "path" : "string"
+    },
+    "example" : "await apple.fs.write({ path: 'tmp:data.json', data: '{\"ok\":true}' })",
+    "id" : "fs.write",
+    "jsNames" : [
+      "apple.fs.write",
+      "fs.promises.writeFile"
+    ],
+    "optionalArguments" : [
+      "data",
+      "encoding"
+    ],
+    "requiredArguments" : [
+      "path"
+    ],
+    "requiredPermissions" : [
+
+    ],
+    "resultSummary" : "Object with path and bytesWritten.",
+    "summary" : "Write text\/base64 file data within allowed sandbox roots.",
+    "tags" : [
+      "filesystem",
+      "io",
+      "fs"
+    ],
+    "title" : "Write file"
+  },
+  {
+    "allowedStringValues" : {
+
+    },
+    "argumentHints" : {
+      "readTypes" : "Optional array of type names to read, e.g. stepCount, heartRate, activeEnergyBurned.",
+      "writeTypes" : "Optional array of type names to write (quantity types only)."
+    },
+    "argumentTypes" : {
+      "readTypes" : "array",
+      "writeTypes" : "array"
+    },
+    "example" : "await apple.health.requestPermission({ readTypes: ['stepCount', 'heartRate'], writeTypes: ['stepCount'] })",
+    "id" : "health.permission.request",
+    "jsNames" : [
+      "apple.health.requestPermission"
+    ],
+    "optionalArguments" : [
+      "readTypes",
+      "writeTypes"
+    ],
+    "requiredArguments" : [
+
+    ],
+    "requiredPermissions" : [
+
+    ],
+    "resultSummary" : "Object with status\/granted fields and requested type arrays.",
+    "summary" : "Request HealthKit authorization for requested read\/write types.",
+    "tags" : [
+      "healthkit",
+      "health",
+      "permission"
+    ],
+    "title" : "Request HealthKit permission"
+  },
+  {
+    "allowedStringValues" : {
+
+    },
+    "argumentHints" : {
+      "end" : "Optional ISO8601 end timestamp; defaults to now.",
+      "limit" : "Max number of samples, default 50.",
+      "start" : "Optional ISO8601 start timestamp; defaults to last 24h.",
+      "type" : "Supported: stepCount, heartRate, activeEnergyBurned, bodyMass, distanceWalkingRunning, sleepAnalysis, workout.",
+      "unit" : "Optional unit override for quantity types (count, bpm, kcal, kg, m)."
+    },
+    "argumentTypes" : {
+      "end" : "string",
+      "limit" : "number",
+      "start" : "string",
+      "type" : "string",
+      "unit" : "string"
+    },
+    "example" : "await apple.health.read({ type: 'stepCount', start: '2026-03-03T00:00:00Z', end: '2026-03-04T00:00:00Z', limit: 25, unit: 'count' })",
+    "id" : "health.read",
+    "jsNames" : [
+      "apple.health.read"
+    ],
+    "optionalArguments" : [
+      "start",
+      "end",
+      "limit",
+      "unit"
+    ],
+    "requiredArguments" : [
+      "type"
+    ],
+    "requiredPermissions" : [
+
+    ],
+    "resultSummary" : "Array of samples with identifier\/type\/value and timing metadata.",
+    "summary" : "Read HealthKit samples for a supported type and date range.",
+    "tags" : [
+      "healthkit",
+      "health",
+      "query"
+    ],
+    "title" : "Read HealthKit samples"
+  },
+  {
+    "allowedStringValues" : {
+
+    },
+    "argumentHints" : {
+      "end" : "Optional ISO8601 end timestamp; defaults to start.",
+      "start" : "Optional ISO8601 start timestamp; defaults to now.",
+      "type" : "Writable types: stepCount, heartRate, activeEnergyBurned, bodyMass, distanceWalkingRunning.",
+      "unit" : "Optional unit (count, bpm, kcal, kg, m).",
+      "value" : "Numeric sample value."
+    },
+    "argumentTypes" : {
+      "end" : "string",
+      "start" : "string",
+      "type" : "string",
+      "unit" : "string",
+      "value" : "number"
+    },
+    "example" : "await apple.health.write({ type: 'stepCount', value: 1200, unit: 'count', start: '2026-03-04T08:00:00Z', end: '2026-03-04T08:30:00Z' })",
+    "id" : "health.write",
+    "jsNames" : [
+      "apple.health.write"
+    ],
+    "optionalArguments" : [
+      "unit",
+      "start",
+      "end"
+    ],
+    "requiredArguments" : [
+      "type",
+      "value"
+    ],
+    "requiredPermissions" : [
+
+    ],
+    "resultSummary" : "Object with identifier\/type\/value\/unit and written=true.",
+    "summary" : "Write a HealthKit quantity sample for supported writable quantity types.",
+    "tags" : [
+      "healthkit",
+      "health",
+      "write"
+    ],
+    "title" : "Write HealthKit quantity sample"
+  },
+  {
+    "allowedStringValues" : {
+
+    },
+    "argumentHints" : {
+      "includeCharacteristics" : "Boolean; include characteristic details when true.",
+      "limit" : "Max number of homes to return, default 10."
+    },
+    "argumentTypes" : {
+      "includeCharacteristics" : "bool",
+      "limit" : "number"
+    },
+    "example" : "await apple.home.list({ includeCharacteristics: true, limit: 5 })",
+    "id" : "home.read",
+    "jsNames" : [
+      "apple.home.list"
+    ],
+    "optionalArguments" : [
+      "includeCharacteristics",
+      "limit"
+    ],
+    "requiredArguments" : [
+
+    ],
+    "requiredPermissions" : [
+      "homeKit"
+    ],
+    "resultSummary" : "Array of homes with accessories\/services snapshot.",
+    "summary" : "Read homes\/accessories\/services (and optional characteristics) from HomeKit.",
+    "tags" : [
+      "homekit",
+      "iot",
+      "devices"
+    ],
+    "title" : "Read HomeKit graph"
+  },
+  {
+    "allowedStringValues" : {
+
+    },
+    "argumentHints" : {
+      "accessoryIdentifier" : "Accessory UUID string from home.read output.",
+      "characteristicType" : "Characteristic type identifier (e.g. HMCharacteristicTypePowerState).",
+      "serviceType" : "Optional service type filter for characteristic lookup.",
+      "value" : "Target value; string\/number\/bool\/null."
+    },
+    "argumentTypes" : {
+      "accessoryIdentifier" : "string",
+      "characteristicType" : "string",
+      "serviceType" : "string",
+      "value" : "any"
+    },
+    "example" : "await apple.home.writeCharacteristic({ accessoryIdentifier: 'UUID', characteristicType: 'HMCharacteristicTypePowerState', value: true })",
+    "id" : "home.write",
+    "jsNames" : [
+      "apple.home.writeCharacteristic"
+    ],
+    "optionalArguments" : [
+      "serviceType"
+    ],
+    "requiredArguments" : [
+      "accessoryIdentifier",
+      "characteristicType",
+      "value"
+    ],
+    "requiredPermissions" : [
+      "homeKit"
+    ],
+    "resultSummary" : "Object with accessoryIdentifier\/characteristicType\/written.",
+    "summary" : "Write a value to a writable HomeKit characteristic for a target accessory.",
+    "tags" : [
+      "homekit",
+      "iot",
+      "devices",
+      "control"
+    ],
+    "title" : "Write HomeKit characteristic"
+  },
+  {
+    "allowedStringValues" : {
+
+    },
+    "argumentHints" : {
+      "key" : "Logical key for value removal."
+    },
+    "argumentTypes" : {
+      "key" : "string"
+    },
+    "example" : "await apple.keychain.delete('auth_token')",
+    "id" : "keychain.delete",
+    "jsNames" : [
+      "apple.keychain.delete"
+    ],
+    "optionalArguments" : [
+
+    ],
+    "requiredArguments" : [
+      "key"
+    ],
+    "requiredPermissions" : [
+
+    ],
+    "resultSummary" : "Object { key, deleted: true }.",
+    "summary" : "Delete an app-scoped Keychain value.",
+    "tags" : [
+      "security",
+      "token",
+      "keychain"
+    ],
+    "title" : "Delete Keychain value"
+  },
+  {
+    "allowedStringValues" : {
+
+    },
+    "argumentHints" : {
+      "key" : "Logical key for this secret value."
+    },
+    "argumentTypes" : {
+      "key" : "string"
+    },
+    "example" : "await apple.keychain.get('auth_token')",
+    "id" : "keychain.read",
+    "jsNames" : [
+      "apple.keychain.get"
+    ],
+    "optionalArguments" : [
+
+    ],
+    "requiredArguments" : [
+      "key"
+    ],
+    "requiredPermissions" : [
+
+    ],
+    "resultSummary" : "Object { key, value } or null when the key does not exist.",
+    "summary" : "Read a string value from app-scoped Keychain storage.",
+    "tags" : [
+      "security",
+      "token",
+      "keychain"
+    ],
+    "title" : "Read Keychain value"
+  },
+  {
+    "allowedStringValues" : {
+
+    },
+    "argumentHints" : {
+      "key" : "Logical key for this secret value.",
+      "value" : "Secret string value. Defaults to empty string when omitted."
+    },
+    "argumentTypes" : {
+      "key" : "string",
+      "value" : "string"
+    },
+    "example" : "await apple.keychain.set('auth_token', token)",
+    "id" : "keychain.write",
+    "jsNames" : [
+      "apple.keychain.set"
+    ],
+    "optionalArguments" : [
+      "value"
+    ],
+    "requiredArguments" : [
+      "key"
+    ],
+    "requiredPermissions" : [
+
+    ],
+    "resultSummary" : "Object { key, written: true }.",
+    "summary" : "Store or update a string value in app-scoped Keychain storage.",
+    "tags" : [
+      "security",
+      "token",
+      "keychain"
+    ],
+    "title" : "Write Keychain value"
+  },
+  {
+    "allowedStringValues" : {
+
+    },
+    "argumentHints" : {
+
+    },
+    "argumentTypes" : {
+
+    },
+    "example" : "await apple.location.requestPermission()",
+    "id" : "location.permission.request",
+    "jsNames" : [
+      "apple.location.requestPermission"
+    ],
+    "optionalArguments" : [
+
+    ],
+    "requiredArguments" : [
+
+    ],
+    "requiredPermissions" : [
+
+    ],
+    "resultSummary" : "Permission status string.",
+    "summary" : "Trigger location when-in-use permission request flow.",
+    "tags" : [
+      "location",
+      "permission"
+    ],
+    "title" : "Request location permission"
+  },
+  {
+    "allowedStringValues" : {
+
+    },
+    "argumentHints" : {
+      "mode" : "permissionStatus or current (default current)."
+    },
+    "argumentTypes" : {
+      "mode" : "string"
+    },
+    "example" : "await apple.location.getCurrentPosition()",
+    "id" : "location.read",
+    "jsNames" : [
+      "apple.location.getCurrentPosition",
+      "apple.location.getPermissionStatus"
+    ],
+    "optionalArguments" : [
+      "mode"
+    ],
+    "requiredArguments" : [
+
+    ],
+    "requiredPermissions" : [
+
+    ],
+    "resultSummary" : "Permission status string or coordinates object.",
+    "summary" : "Read location permission status or current coordinates.",
+    "tags" : [
+      "location",
+      "permission",
+      "geospatial"
+    ],
+    "title" : "Read location state or coordinates"
+  },
+  {
+    "allowedStringValues" : {
+
+    },
+    "argumentHints" : {
+      "attachments" : "Optional array of { path, mimeType?, filename? } sandbox file attachments.",
+      "bcc" : "Optional array of BCC email strings.",
+      "body" : "Optional message body.",
+      "cc" : "Optional array of CC email strings.",
+      "isHTML" : "Whether body should be treated as HTML; default false.",
+      "subject" : "Optional subject.",
+      "timeoutMs" : "Optional timeout for waiting on user completion.",
+      "to" : "Optional array of recipient email strings."
+    },
+    "argumentTypes" : {
+      "attachments" : "array",
+      "bcc" : "array",
+      "body" : "string",
+      "cc" : "array",
+      "isHTML" : "bool",
+      "subject" : "string",
+      "timeoutMs" : "number",
+      "to" : "array"
+    },
+    "example" : "await apple.mail.compose({ to: ['alex@example.com'], subject: 'Report', body: 'Attached.', attachments: [{ path: 'tmp:report.pdf' }] })",
+    "id" : "mail.ui.compose",
+    "jsNames" : [
+      "apple.mail.compose"
+    ],
+    "optionalArguments" : [
+      "to",
+      "cc",
+      "bcc",
+      "subject",
+      "body",
+      "isHTML",
+      "attachments",
+      "timeoutMs"
+    ],
+    "requiredArguments" : [
+
+    ],
+    "requiredPermissions" : [
+
+    ],
+    "resultSummary" : "Object with action sent\/saved\/cancelled\/failed.",
+    "summary" : "Present system mail compose UI with optional recipients, body, and sandbox file attachments.",
+    "tags" : [
+      "mail",
+      "compose",
+      "system-ui",
+      "share"
+    ],
+    "title" : "Compose mail with system UI"
+  },
+  {
+    "allowedStringValues" : {
+
+    },
+    "argumentHints" : {
+      "address" : "Address or place text to geocode.",
+      "limit" : "Maximum coordinate candidates.",
+      "region" : "Optional search bias region object."
+    },
+    "argumentTypes" : {
+      "address" : "string",
+      "limit" : "number",
+      "region" : "object"
+    },
+    "example" : "await apple.maps.geocode({ address: '1 Infinite Loop, Cupertino', limit: 3 })",
+    "id" : "maps.geocode",
+    "jsNames" : [
+      "apple.maps.geocode"
+    ],
+    "optionalArguments" : [
+      "region",
+      "limit"
+    ],
+    "requiredArguments" : [
+      "address"
+    ],
+    "requiredPermissions" : [
+
+    ],
+    "resultSummary" : "Array of placemarks with name\/address\/latitude\/longitude.",
+    "summary" : "Resolve an address or place text to coordinate candidates through MapKit.",
+    "tags" : [
+      "maps",
+      "mapkit",
+      "geocode",
+      "location"
+    ],
+    "title" : "Geocode address"
+  },
+  {
+    "allowedStringValues" : {
+      "transportType" : [
+        "automobile",
+        "walking",
+        "transit",
+        "any"
+      ]
+    },
+    "argumentHints" : {
+      "destination" : "Optional destination object for directions.",
+      "latitude" : "Latitude when opening coordinates.",
+      "longitude" : "Longitude when opening coordinates.",
+      "query" : "Place\/search query to open.",
+      "url" : "Optional maps URL to open."
+    },
+    "argumentTypes" : {
+      "destination" : "object",
+      "latitude" : "number",
+      "longitude" : "number",
+      "query" : "string",
+      "transportType" : "string",
+      "url" : "string"
+    },
+    "example" : "await apple.maps.open({ query: 'Apple Park' })",
+    "id" : "maps.open",
+    "jsNames" : [
+      "apple.maps.open"
+    ],
+    "optionalArguments" : [
+      "query",
+      "url",
+      "latitude",
+      "longitude",
+      "destination",
+      "transportType"
+    ],
+    "requiredArguments" : [
+
+    ],
+    "requiredPermissions" : [
+
+    ],
+    "resultSummary" : "Object with opened\/target.",
+    "summary" : "Open Apple Maps with coordinates, a query, URL, or directions in a user-mediated handoff.",
+    "tags" : [
+      "maps",
+      "mapkit",
+      "open",
+      "directions"
+    ],
+    "title" : "Open Maps"
+  },
+  {
+    "allowedStringValues" : {
+
+    },
+    "argumentHints" : {
+
+    },
+    "argumentTypes" : {
+      "latitude" : "number",
+      "locale" : "string",
+      "longitude" : "number"
+    },
+    "example" : "await apple.maps.reverseGeocode({ latitude: 37.3318, longitude: -122.0312 })",
+    "id" : "maps.reverseGeocode",
+    "jsNames" : [
+      "apple.maps.reverseGeocode"
+    ],
+    "optionalArguments" : [
+      "locale"
+    ],
+    "requiredArguments" : [
+      "latitude",
+      "longitude"
+    ],
+    "requiredPermissions" : [
+
+    ],
+    "resultSummary" : "Array of placemarks with name\/address\/latitude\/longitude.",
+    "summary" : "Resolve latitude\/longitude into address candidates through MapKit.",
+    "tags" : [
+      "maps",
+      "mapkit",
+      "reverse-geocode",
+      "location"
+    ],
+    "title" : "Reverse geocode coordinates"
+  },
+  {
+    "allowedStringValues" : {
+      "transportType" : [
+        "automobile",
+        "walking",
+        "transit",
+        "any"
+      ]
+    },
+    "argumentHints" : {
+      "destination" : "Coordinate or map item object.",
+      "origin" : "Coordinate or map item object.",
+      "transportType" : "automobile (default), walking, or transit when supported."
+    },
+    "argumentTypes" : {
+      "arrivalDate" : "string",
+      "departureDate" : "string",
+      "destination" : "object",
+      "origin" : "object",
+      "transportType" : "string"
+    },
+    "example" : "await apple.maps.routeEstimate({ origin: { latitude: 37.33, longitude: -122.03 }, destination: { latitude: 37.77, longitude: -122.42 }, transportType: 'automobile' })",
+    "id" : "maps.route.estimate",
+    "jsNames" : [
+      "apple.maps.routeEstimate"
+    ],
+    "optionalArguments" : [
+      "transportType",
+      "departureDate",
+      "arrivalDate"
+    ],
+    "requiredArguments" : [
+      "origin",
+      "destination"
+    ],
+    "requiredPermissions" : [
+
+    ],
+    "resultSummary" : "Object with distanceMeters\/expectedTravelTimeSeconds\/transportType.",
+    "summary" : "Estimate route distance and travel time between two coordinates or map items.",
+    "tags" : [
+      "maps",
+      "mapkit",
+      "directions",
+      "route"
+    ],
+    "title" : "Estimate route"
+  },
+  {
+    "allowedStringValues" : {
+
+    },
+    "argumentHints" : {
+      "limit" : "Maximum map items.",
+      "query" : "Search query string.",
+      "region" : "Optional coordinate region object for local bias.",
+      "resultTypes" : "Optional host-supported result type filters."
+    },
+    "argumentTypes" : {
+      "limit" : "number",
+      "query" : "string",
+      "region" : "object",
+      "resultTypes" : "array"
+    },
+    "example" : "await apple.maps.search({ query: 'coffee near me', limit: 5 })",
+    "id" : "maps.search",
+    "jsNames" : [
+      "apple.maps.search"
+    ],
+    "optionalArguments" : [
+      "region",
+      "resultTypes",
+      "limit"
+    ],
+    "requiredArguments" : [
+      "query"
+    ],
+    "requiredPermissions" : [
+
+    ],
+    "resultSummary" : "Array of map items with name\/address\/category\/latitude\/longitude\/url.",
+    "summary" : "Search for local businesses, addresses, or points of interest through MapKit.",
+    "tags" : [
+      "maps",
+      "mapkit",
+      "local-search",
+      "places"
+    ],
+    "title" : "Search local map items"
+  },
+  {
+    "allowedStringValues" : {
+
+    },
+    "argumentHints" : {
+      "outputPath" : "Optional output sandbox path; defaults to tmp-generated JPEG.",
+      "path" : "Input video sandbox path.",
+      "timeMs" : "Frame timestamp in milliseconds; default 0."
+    },
+    "argumentTypes" : {
+      "outputPath" : "string",
+      "path" : "string",
+      "timeMs" : "number"
+    },
+    "example" : "await apple.media.extractFrame({ path: 'tmp:video.mov', timeMs: 1500 })",
+    "id" : "media.frame.extract",
+    "jsNames" : [
+      "apple.media.extractFrame"
+    ],
+    "optionalArguments" : [
+      "timeMs",
+      "outputPath"
+    ],
+    "requiredArguments" : [
+      "path"
+    ],
+    "requiredPermissions" : [
+
+    ],
+    "resultSummary" : "Object with output path and artifactID.",
+    "summary" : "Extract frame at time offset and persist JPEG output.",
+    "tags" : [
+      "media",
+      "avfoundation",
+      "thumbnail"
+    ],
+    "title" : "Extract video frame"
+  },
+  {
+    "allowedStringValues" : {
+
+    },
+    "argumentHints" : {
+      "path" : "Sandbox path like tmp:clip.mov."
+    },
+    "argumentTypes" : {
+      "path" : "string"
+    },
+    "example" : "await apple.media.metadata({ path: 'tmp:video.mov' })",
+    "id" : "media.metadata.read",
+    "jsNames" : [
+      "apple.media.metadata"
+    ],
+    "optionalArguments" : [
+
+    ],
+    "requiredArguments" : [
+      "path"
+    ],
+    "requiredPermissions" : [
+
+    ],
+    "resultSummary" : "Object with path\/durationSeconds\/tracks.",
+    "summary" : "Read duration and track metadata from media files.",
+    "tags" : [
+      "media",
+      "avfoundation",
+      "metadata"
+    ],
+    "title" : "Read media metadata"
+  },
+  {
+    "allowedStringValues" : {
+
+    },
+    "argumentHints" : {
+      "outputPath" : "Optional output sandbox path; defaults to tmp-generated mp4.",
+      "path" : "Input media sandbox path.",
+      "preset" : "AVAssetExportSession preset string; default AVAssetExportPresetMediumQuality."
+    },
+    "argumentTypes" : {
+      "outputPath" : "string",
+      "path" : "string",
+      "preset" : "string"
+    },
+    "example" : "await apple.media.transcode({ path: 'tmp:input.mov', preset: 'AVAssetExportPresetMediumQuality' })",
+    "id" : "media.transcode",
+    "jsNames" : [
+      "apple.media.transcode"
+    ],
+    "optionalArguments" : [
+      "outputPath",
+      "preset"
+    ],
+    "requiredArguments" : [
+      "path"
+    ],
+    "requiredPermissions" : [
+
+    ],
+    "resultSummary" : "Object with output path\/artifactID\/preset.",
+    "summary" : "Transcode media into MP4 with preset quality.",
+    "tags" : [
+      "media",
+      "avfoundation",
+      "transcode"
+    ],
+    "title" : "Transcode media"
+  },
+  {
+    "allowedStringValues" : {
+
+    },
+    "argumentHints" : {
+      "attachments" : "Optional array of { path, filename? } sandbox file attachments.",
+      "body" : "Optional message body.",
+      "recipients" : "Optional array of phone number or address strings.",
+      "subject" : "Optional subject on devices\/accounts that support it.",
+      "timeoutMs" : "Optional timeout for waiting on user completion."
+    },
+    "argumentTypes" : {
+      "attachments" : "array",
+      "body" : "string",
+      "recipients" : "array",
+      "subject" : "string",
+      "timeoutMs" : "number"
+    },
+    "example" : "await apple.messages.compose({ recipients: ['4085551212'], body: 'Report ready' })",
+    "id" : "messages.ui.compose",
+    "jsNames" : [
+      "apple.messages.compose"
+    ],
+    "optionalArguments" : [
+      "recipients",
+      "subject",
+      "body",
+      "attachments",
+      "timeoutMs"
+    ],
+    "requiredArguments" : [
+
+    ],
+    "requiredPermissions" : [
+
+    ],
+    "resultSummary" : "Object with action sent\/cancelled\/failed.",
+    "summary" : "Present system Messages compose UI with optional recipients, body, and sandbox file attachments.",
+    "tags" : [
+      "messages",
+      "sms",
+      "compose",
+      "system-ui",
+      "share"
+    ],
+    "title" : "Compose message with system UI"
+  },
+  {
+    "allowedStringValues" : {
+
+    },
+    "argumentHints" : {
+      "identifier" : "Music catalog item identifier.",
+      "type" : "Catalog type such as songs, albums, artists, playlists, or stations."
+    },
+    "argumentTypes" : {
+      "countryCode" : "string",
+      "identifier" : "string",
+      "type" : "string"
+    },
+    "example" : "await apple.music.getDetails({ identifier: '123', type: 'albums' })",
+    "id" : "music.catalog.details",
+    "jsNames" : [
+      "apple.music.getDetails"
+    ],
+    "optionalArguments" : [
+      "type",
+      "countryCode"
+    ],
+    "requiredArguments" : [
+      "identifier"
+    ],
+    "requiredPermissions" : [
+
+    ],
+    "resultSummary" : "Catalog item details object.",
+    "summary" : "Read details for a catalog item identifier through MusicKit.",
+    "tags" : [
+      "music",
+      "musickit",
+      "catalog",
+      "details"
+    ],
+    "title" : "Read Music catalog details"
+  },
+  {
+    "allowedStringValues" : {
+
+    },
+    "argumentHints" : {
+      "countryCode" : "Optional storefront country code.",
+      "limit" : "Maximum results.",
+      "term" : "Catalog search term.",
+      "types" : "Optional array such as songs, albums, artists, playlists, stations."
+    },
+    "argumentTypes" : {
+      "countryCode" : "string",
+      "limit" : "number",
+      "term" : "string",
+      "types" : "array"
+    },
+    "example" : "await apple.music.search({ term: 'Miles Davis', types: ['artists', 'albums'], limit: 5 })",
+    "id" : "music.catalog.search",
+    "jsNames" : [
+      "apple.music.search"
+    ],
+    "optionalArguments" : [
+      "types",
+      "limit",
+      "countryCode"
+    ],
+    "requiredArguments" : [
+      "term"
+    ],
+    "requiredPermissions" : [
+
+    ],
+    "resultSummary" : "Object grouped by result type with catalog identifiers and metadata.",
+    "summary" : "Search the Apple Music catalog for songs, albums, artists, playlists, or stations.",
+    "tags" : [
+      "music",
+      "musickit",
+      "catalog",
+      "search"
+    ],
+    "title" : "Search Music catalog"
+  },
+  {
+    "allowedStringValues" : {
+
+    },
+    "argumentHints" : {
+      "limit" : "Maximum library items.",
+      "type" : "Library type such as playlists, songs, albums, or artists."
+    },
+    "argumentTypes" : {
+      "limit" : "number",
+      "type" : "string"
+    },
+    "example" : "await apple.music.readLibrary({ type: 'playlists', limit: 20 })",
+    "id" : "music.library.read",
+    "jsNames" : [
+      "apple.music.readLibrary"
+    ],
+    "optionalArguments" : [
+      "type",
+      "limit"
+    ],
+    "requiredArguments" : [
+
+    ],
+    "requiredPermissions" : [
+      "music"
+    ],
+    "resultSummary" : "Array of library items with identifiers and metadata.",
+    "summary" : "Read the user's Music library playlists or items after Music permission is granted.",
+    "tags" : [
+      "music",
+      "musickit",
+      "library"
+    ],
+    "title" : "Read Music library"
+  },
+  {
+    "allowedStringValues" : {
+
+    },
+    "argumentHints" : {
+
+    },
+    "argumentTypes" : {
+
+    },
+    "example" : "await apple.music.requestPermission()",
+    "id" : "music.permission.request",
+    "jsNames" : [
+      "apple.music.requestPermission"
+    ],
+    "optionalArguments" : [
+
+    ],
+    "requiredArguments" : [
+
+    ],
+    "requiredPermissions" : [
+
+    ],
+    "resultSummary" : "Object with status\/granted.",
+    "summary" : "Request Apple Music\/media-library permission before library or playback actions.",
+    "tags" : [
+      "music",
+      "musickit",
+      "permission"
+    ],
+    "title" : "Request Music permission"
+  },
+  {
+    "allowedStringValues" : {
+      "action" : [
+        "play",
+        "pause",
+        "stop",
+        "skipToNext",
+        "skipToPrevious",
+        "playCatalog",
+        "playLibrary"
+      ]
+    },
+    "argumentHints" : {
+      "action" : "Host-supported action such as play, pause, stop, skipToNext, playCatalog, or playLibrary.",
+      "catalogID" : "Optional catalog item identifier.",
+      "libraryID" : "Optional library item identifier.",
+      "queue" : "Optional queue definition approved by the host adapter."
+    },
+    "argumentTypes" : {
+      "action" : "string",
+      "catalogID" : "string",
+      "libraryID" : "string",
+      "queue" : "object",
+      "startPlaying" : "bool"
+    },
+    "example" : "await apple.music.play({ action: 'playCatalog', catalogID: 'song-id' })",
+    "id" : "music.playback.control",
+    "jsNames" : [
+      "apple.music.play"
+    ],
+    "optionalArguments" : [
+      "catalogID",
+      "libraryID",
+      "queue",
+      "startPlaying"
+    ],
+    "requiredArguments" : [
+      "action"
+    ],
+    "requiredPermissions" : [
+      "music"
+    ],
+    "resultSummary" : "Object with action\/status\/currentItem when available.",
+    "summary" : "Control Music playback queue through a user-authorized host adapter.",
+    "tags" : [
+      "music",
+      "musickit",
+      "playback",
+      "queue"
+    ],
+    "title" : "Control Music playback"
+  },
+  {
+    "allowedStringValues" : {
+
+    },
+    "argumentHints" : {
+      "catalogIDs" : "Optional catalog song identifiers to add.",
+      "libraryIDs" : "Optional library song identifiers to add.",
+      "name" : "Playlist name.",
+      "playlistID" : "Optional existing playlist identifier to update."
+    },
+    "argumentTypes" : {
+      "catalogIDs" : "array",
+      "description" : "string",
+      "libraryIDs" : "array",
+      "name" : "any",
+      "playlistID" : "string"
+    },
+    "example" : "await apple.music.writePlaylist({ name: 'Focus', catalogIDs: ['song-id'] })",
+    "id" : "music.playlist.write",
+    "jsNames" : [
+      "apple.music.writePlaylist"
+    ],
+    "optionalArguments" : [
+      "playlistID",
+      "catalogIDs",
+      "libraryIDs",
+      "description"
+    ],
+    "requiredArguments" : [
+      "name"
+    ],
+    "requiredPermissions" : [
+      "music"
+    ],
+    "resultSummary" : "Object with playlistID\/name\/written.",
+    "summary" : "Create or update a user-library playlist through a host MusicKit adapter.",
+    "tags" : [
+      "music",
+      "musickit",
+      "library",
+      "playlist",
+      "write"
+    ],
+    "title" : "Write Music playlist"
+  },
+  {
+    "allowedStringValues" : {
+
+    },
+    "argumentHints" : {
+
+    },
+    "argumentTypes" : {
+
+    },
+    "example" : "await apple.music.getSubscriptionStatus()",
+    "id" : "music.subscription.status",
+    "jsNames" : [
+      "apple.music.getSubscriptionStatus"
+    ],
+    "optionalArguments" : [
+
+    ],
+    "requiredArguments" : [
+
+    ],
+    "requiredPermissions" : [
+
+    ],
+    "resultSummary" : "Object with canPlayCatalogContent\/hasCloudLibraryEnabled\/status.",
+    "summary" : "Read MusicKit subscription\/capability status exposed by the host.",
+    "tags" : [
+      "music",
+      "musickit",
+      "subscription",
+      "catalog"
+    ],
+    "title" : "Read Music subscription status"
+  },
+  {
+    "allowedStringValues" : {
+      "options.responseEncoding" : [
+        "text",
+        "base64"
+      ]
+    },
+    "argumentHints" : {
+      "options.body" : "UTF-8 request body string.",
+      "options.bodyBase64" : "Base64-encoded request body. Mutually exclusive with options.body.",
+      "options.headers" : "Object of header key\/value string pairs.",
+      "options.method" : "HTTP method; defaults to GET.",
+      "options.responseEncoding" : "text (default) or base64.",
+      "options.timeoutMs" : "Request and bridge wait timeout in milliseconds; defaults to 30000.",
+      "url" : "Absolute HTTP(S) URL string."
+    },
+    "argumentTypes" : {
+      "options.body" : "string",
+      "options.bodyBase64" : "string",
+      "options.headers" : "object",
+      "options.method" : "string",
+      "options.responseEncoding" : "string",
+      "options.timeoutMs" : "number",
+      "url" : "string"
+    },
+    "example" : "await fetch('https:\/\/api.example.com\/data').then(r => r.json())",
+    "id" : "network.fetch",
+    "jsNames" : [
+      "fetch"
+    ],
+    "optionalArguments" : [
+      "options.method",
+      "options.headers",
+      "options.body",
+      "options.bodyBase64",
+      "options.timeoutMs",
+      "options.responseEncoding"
+    ],
+    "requiredArguments" : [
+      "url"
+    ],
+    "requiredPermissions" : [
+
+    ],
+    "resultSummary" : "Object with ok\/status\/statusText\/headers\/bodyText or bodyBase64.",
+    "summary" : "Perform HTTP(S) requests through URLSession via a fetch-compatible API.",
+    "tags" : [
+      "network",
+      "http",
+      "fetch"
+    ],
+    "title" : "Fetch HTTP resource"
+  },
+  {
+    "allowedStringValues" : {
+
+    },
+    "argumentHints" : {
+      "categories" : "Array of category definitions with identifier\/actions\/options approved by the host."
+    },
+    "argumentTypes" : {
+      "categories" : "array"
+    },
+    "example" : "await apple.notifications.setCategories({ categories: [{ identifier: 'task', actions: [{ identifier: 'done', title: 'Done' }] }] })",
+    "id" : "notifications.categories.set",
+    "jsNames" : [
+      "apple.notifications.setCategories"
+    ],
+    "optionalArguments" : [
+
+    ],
+    "requiredArguments" : [
+      "categories"
+    ],
+    "requiredPermissions" : [
+
+    ],
+    "resultSummary" : "Object with registered category identifiers.",
+    "summary" : "Register host-approved notification categories and actions for push\/local response handling.",
+    "tags" : [
+      "notifications",
+      "apns",
+      "categories",
+      "actions"
+    ],
+    "title" : "Set notification categories"
+  },
+  {
+    "allowedStringValues" : {
+
+    },
+    "argumentHints" : {
+      "identifier" : "Single delivered notification identifier to remove.",
+      "identifiers" : "Array of delivered notification identifiers to remove. Omit both to clear all delivered notifications."
+    },
+    "argumentTypes" : {
+      "identifier" : "string",
+      "identifiers" : "array"
+    },
+    "example" : "await apple.notifications.removeDelivered({ identifiers: ['codemode.1', 'codemode.2'] })",
+    "id" : "notifications.delivered.delete",
+    "jsNames" : [
+      "apple.notifications.removeDelivered"
+    ],
+    "optionalArguments" : [
+      "identifier",
+      "identifiers"
+    ],
+    "requiredArguments" : [
+
+    ],
+    "requiredPermissions" : [
+      "notifications"
+    ],
+    "resultSummary" : "Object with deleted\/count fields.",
+    "summary" : "Delete delivered notifications by identifier list or clear all.",
+    "tags" : [
+      "notifications",
+      "local",
+      "delivered",
+      "delete"
+    ],
+    "title" : "Delete delivered local notifications"
+  },
+  {
+    "allowedStringValues" : {
+
+    },
+    "argumentHints" : {
+      "limit" : "Max number of delivered notifications to return, default 50."
+    },
+    "argumentTypes" : {
+      "limit" : "number"
+    },
+    "example" : "await apple.notifications.listDelivered({ limit: 20 })",
+    "id" : "notifications.delivered.read",
+    "jsNames" : [
+      "apple.notifications.listDelivered"
+    ],
+    "optionalArguments" : [
+      "limit"
+    ],
+    "requiredArguments" : [
+
+    ],
+    "requiredPermissions" : [
+      "notifications"
+    ],
+    "resultSummary" : "Array of delivered notifications with identifiers\/content\/date metadata.",
+    "summary" : "List notifications currently delivered in Notification Center.",
+    "tags" : [
+      "notifications",
+      "local",
+      "delivered"
+    ],
+    "title" : "List delivered local notifications"
+  },
+  {
+    "allowedStringValues" : {
+
+    },
+    "argumentHints" : {
+      "identifier" : "Single pending request identifier to remove.",
+      "identifiers" : "Array of pending request identifiers to remove. Omit both to clear all pending requests."
+    },
+    "argumentTypes" : {
+      "identifier" : "string",
+      "identifiers" : "array"
+    },
+    "example" : "await apple.notifications.cancelPending({ identifiers: ['codemode.1', 'codemode.2'] })",
+    "id" : "notifications.pending.delete",
+    "jsNames" : [
+      "apple.notifications.cancelPending"
+    ],
+    "optionalArguments" : [
+      "identifier",
+      "identifiers"
+    ],
+    "requiredArguments" : [
+
+    ],
+    "requiredPermissions" : [
+      "notifications"
+    ],
+    "resultSummary" : "Object with deleted\/count fields.",
+    "summary" : "Delete pending local notifications by identifier list or clear all.",
+    "tags" : [
+      "notifications",
+      "local",
+      "schedule"
+    ],
+    "title" : "Delete pending local notifications"
+  },
+  {
+    "allowedStringValues" : {
+
+    },
+    "argumentHints" : {
+      "limit" : "Max number of pending requests to return, default 50."
+    },
+    "argumentTypes" : {
+      "limit" : "number"
+    },
+    "example" : "await apple.notifications.listPending({ limit: 20 })",
+    "id" : "notifications.pending.read",
+    "jsNames" : [
+      "apple.notifications.listPending"
+    ],
+    "optionalArguments" : [
+      "limit"
+    ],
+    "requiredArguments" : [
+
+    ],
+    "requiredPermissions" : [
+      "notifications"
+    ],
+    "resultSummary" : "Array of pending requests with identifiers\/content\/trigger metadata.",
+    "summary" : "List pending local notification requests.",
+    "tags" : [
+      "notifications",
+      "local",
+      "schedule"
+    ],
+    "title" : "List pending local notifications"
+  },
+  {
+    "allowedStringValues" : {
+
+    },
+    "argumentHints" : {
+
+    },
+    "argumentTypes" : {
+
+    },
+    "example" : "await apple.notifications.requestPermission()",
+    "id" : "notifications.permission.request",
+    "jsNames" : [
+      "apple.notifications.requestPermission"
+    ],
+    "optionalArguments" : [
+
+    ],
+    "requiredArguments" : [
+
+    ],
+    "requiredPermissions" : [
+
+    ],
+    "resultSummary" : "Object with status\/granted fields.",
+    "summary" : "Request local notification authorization from the user.",
+    "tags" : [
+      "notifications",
+      "permission"
+    ],
+    "title" : "Request notification permission"
+  },
+  {
+    "allowedStringValues" : {
+
+    },
+    "argumentHints" : {
+      "types" : "Optional host-supported notification types; APNs provider sending is intentionally out of scope."
+    },
+    "argumentTypes" : {
+      "types" : "array"
+    },
+    "example" : "await apple.notifications.registerRemote()",
+    "id" : "notifications.remote.register",
+    "jsNames" : [
+      "apple.notifications.registerRemote"
+    ],
+    "optionalArguments" : [
+      "types"
+    ],
+    "requiredArguments" : [
+
+    ],
+    "requiredPermissions" : [
+
+    ],
+    "resultSummary" : "Object with registered\/status and deviceToken when already available.",
+    "summary" : "Ask the host app to register with APNs and record the client device-token lifecycle.",
+    "tags" : [
+      "notifications",
+      "apns",
+      "remote",
+      "registration"
+    ],
+    "title" : "Register for remote notifications"
+  },
+  {
+    "allowedStringValues" : {
+
+    },
+    "argumentHints" : {
+
+    },
+    "argumentTypes" : {
+
+    },
+    "example" : "await apple.notifications.getRemoteToken()",
+    "id" : "notifications.remote.token.read",
+    "jsNames" : [
+      "apple.notifications.getRemoteToken"
+    ],
+    "optionalArguments" : [
+
+    ],
+    "requiredArguments" : [
+
+    ],
+    "requiredPermissions" : [
+
+    ],
+    "resultSummary" : "Object with token\/environment\/updatedAt or null token when registration has not completed.",
+    "summary" : "Read the latest APNs device token captured by the host app.",
+    "tags" : [
+      "notifications",
+      "apns",
+      "remote",
+      "token"
+    ],
+    "title" : "Read APNs device token"
+  },
+  {
+    "allowedStringValues" : {
+
+    },
+    "argumentHints" : {
+      "actionIdentifier" : "Optional action filter.",
+      "afterCursor" : "Optional host-provided cursor for incremental reads.",
+      "categoryIdentifier" : "Optional category filter.",
+      "limit" : "Maximum number of response events to read."
+    },
+    "argumentTypes" : {
+      "actionIdentifier" : "string",
+      "afterCursor" : "string",
+      "categoryIdentifier" : "string",
+      "limit" : "number"
+    },
+    "example" : "await apple.notifications.listResponses({ limit: 20 })",
+    "id" : "notifications.responses.read",
+    "jsNames" : [
+      "apple.notifications.listResponses"
+    ],
+    "optionalArguments" : [
+      "limit",
+      "categoryIdentifier",
+      "actionIdentifier",
+      "afterCursor"
+    ],
+    "requiredArguments" : [
+
+    ],
+    "requiredPermissions" : [
+
+    ],
+    "resultSummary" : "Array of response events with cursor\/identifier\/actionIdentifier\/categoryIdentifier\/userText\/userInfo\/date.",
+    "summary" : "Read bounded notification action\/open responses captured by the host for later agent handling.",
+    "tags" : [
+      "notifications",
+      "apns",
+      "response",
+      "inbox",
+      "events"
+    ],
+    "title" : "Read notification response inbox"
+  },
+  {
+    "allowedStringValues" : {
+
+    },
+    "argumentHints" : {
+      "badge" : "Optional app icon badge number.",
+      "body" : "Optional body text.",
+      "categoryIdentifier" : "Optional category identifier for notification actions.",
+      "fireDate" : "Optional ISO8601 timestamp for calendar trigger.",
+      "identifier" : "Optional request identifier; defaults to codemode UUID.",
+      "repeats" : "Boolean repeat flag (time interval requires >= 60 seconds).",
+      "secondsFromNow" : "Delay in seconds for time interval trigger (default 5).",
+      "sound" : "default (default), none, or a bundled custom sound name.",
+      "subtitle" : "Optional subtitle text.",
+      "threadIdentifier" : "Optional thread identifier for notification grouping.",
+      "title" : "Notification title text.",
+      "userInfo" : "Optional property-list-safe userInfo object."
+    },
+    "argumentTypes" : {
+      "badge" : "number",
+      "body" : "string",
+      "categoryIdentifier" : "string",
+      "fireDate" : "string",
+      "identifier" : "string",
+      "repeats" : "bool",
+      "secondsFromNow" : "number",
+      "sound" : "string",
+      "subtitle" : "string",
+      "threadIdentifier" : "string",
+      "title" : "string",
+      "userInfo" : "object"
+    },
+    "example" : "await apple.notifications.schedule({ title: 'Stand up', body: 'Stretch break', secondsFromNow: 900 })",
+    "id" : "notifications.schedule",
+    "jsNames" : [
+      "apple.notifications.schedule"
+    ],
+    "optionalArguments" : [
+      "identifier",
+      "subtitle",
+      "body",
+      "secondsFromNow",
+      "fireDate",
+      "repeats",
+      "sound",
+      "badge",
+      "userInfo",
+      "threadIdentifier",
+      "categoryIdentifier"
+    ],
+    "requiredArguments" : [
+      "title"
+    ],
+    "requiredPermissions" : [
+      "notifications"
+    ],
+    "resultSummary" : "Object with identifier\/scheduled\/repeats.",
+    "summary" : "Schedule a local notification using time interval or fireDate trigger.",
+    "tags" : [
+      "notifications",
+      "local",
+      "schedule"
+    ],
+    "title" : "Schedule local notification"
+  },
+  {
+    "allowedStringValues" : {
+
+    },
+    "argumentHints" : {
+
+    },
+    "argumentTypes" : {
+
+    },
+    "example" : "await apple.notifications.getSettings()",
+    "id" : "notifications.settings.read",
+    "jsNames" : [
+      "apple.notifications.getSettings"
+    ],
+    "optionalArguments" : [
+
+    ],
+    "requiredArguments" : [
+
+    ],
+    "requiredPermissions" : [
+
+    ],
+    "resultSummary" : "Object with authorizationStatus\/alert\/badge\/sound\/criticalAlert\/providesAppNotificationSettings.",
+    "summary" : "Read UserNotifications\/APNs client settings exposed by the host.",
+    "tags" : [
+      "notifications",
+      "apns",
+      "settings",
+      "permission"
+    ],
+    "title" : "Read notification settings"
+  },
+  {
+    "allowedStringValues" : {
+
+    },
+    "argumentHints" : {
+      "confirmed" : "Must be true after explicit user-visible confirmation before presenting Apple Pay.",
+      "paymentRequestID" : "Host-defined payment request identifier using host merchant configuration; arbitrary merchant setup is not accepted from JavaScript."
+    },
+    "argumentTypes" : {
+      "confirmed" : "bool",
+      "paymentRequestID" : "string",
+      "timeoutMs" : "number"
+    },
+    "example" : "await apple.wallet.presentPayment({ paymentRequestID: 'checkout-123', confirmed: true })",
+    "id" : "passkit.applePay.present",
+    "jsNames" : [
+      "apple.wallet.presentPayment"
+    ],
+    "optionalArguments" : [
+      "timeoutMs"
+    ],
+    "requiredArguments" : [
+      "paymentRequestID",
+      "confirmed"
+    ],
+    "requiredPermissions" : [
+
+    ],
+    "resultSummary" : "Object with action\/authorized\/paymentRequestID\/status.",
+    "summary" : "Present a host-defined Apple Pay payment request using host merchant configuration after explicit user-visible confirmation.",
+    "tags" : [
+      "passkit",
+      "apple-pay",
+      "payments",
+      "system-ui",
+      "safety"
+    ],
+    "title" : "Present Apple Pay request"
+  },
+  {
+    "allowedStringValues" : {
+
+    },
+    "argumentHints" : {
+      "networks" : "Optional supported payment networks to test against host merchant configuration."
+    },
+    "argumentTypes" : {
+      "networks" : "array"
+    },
+    "example" : "await apple.wallet.canMakePayments()",
+    "id" : "passkit.applePay.status",
+    "jsNames" : [
+      "apple.wallet.canMakePayments"
+    ],
+    "optionalArguments" : [
+      "networks"
+    ],
+    "requiredArguments" : [
+
+    ],
+    "requiredPermissions" : [
+
+    ],
+    "resultSummary" : "Object with canMakePayments\/canMakePaymentsUsingNetworks.",
+    "summary" : "Read Apple Pay capability using host merchant configuration; no merchant setup is accepted from JavaScript.",
+    "tags" : [
+      "passkit",
+      "apple-pay",
+      "payments",
+      "safety"
+    ],
+    "title" : "Read Apple Pay status"
+  },
+  {
+    "allowedStringValues" : {
+
+    },
+    "argumentHints" : {
+      "path" : "Sandbox path to a .pkpass file.",
+      "timeoutMs" : "Optional timeout for user-mediated add-pass UI."
+    },
+    "argumentTypes" : {
+      "path" : "string",
+      "timeoutMs" : "number"
+    },
+    "example" : "await apple.wallet.addPass({ path: 'tmp:ticket.pkpass' })",
+    "id" : "passkit.pass.add",
+    "jsNames" : [
+      "apple.wallet.addPass"
+    ],
+    "optionalArguments" : [
+      "timeoutMs"
+    ],
+    "requiredArguments" : [
+      "path"
+    ],
+    "requiredPermissions" : [
+
+    ],
+    "resultSummary" : "Object with action\/added\/passTypeIdentifier\/serialNumber.",
+    "summary" : "Present user-mediated UI to add a sandbox .pkpass file to Wallet.",
+    "tags" : [
+      "passkit",
+      "wallet",
+      "passes",
+      "add",
+      "system-ui"
+    ],
+    "title" : "Add Wallet pass"
+  },
+  {
+    "allowedStringValues" : {
+
+    },
+    "argumentHints" : {
+
+    },
+    "argumentTypes" : {
+      "identifier" : "string",
+      "timeoutMs" : "number"
+    },
+    "example" : "await apple.wallet.presentPass({ identifier: 'pass-id' })",
+    "id" : "passkit.pass.present",
+    "jsNames" : [
+      "apple.wallet.presentPass"
+    ],
+    "optionalArguments" : [
+      "timeoutMs"
+    ],
+    "requiredArguments" : [
+      "identifier"
+    ],
+    "requiredPermissions" : [
+
+    ],
+    "resultSummary" : "Object with action\/presented\/identifier.",
+    "summary" : "Present user-mediated details for an accessible Wallet pass.",
+    "tags" : [
+      "passkit",
+      "wallet",
+      "passes",
+      "system-ui"
+    ],
+    "title" : "Present Wallet pass"
+  },
+  {
+    "allowedStringValues" : {
+
+    },
+    "argumentHints" : {
+      "limit" : "Maximum accessible passes.",
+      "passTypeIdentifier" : "Optional pass type filter.",
+      "serialNumber" : "Optional serial number filter."
+    },
+    "argumentTypes" : {
+      "limit" : "number",
+      "passTypeIdentifier" : "string",
+      "serialNumber" : "string"
+    },
+    "example" : "await apple.wallet.listPasses({ limit: 20 })",
+    "id" : "passkit.passes.read",
+    "jsNames" : [
+      "apple.wallet.listPasses"
+    ],
+    "optionalArguments" : [
+      "passTypeIdentifier",
+      "serialNumber",
+      "limit"
+    ],
+    "requiredArguments" : [
+
+    ],
+    "requiredPermissions" : [
+
+    ],
+    "resultSummary" : "Array of passes with passTypeIdentifier\/serialNumber\/organizationName\/description.",
+    "summary" : "List Wallet passes accessible to the host app through PassKit.",
+    "tags" : [
+      "passkit",
+      "wallet",
+      "passes",
+      "read"
+    ],
+    "title" : "List Wallet passes"
+  },
+  {
+    "allowedStringValues" : {
+
+    },
+    "argumentHints" : {
+
+    },
+    "argumentTypes" : {
+
+    },
+    "example" : "await apple.wallet.getStatus()",
+    "id" : "passkit.wallet.status",
+    "jsNames" : [
+      "apple.wallet.getStatus"
+    ],
+    "optionalArguments" : [
+
+    ],
+    "requiredArguments" : [
+
+    ],
+    "requiredPermissions" : [
+
+    ],
+    "resultSummary" : "Object with available\/canAddPasses\/canPresentPasses.",
+    "summary" : "Read PassKit Wallet availability and pass-library access status.",
+    "tags" : [
+      "passkit",
+      "wallet",
+      "passes"
+    ],
+    "title" : "Read Wallet status"
+  },
+  {
+    "allowedStringValues" : {
+
+    },
+    "argumentHints" : {
+      "localIdentifier" : "PHAsset localIdentifier from photos.read result.",
+      "outputPath" : "Optional sandbox output path; defaults to tmp-generated file."
+    },
+    "argumentTypes" : {
+      "localIdentifier" : "string",
+      "outputPath" : "string"
+    },
+    "example" : "await apple.photos.export({ localIdentifier: 'ABC\/L0\/001', outputPath: 'tmp:exported.jpg' })",
+    "id" : "photos.export",
+    "jsNames" : [
+      "apple.photos.export"
+    ],
+    "optionalArguments" : [
+      "outputPath"
+    ],
+    "requiredArguments" : [
+      "localIdentifier"
+    ],
+    "requiredPermissions" : [
+      "photoLibrary"
+    ],
+    "resultSummary" : "Object with path\/artifactID\/localIdentifier\/mediaType\/bytes.",
+    "summary" : "Export a photo\/video asset to sandbox file path and register artifact handle.",
+    "tags" : [
+      "photos",
+      "photo-library",
+      "artifact"
+    ],
+    "title" : "Export photo library asset"
+  },
+  {
+    "allowedStringValues" : {
+      "mediaType" : [
+        "any",
+        "image",
+        "photo",
+        "video"
+      ]
+    },
+    "argumentHints" : {
+      "limit" : "Max number of results, default 50.",
+      "mediaType" : "any (default), image, or video."
+    },
+    "argumentTypes" : {
+      "limit" : "number",
+      "mediaType" : "string"
+    },
+    "example" : "await apple.photos.list({ mediaType: 'image', limit: 20 })",
+    "id" : "photos.read",
+    "jsNames" : [
+      "apple.photos.list"
+    ],
+    "optionalArguments" : [
+      "mediaType",
+      "limit"
+    ],
+    "requiredArguments" : [
+
+    ],
+    "requiredPermissions" : [
+      "photoLibrary"
+    ],
+    "resultSummary" : "Array of assets with localIdentifier\/mediaType\/dimensions\/date metadata.",
+    "summary" : "List photos\/videos from the user photo library.",
+    "tags" : [
+      "photos",
+      "photo-library",
+      "media"
+    ],
+    "title" : "List photo library assets"
+  },
+  {
+    "allowedStringValues" : {
+      "mediaType" : [
+        "any",
+        "image",
+        "photo",
+        "video"
+      ]
+    },
+    "argumentHints" : {
+      "limit" : "Maximum number of selectable items; default 1.",
+      "mediaType" : "any (default), image\/photo, or video.",
+      "outputDirectory" : "Optional sandbox directory for exported picker files; defaults to tmp:.",
+      "timeoutMs" : "Optional timeout for waiting on user selection\/export."
+    },
+    "argumentTypes" : {
+      "limit" : "number",
+      "mediaType" : "string",
+      "outputDirectory" : "string",
+      "timeoutMs" : "number"
+    },
+    "example" : "await apple.photos.pick({ mediaType: 'image', limit: 3, outputDirectory: 'tmp:picks' })",
+    "id" : "photos.ui.pick",
+    "jsNames" : [
+      "apple.photos.pick"
+    ],
+    "optionalArguments" : [
+      "mediaType",
+      "limit",
+      "outputDirectory",
+      "timeoutMs"
+    ],
+    "requiredArguments" : [
+
+    ],
+    "requiredPermissions" : [
+
+    ],
+    "resultSummary" : "Array of selected assets with path\/artifactID\/mediaType\/uniformTypeIdentifier\/bytes.",
+    "summary" : "Present system photo picker UI and export selected assets into the sandbox artifact store.",
+    "tags" : [
+      "photos",
+      "photo-library",
+      "system-ui",
+      "picker",
+      "artifact"
+    ],
+    "title" : "Pick photos with system UI"
+  },
+  {
+    "allowedStringValues" : {
+
+    },
+    "argumentHints" : {
+      "timeoutMs" : "Optional timeout for waiting on the limited-library picker completion."
+    },
+    "argumentTypes" : {
+      "timeoutMs" : "number"
+    },
+    "example" : "await apple.photos.presentLimitedLibraryPicker()",
+    "id" : "photos.ui.presentLimitedLibraryPicker",
+    "jsNames" : [
+      "apple.photos.presentLimitedLibraryPicker"
+    ],
+    "optionalArguments" : [
+      "timeoutMs"
+    ],
+    "requiredArguments" : [
+
+    ],
+    "requiredPermissions" : [
+
+    ],
+    "resultSummary" : "Object with action\/status and selectedIdentifiers when the limited selection changes.",
+    "summary" : "Present the Photos limited-library management UI so the user can update the app's selected photo set.",
+    "tags" : [
+      "photos",
+      "photo-library",
+      "system-ui",
+      "permission",
+      "picker"
+    ],
+    "title" : "Present limited Photos picker"
+  },
+  {
+    "allowedStringValues" : {
+      "outputType" : [
+        "general",
+        "photo",
+        "grayscale"
+      ]
+    },
+    "argumentHints" : {
+      "jobName" : "Optional print job name.",
+      "outputType" : "general (default), photo, or grayscale.",
+      "path" : "Single sandbox file path to print.",
+      "paths" : "Optional array of sandbox file paths to print.",
+      "showsNumberOfCopies" : "Whether copy count controls are shown; default true.",
+      "timeoutMs" : "Optional timeout for waiting on print completion\/cancellation."
+    },
+    "argumentTypes" : {
+      "jobName" : "string",
+      "outputType" : "string",
+      "path" : "string",
+      "paths" : "array",
+      "showsNumberOfCopies" : "bool",
+      "timeoutMs" : "number"
+    },
+    "example" : "await apple.print.present({ path: 'tmp:report.pdf', jobName: 'Report' })",
+    "id" : "print.ui.present",
+    "jsNames" : [
+      "apple.print.present"
+    ],
+    "optionalArguments" : [
+      "path",
+      "paths",
+      "jobName",
+      "outputType",
+      "showsNumberOfCopies",
+      "timeoutMs"
+    ],
+    "requiredArguments" : [
+
+    ],
+    "requiredPermissions" : [
+
+    ],
+    "resultSummary" : "Object with action\/completed for the print interaction.",
+    "summary" : "Present the system print sheet for one or more sandbox files.",
+    "tags" : [
+      "print",
+      "documents",
+      "system-ui",
+      "export"
+    ],
+    "title" : "Present print UI"
+  },
+  {
+    "allowedStringValues" : {
+
+    },
+    "argumentHints" : {
+      "path" : "Single sandbox file path to preview.",
+      "paths" : "Optional array of sandbox file paths to preview.",
+      "timeoutMs" : "Optional timeout for waiting on dismissal."
+    },
+    "argumentTypes" : {
+      "path" : "string",
+      "paths" : "array",
+      "timeoutMs" : "number"
+    },
+    "example" : "await apple.quicklook.preview({ path: 'tmp:report.pdf' })",
+    "id" : "quicklook.ui.preview",
+    "jsNames" : [
+      "apple.quicklook.preview"
+    ],
+    "optionalArguments" : [
+      "path",
+      "paths",
+      "timeoutMs"
+    ],
+    "requiredArguments" : [
+
+    ],
+    "requiredPermissions" : [
+
+    ],
+    "resultSummary" : "Object with action dismissed and count.",
+    "summary" : "Present Quick Look preview UI for one or more sandbox file artifacts.",
+    "tags" : [
+      "quicklook",
+      "preview",
+      "documents",
+      "system-ui"
+    ],
+    "title" : "Preview files with Quick Look"
+  },
+  {
+    "allowedStringValues" : {
+
+    },
+    "argumentHints" : {
+      "identifier" : "EventKit calendarItemIdentifier from apple.reminders.listReminders."
+    },
+    "argumentTypes" : {
+      "identifier" : "string"
+    },
+    "example" : "await apple.reminders.deleteReminder({ identifier: 'REMINDER_ID' })",
+    "id" : "reminders.delete",
+    "jsNames" : [
+      "apple.reminders.deleteReminder"
+    ],
+    "optionalArguments" : [
+
+    ],
+    "requiredArguments" : [
+      "identifier"
+    ],
+    "requiredPermissions" : [
+      "reminders"
+    ],
+    "resultSummary" : "Object with identifier\/deleted.",
+    "summary" : "Delete an existing EventKit reminder by identifier.",
+    "tags" : [
+      "reminders",
+      "eventkit",
+      "task",
+      "delete"
+    ],
+    "title" : "Delete reminder"
+  },
+  {
+    "allowedStringValues" : {
+
+    },
+    "argumentHints" : {
+      "calendarIdentifier" : "Optional EventKit reminder calendarIdentifier to restrict results.",
+      "calendarIdentifiers" : "Optional array of EventKit reminder calendarIdentifier strings to restrict results.",
+      "end" : "Optional ISO8601 due-date upper bound.",
+      "includeCompleted" : "Whether completed reminders are included; default false.",
+      "limit" : "Max number of reminder items, default 50.",
+      "start" : "Optional ISO8601 due-date lower bound."
+    },
+    "argumentTypes" : {
+      "calendarIdentifier" : "string",
+      "calendarIdentifiers" : "array",
+      "end" : "string",
+      "includeCompleted" : "bool",
+      "limit" : "number",
+      "start" : "string"
+    },
+    "example" : "await apple.reminders.listReminders({ limit: 20 })",
+    "id" : "reminders.read",
+    "jsNames" : [
+      "apple.reminders.listReminders"
+    ],
+    "optionalArguments" : [
+      "start",
+      "end",
+      "includeCompleted",
+      "calendarIdentifier",
+      "calendarIdentifiers",
+      "limit"
+    ],
+    "requiredArguments" : [
+
+    ],
+    "requiredPermissions" : [
+      "reminders"
+    ],
+    "resultSummary" : "Array of reminders with identifier\/title\/isCompleted\/dueDate\/completionDate\/notes\/priority\/calendarIdentifier\/calendarTitle.",
+    "summary" : "Read incomplete reminders from EventKit.",
+    "tags" : [
+      "reminders",
+      "eventkit",
+      "task"
+    ],
+    "title" : "Read reminders"
+  },
+  {
+    "allowedStringValues" : {
+      "operation" : [
+        "create",
+        "update",
+        "complete"
+      ]
+    },
+    "argumentHints" : {
+      "calendarIdentifier" : "Optional destination EventKit reminders calendarIdentifier.",
+      "dueDate" : "Optional ISO8601 due date timestamp.",
+      "identifier" : "EventKit calendarItemIdentifier to update or complete.",
+      "isCompleted" : "Completion state for update or completeReminder; default true for completeReminder.",
+      "notes" : "Optional reminder notes.",
+      "operation" : "create (default without identifier), update, or complete.",
+      "priority" : "EventKit reminder priority integer.",
+      "title" : "Reminder title string."
+    },
+    "argumentTypes" : {
+      "calendarIdentifier" : "string",
+      "dueDate" : "string",
+      "identifier" : "string",
+      "isCompleted" : "bool",
+      "notes" : "string",
+      "operation" : "string",
+      "priority" : "number",
+      "title" : "string"
+    },
+    "example" : "await apple.reminders.createReminder({ title: 'Buy batteries', dueDate: '2026-02-22T18:00:00Z' })",
+    "id" : "reminders.write",
+    "jsNames" : [
+      "apple.reminders.createReminder",
+      "apple.reminders.updateReminder",
+      "apple.reminders.completeReminder"
+    ],
+    "optionalArguments" : [
+      "operation",
+      "identifier",
+      "title",
+      "dueDate",
+      "notes",
+      "isCompleted",
+      "priority",
+      "calendarIdentifier"
+    ],
+    "requiredArguments" : [
+
+    ],
+    "requiredPermissions" : [
+      "reminders"
+    ],
+    "resultSummary" : "Object with identifier\/title\/isCompleted\/dueDate\/completionDate\/notes\/priority\/calendarIdentifier\/calendarTitle.",
+    "summary" : "Create a reminder or patch an existing reminder by identifier.",
+    "tags" : [
+      "reminders",
+      "eventkit",
+      "task"
+    ],
+    "title" : "Create or update reminder"
+  },
+  {
+    "allowedStringValues" : {
+
+    },
+    "argumentHints" : {
+      "timeoutMs" : "Optional timeout for waiting on UIApplication.open completion."
+    },
+    "argumentTypes" : {
+      "timeoutMs" : "number"
+    },
+    "example" : "await apple.settings.open()",
+    "id" : "settings.ui.open",
+    "jsNames" : [
+      "apple.settings.open"
+    ],
+    "optionalArguments" : [
+      "timeoutMs"
+    ],
+    "requiredArguments" : [
+
+    ],
+    "requiredPermissions" : [
+
+    ],
+    "resultSummary" : "Object with action opened\/failed and opened boolean.",
+    "summary" : "Open the host app's Settings page so the user can recover denied permissions.",
+    "tags" : [
+      "settings",
+      "permissions",
+      "system-ui"
+    ],
+    "title" : "Open app settings"
+  },
+  {
+    "allowedStringValues" : {
+
+    },
+    "argumentHints" : {
+      "excludedActivityTypes" : "Optional array of UIActivity.ActivityType raw value strings to hide.",
+      "path" : "Optional single sandbox file path to share.",
+      "paths" : "Optional array of sandbox file paths to share.",
+      "subject" : "Optional subject for services that support it.",
+      "text" : "Optional text item to share.",
+      "timeoutMs" : "Optional timeout for waiting on share completion.",
+      "url" : "Optional absolute HTTP(S) URL to share."
+    },
+    "argumentTypes" : {
+      "excludedActivityTypes" : "array",
+      "path" : "string",
+      "paths" : "array",
+      "subject" : "string",
+      "text" : "string",
+      "timeoutMs" : "number",
+      "url" : "string"
+    },
+    "example" : "await apple.share.present({ text: 'Report ready', paths: ['tmp:report.pdf'] })",
+    "id" : "share.ui.present",
+    "jsNames" : [
+      "apple.share.present"
+    ],
+    "optionalArguments" : [
+      "text",
+      "url",
+      "path",
+      "paths",
+      "subject",
+      "excludedActivityTypes",
+      "timeoutMs"
+    ],
+    "requiredArguments" : [
+
+    ],
+    "requiredPermissions" : [
+
+    ],
+    "resultSummary" : "Object with completed\/activityType\/action.",
+    "summary" : "Present system share sheet for text, URLs, and sandbox file artifacts.",
+    "tags" : [
+      "share",
+      "export",
+      "system-ui"
+    ],
+    "title" : "Present share sheet"
+  },
+  {
+    "allowedStringValues" : {
+
+    },
+    "argumentHints" : {
+      "locale" : "BCP-47 locale identifier such as en-US.",
+      "path" : "Sandbox audio file path.",
+      "requiresOnDeviceRecognition" : "Whether to require on-device recognition when the host supports it.",
+      "taskHint" : "Speech task hint such as dictation, search, or confirmation.",
+      "timeoutMs" : "Maximum transcription wait time in milliseconds."
+    },
+    "argumentTypes" : {
+      "locale" : "string",
+      "path" : "string",
+      "requiresOnDeviceRecognition" : "bool",
+      "taskHint" : "string",
+      "timeoutMs" : "number"
+    },
+    "example" : "await apple.speech.transcribeFile({ path: 'tmp:meeting.m4a', locale: 'en-US', timeoutMs: 60000 })",
+    "id" : "speech.file.transcribe",
+    "jsNames" : [
+      "apple.speech.transcribeFile"
+    ],
+    "optionalArguments" : [
+      "locale",
+      "timeoutMs",
+      "requiresOnDeviceRecognition",
+      "taskHint"
+    ],
+    "requiredArguments" : [
+      "path"
+    ],
+    "requiredPermissions" : [
+      "speech.recognition"
+    ],
+    "resultSummary" : "Object with transcript\/segments\/locale\/isFinal\/durationSeconds.",
+    "summary" : "Transcribe a sandbox audio file through the host Speech adapter.",
+    "tags" : [
+      "speech",
+      "transcription",
+      "audio"
+    ],
+    "title" : "Transcribe audio file"
+  },
+  {
+    "allowedStringValues" : {
+
+    },
+    "argumentHints" : {
+      "locale" : "BCP-47 locale identifier such as en-US.",
+      "partialResults" : "Whether partial transcripts may be returned.",
+      "requiresOnDeviceRecognition" : "Whether to require on-device recognition when the host supports it.",
+      "taskHint" : "Speech task hint such as dictation, search, or confirmation.",
+      "timeoutMs" : "Maximum microphone capture\/transcription time in milliseconds."
+    },
+    "argumentTypes" : {
+      "locale" : "string",
+      "partialResults" : "bool",
+      "requiresOnDeviceRecognition" : "bool",
+      "taskHint" : "string",
+      "timeoutMs" : "number"
+    },
+    "example" : "await apple.speech.transcribeMicrophone({ locale: 'en-US', timeoutMs: 15000 })",
+    "id" : "speech.microphone.transcribe",
+    "jsNames" : [
+      "apple.speech.transcribeMicrophone"
+    ],
+    "optionalArguments" : [
+      "locale",
+      "timeoutMs",
+      "requiresOnDeviceRecognition",
+      "taskHint",
+      "partialResults"
+    ],
+    "requiredArguments" : [
+
+    ],
+    "requiredPermissions" : [
+      "speech.recognition",
+      "microphone"
+    ],
+    "resultSummary" : "Object with transcript\/segments\/locale\/isFinal\/timedOut.",
+    "summary" : "Run live microphone transcription through a host-mediated session with an explicit timeout.",
+    "tags" : [
+      "speech",
+      "transcription",
+      "audio",
+      "microphone"
+    ],
+    "title" : "Transcribe microphone audio"
+  },
+  {
+    "allowedStringValues" : {
+
+    },
+    "argumentHints" : {
+
+    },
+    "argumentTypes" : {
+
+    },
+    "example" : "await apple.speech.requestPermission()",
+    "id" : "speech.permission.request",
+    "jsNames" : [
+      "apple.speech.requestPermission"
+    ],
+    "optionalArguments" : [
+
+    ],
+    "requiredArguments" : [
+
+    ],
+    "requiredPermissions" : [
+
+    ],
+    "resultSummary" : "Object with status\/granted.",
+    "summary" : "Trigger the Speech recognition permission prompt.",
+    "tags" : [
+      "speech",
+      "permission",
+      "transcription"
+    ],
+    "title" : "Request speech recognition permission"
+  },
+  {
+    "allowedStringValues" : {
+
+    },
+    "argumentHints" : {
+
+    },
+    "argumentTypes" : {
+
+    },
+    "example" : "await apple.speech.getStatus()",
+    "id" : "speech.status",
+    "jsNames" : [
+      "apple.speech.getStatus"
+    ],
+    "optionalArguments" : [
+
+    ],
+    "requiredArguments" : [
+
+    ],
+    "requiredPermissions" : [
+
+    ],
+    "resultSummary" : "Object with status\/granted.",
+    "summary" : "Read Speech recognition permission status without starting capture.",
+    "tags" : [
+      "speech",
+      "permission",
+      "transcription"
+    ],
+    "title" : "Read speech recognition permission status"
+  },
+  {
+    "allowedStringValues" : {
+
+    },
+    "argumentHints" : {
+
+    },
+    "argumentTypes" : {
+
+    },
+    "example" : "await apple.storekit.listEntitlements()",
+    "id" : "storekit.entitlements.read",
+    "jsNames" : [
+      "apple.storekit.listEntitlements"
+    ],
+    "optionalArguments" : [
+
+    ],
+    "requiredArguments" : [
+
+    ],
+    "requiredPermissions" : [
+
+    ],
+    "resultSummary" : "Array of current entitlements with productID\/transactionID\/expirationDate.",
+    "summary" : "Read current StoreKit entitlements and verified transaction state.",
+    "tags" : [
+      "storekit",
+      "commerce",
+      "entitlements"
+    ],
+    "title" : "Read StoreKit entitlements"
+  },
+  {
+    "allowedStringValues" : {
+
+    },
+    "argumentHints" : {
+      "productIDs" : "Array of host-configured StoreKit product identifiers."
+    },
+    "argumentTypes" : {
+      "productIDs" : "array"
+    },
+    "example" : "await apple.storekit.listProducts({ productIDs: ['pro.monthly'] })",
+    "id" : "storekit.products.read",
+    "jsNames" : [
+      "apple.storekit.listProducts"
+    ],
+    "optionalArguments" : [
+
+    ],
+    "requiredArguments" : [
+      "productIDs"
+    ],
+    "requiredPermissions" : [
+
+    ],
+    "resultSummary" : "Array of products with id\/displayName\/description\/price\/type.",
+    "summary" : "Read StoreKit product metadata for host-configured product identifiers.",
+    "tags" : [
+      "storekit",
+      "commerce",
+      "products"
+    ],
+    "title" : "Read StoreKit products"
+  },
+  {
+    "allowedStringValues" : {
+
+    },
+    "argumentHints" : {
+      "appAccountToken" : "Optional UUID string for StoreKit appAccountToken.",
+      "confirmed" : "Must be true after explicit user-visible confirmation before purchase UI is presented.",
+      "productID" : "Host-configured StoreKit product identifier."
+    },
+    "argumentTypes" : {
+      "appAccountToken" : "string",
+      "confirmed" : "bool",
+      "productID" : "string"
+    },
+    "example" : "await apple.storekit.purchase({ productID: 'pro.monthly', confirmed: true })",
+    "id" : "storekit.purchase",
+    "jsNames" : [
+      "apple.storekit.purchase"
+    ],
+    "optionalArguments" : [
+      "appAccountToken"
+    ],
+    "requiredArguments" : [
+      "productID",
+      "confirmed"
+    ],
+    "requiredPermissions" : [
+
+    ],
+    "resultSummary" : "Object with status\/productID\/transactionID when completed.",
+    "summary" : "Present StoreKit purchase UI for a host-configured product after explicit user-visible confirmation.",
+    "tags" : [
+      "storekit",
+      "commerce",
+      "purchase",
+      "safety"
+    ],
+    "title" : "Purchase StoreKit product"
+  },
+  {
+    "allowedStringValues" : {
+
+    },
+    "argumentHints" : {
+      "confirmed" : "Must be true after explicit user-visible confirmation before restore starts."
+    },
+    "argumentTypes" : {
+      "confirmed" : "bool"
+    },
+    "example" : "await apple.storekit.restore({ confirmed: true })",
+    "id" : "storekit.restore",
+    "jsNames" : [
+      "apple.storekit.restore"
+    ],
+    "optionalArguments" : [
+
+    ],
+    "requiredArguments" : [
+      "confirmed"
+    ],
+    "requiredPermissions" : [
+
+    ],
+    "resultSummary" : "Object with restored\/status.",
+    "summary" : "Trigger StoreKit restore\/sync after explicit user-visible confirmation.",
+    "tags" : [
+      "storekit",
+      "commerce",
+      "restore",
+      "safety"
+    ],
+    "title" : "Restore StoreKit purchases"
+  },
+  {
+    "allowedStringValues" : {
+
+    },
+    "argumentHints" : {
+      "afterCursor" : "Optional host-provided cursor for incremental reads.",
+      "limit" : "Maximum transaction updates to return.",
+      "productID" : "Optional product filter."
+    },
+    "argumentTypes" : {
+      "afterCursor" : "string",
+      "limit" : "number",
+      "productID" : "string"
+    },
+    "example" : "await apple.storekit.listTransactions({ limit: 20 })",
+    "id" : "storekit.transactions.read",
+    "jsNames" : [
+      "apple.storekit.listTransactions"
+    ],
+    "optionalArguments" : [
+      "limit",
+      "productID",
+      "afterCursor"
+    ],
+    "requiredArguments" : [
+
+    ],
+    "requiredPermissions" : [
+
+    ],
+    "resultSummary" : "Array of transaction events with cursor\/productID\/transactionID\/status\/date.",
+    "summary" : "Read bounded transaction updates captured by the host StoreKit adapter.",
+    "tags" : [
+      "storekit",
+      "commerce",
+      "transactions",
+      "inbox",
+      "events"
+    ],
+    "title" : "Read StoreKit transaction inbox"
+  },
+  {
+    "allowedStringValues" : {
+      "preferredStyle" : [
+        "alert",
+        "actionSheet",
+        "actionsheet"
+      ]
+    },
+    "argumentHints" : {
+      "buttons" : "Array of { id?, title, style? }; style is default, cancel, or destructive. At most one cancel button.",
+      "message" : "Optional alert message.",
+      "preferredStyle" : "alert (default) or actionSheet.",
+      "sourceRect" : "Optional { x, y, width, height } anchor for action sheets.",
+      "timeoutMs" : "Optional timeout for waiting on user selection.",
+      "title" : "Optional alert title."
+    },
+    "argumentTypes" : {
+      "buttons" : "array",
+      "message" : "string",
+      "preferredStyle" : "string",
+      "sourceRect" : "object",
+      "timeoutMs" : "number",
+      "title" : "string"
+    },
+    "example" : "await apple.ui.presentAlert({ title: 'Delete draft?', message: 'This cannot be undone.', buttons: [{ id: 'cancel', title: 'Cancel', style: 'cancel' }, { id: 'delete', title: 'Delete', style: 'destructive' }] })",
+    "id" : "ui.alert.present",
+    "jsNames" : [
+      "apple.ui.presentAlert"
+    ],
+    "optionalArguments" : [
+      "title",
+      "message",
+      "preferredStyle",
+      "sourceRect",
+      "timeoutMs"
+    ],
+    "requiredArguments" : [
+      "buttons"
+    ],
+    "requiredPermissions" : [
+
+    ],
+    "resultSummary" : "Object with action\/buttonID\/buttonTitle\/buttonIndex\/style for the selected button.",
+    "summary" : "Present a system alert or action sheet and return the button the user selects.",
+    "tags" : [
+      "ui",
+      "alert",
+      "dialog",
+      "system-ui"
+    ],
+    "title" : "Present alert with custom buttons"
+  },
+  {
+    "allowedStringValues" : {
+
+    },
+    "argumentHints" : {
+      "buttons" : "Array of { id?, title, style? }; style is default, cancel, or destructive. At most one cancel button.",
+      "fields" : "Array of { id?, placeholder?, text?\/defaultValue?, secure?, keyboardType? }. keyboardType is default, email, number, phone, or url.",
+      "timeoutMs" : "Optional timeout for waiting on user selection."
+    },
+    "argumentTypes" : {
+      "buttons" : "array",
+      "fields" : "array",
+      "message" : "string",
+      "timeoutMs" : "number",
+      "title" : "string"
+    },
+    "example" : "await apple.ui.presentPrompt({ title: 'Name', fields: [{ id: 'name', placeholder: 'Name' }], buttons: [{ id: 'cancel', title: 'Cancel', style: 'cancel' }, { id: 'ok', title: 'OK' }] })",
+    "id" : "ui.prompt.present",
+    "jsNames" : [
+      "apple.ui.presentPrompt"
+    ],
+    "optionalArguments" : [
+      "title",
+      "message",
+      "timeoutMs"
+    ],
+    "requiredArguments" : [
+      "fields",
+      "buttons"
+    ],
+    "requiredPermissions" : [
+
+    ],
+    "resultSummary" : "Object with selected button metadata and values keyed by field id.",
+    "summary" : "Present a system alert with one or more text fields and custom buttons.",
+    "tags" : [
+      "ui",
+      "alert",
+      "prompt",
+      "input",
+      "system-ui"
+    ],
+    "title" : "Present prompt with text fields"
+  },
+  {
+    "allowedStringValues" : {
+
+    },
+    "argumentHints" : {
+      "features" : "Optional array including labels\/text\/barcodes.",
+      "maxResults" : "Max observations returned per feature, default 5.",
+      "path" : "Sandbox image path to analyze."
+    },
+    "argumentTypes" : {
+      "features" : "array",
+      "maxResults" : "number",
+      "path" : "string"
+    },
+    "example" : "await apple.vision.analyzeImage({ path: 'tmp:receipt.jpg', features: ['text'], maxResults: 10 })",
+    "id" : "vision.image.analyze",
+    "jsNames" : [
+      "apple.vision.analyzeImage"
+    ],
+    "optionalArguments" : [
+      "features",
+      "maxResults"
+    ],
+    "requiredArguments" : [
+      "path"
+    ],
+    "requiredPermissions" : [
+
+    ],
+    "resultSummary" : "Object containing requested analysis sections such as labels\/text\/barcodes.",
+    "summary" : "Run on-device image analysis for labels\/text\/barcodes on sandbox image paths.",
+    "tags" : [
+      "vision",
+      "image-analysis",
+      "ml"
+    ],
+    "title" : "Analyze image with Vision"
+  },
+  {
+    "allowedStringValues" : {
+
+    },
+    "argumentHints" : {
+      "latitude" : "Latitude in decimal degrees.",
+      "longitude" : "Longitude in decimal degrees."
+    },
+    "argumentTypes" : {
+      "latitude" : "number",
+      "longitude" : "number"
+    },
+    "example" : "await apple.weather.getCurrentWeather({ latitude: 37.77, longitude: -122.41 })",
+    "id" : "weather.read",
+    "jsNames" : [
+      "apple.weather.getCurrentWeather"
+    ],
+    "optionalArguments" : [
+
+    ],
+    "requiredArguments" : [
+      "latitude",
+      "longitude"
+    ],
+    "requiredPermissions" : [
+
+    ],
+    "resultSummary" : "Object with temperatureCelsius\/condition\/symbolName\/date.",
+    "summary" : "Fetch current weather for a latitude\/longitude pair.",
+    "tags" : [
+      "weather",
+      "forecast",
+      "weatherkit"
+    ],
+    "title" : "Read WeatherKit weather"
+  },
+  {
+    "allowedStringValues" : {
+
+    },
+    "argumentHints" : {
+      "entersReaderIfAvailable" : "Whether Safari may enter Reader automatically; default false.",
+      "timeoutMs" : "Optional timeout for waiting on dismissal.",
+      "url" : "Absolute HTTP(S) URL to present."
+    },
+    "argumentTypes" : {
+      "entersReaderIfAvailable" : "bool",
+      "timeoutMs" : "number",
+      "url" : "string"
+    },
+    "example" : "await apple.web.present({ url: 'https:\/\/example.com' })",
+    "id" : "web.ui.present",
+    "jsNames" : [
+      "apple.web.present"
+    ],
+    "optionalArguments" : [
+      "entersReaderIfAvailable",
+      "timeoutMs"
+    ],
+    "requiredArguments" : [
+      "url"
+    ],
+    "requiredPermissions" : [
+
+    ],
+    "resultSummary" : "Object with action dismissed.",
+    "summary" : "Present an HTTP(S) URL with the system Safari view controller.",
+    "tags" : [
+      "web",
+      "safari",
+      "browser",
+      "system-ui"
+    ],
+    "title" : "Present web page with system UI"
+  }
+]
