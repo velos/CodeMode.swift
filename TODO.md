@@ -115,12 +115,12 @@ registrations with four parallel sources of truth. None addressed yet.
   `CapabilityRegistrations+*.swift`).
 - [ ] Unify permission ownership — `calendarRead` checks in both registry and
   bridge; `calendarWrite` checks only in the bridge.
-- [ ] Decide the fate of `Tools/CodeModeAuthoring` (macro package fully built,
-  tested, but unwired; `SimpleBuiltInCodeModeProviders.swift` hand-rolls the
-  same pattern). Either extend it to back the built-ins (permissions,
-  constraints, multi-name aliases, curated tags/examples) or scope it clearly as
-  a host-authoring aid. Lower-risk near-term win: validation/codegen from
-  existing descriptor metadata rather than a 115-callsite macro migration.
+- [/] Decide the fate of `Tools/CodeModeAuthoring` — investigated 2026-07-11;
+  concrete three-phase plan written up in `PLAN-registration-macros.md`
+  (typed-tool protocol first, then promote the macro into the core package —
+  swift-syntax cost measured at 24s clean/~0 incremental with prebuilts
+  default-on — then per-domain migration). Awaiting owner decision on
+  swift-syntax in the core graph; Phase 1 is worthwhile standalone.
 
 ---
 
