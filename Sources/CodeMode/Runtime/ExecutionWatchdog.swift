@@ -29,9 +29,15 @@ final class ExecutionWatchdog: @unchecked Sendable {
         case cancelled
     }
 
-    /// How often JavaScriptCore re-invokes the termination callback while a
-    /// script is executing. Bounds both timeout overshoot and cancellation latency.
-    private static let checkInterval: TimeInterval = 0.05
+    /// How often the termination callback runs while a script is executing.
+    /// Bounds both timeout overshoot and cancellation latency.
+    ///
+    /// JavaScriptCore is documented to re-invoke the callback on this interval
+    /// when it returns false, but on current OS releases (observed on macOS 26)
+    /// returning false permanently disarms the watchdog instead. The callback
+    /// therefore re-installs the time limit itself before returning false; see
+    /// `codeModeWatchdogShouldTerminate`.
+    fileprivate static let checkInterval: TimeInterval = 0.05
 
     private let lock = NSLock()
     private var deadlineValue: Date
@@ -71,20 +77,7 @@ final class ExecutionWatchdog: @unchecked Sendable {
         }
         let group = JSContextGetGroup(contextRef)
         let info = Unmanaged.passUnretained(self).toOpaque()
-        ccodemode_set_execution_time_limit(
-            group,
-            Self.checkInterval,
-            { _, info in
-                guard let info else {
-                    return false
-                }
-                return Unmanaged<ExecutionWatchdog>
-                    .fromOpaque(info)
-                    .takeUnretainedValue()
-                    .shouldTerminate()
-            },
-            info
-        )
+        ccodemode_set_execution_time_limit(group, Self.checkInterval, codeModeWatchdogShouldTerminate, info)
     }
 
     /// Callers must keep the watchdog installed only while `self` is alive; the
@@ -96,7 +89,7 @@ final class ExecutionWatchdog: @unchecked Sendable {
         ccodemode_clear_execution_time_limit(JSContextGetGroup(contextRef))
     }
 
-    private func shouldTerminate() -> Bool {
+    fileprivate func shouldTerminate() -> Bool {
         lock.lock()
         defer { lock.unlock() }
 
@@ -113,4 +106,35 @@ final class ExecutionWatchdog: @unchecked Sendable {
         }
         return false
     }
+}
+
+/// C-convention termination callback passed to `JSContextGroupSetExecutionTimeLimit`.
+///
+/// A free function rather than a closure so it can reference itself: on current
+/// OS releases (observed on macOS 26) JavaScriptCore does not re-arm the time
+/// limit when the callback returns false — the callback fires exactly once and
+/// the watchdog is dead for the rest of the execution. Re-installing the limit
+/// here before returning false restores the documented periodic-check behavior.
+/// Verified against a minimal JSC reproduction; without the re-arm a
+/// `while (true) {}` script runs forever after the first 50ms check.
+private func codeModeWatchdogShouldTerminate(
+    _ ctx: JSContextRef?,
+    _ info: UnsafeMutableRawPointer?
+) -> Bool {
+    guard let info else {
+        return false
+    }
+    let watchdog = Unmanaged<ExecutionWatchdog>.fromOpaque(info).takeUnretainedValue()
+    if watchdog.shouldTerminate() {
+        return true
+    }
+    if let ctx {
+        ccodemode_set_execution_time_limit(
+            JSContextGetGroup(ctx),
+            ExecutionWatchdog.checkInterval,
+            codeModeWatchdogShouldTerminate,
+            info
+        )
+    }
+    return false
 }
