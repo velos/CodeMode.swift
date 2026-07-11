@@ -63,26 +63,9 @@ public struct CapabilityArgumentConstraints: Sendable, Codable, Equatable {
             return .init(allowedStringValues: [
                 "mode": ["single", "multiple"],
             ])
-        case .cameraUICapture:
-            return .init(allowedStringValues: [
-                "mediaType": ["any", "image", "photo", "video"],
-                "cameraDevice": ["rear", "front"],
-                "flashMode": ["auto", "on", "off"],
-                "videoQuality": ["high", "medium", "low", "640x480", "iFrame1280x720", "iFrame960x540"],
-            ])
-        case .cameraUIScanData:
-            return .init(allowedStringValues: [
-                "mode": ["any", "text", "barcode"],
-                "qualityLevel": ["balanced", "fast", "accurate"],
-            ])
-        case .printUIPresent:
-            return .init(allowedStringValues: [
-                "outputType": ["general", "photo", "grayscale"],
-            ])
-        case .uiAlertPresent:
-            return .init(allowedStringValues: [
-                "preferredStyle": ["alert", "actionSheet", "actionsheet"],
-            ])
+        // cameraUICapture / cameraUIScanData / printUIPresent / uiAlertPresent
+        // constraints now come from their tools' CodeModeStringEnum arguments
+        // (SystemUICodeModeTools.swift), not this table.
         case .cloudKitRecordsQuery, .cloudKitRecordSave, .cloudKitRecordDelete, .cloudKitSubscriptionSave:
             return .init(allowedStringValues: [
                 "database": ["private", "shared", "public"],

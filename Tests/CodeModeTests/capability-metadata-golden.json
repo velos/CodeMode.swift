@@ -4801,7 +4801,9 @@
     "argumentHints" : {
       "buttons" : "Array of { id?, title, style? }; style is default, cancel, or destructive. At most one cancel button.",
       "fields" : "Array of { id?, placeholder?, text?\/defaultValue?, secure?, keyboardType? }. keyboardType is default, email, number, phone, or url.",
-      "timeoutMs" : "Optional timeout for waiting on user selection."
+      "message" : "Optional alert message.",
+      "timeoutMs" : "Optional timeout for waiting on user selection.",
+      "title" : "Optional alert title."
     },
     "argumentTypes" : {
       "buttons" : "array",

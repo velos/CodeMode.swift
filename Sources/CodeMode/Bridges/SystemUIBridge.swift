@@ -128,8 +128,8 @@ public final class SystemUIBridge: @unchecked Sendable {
 
     public func presentPrint(arguments: [String: JSONValue], context: BridgeInvocationContext) throws -> JSONValue {
         try validatePathOrPaths(arguments, capability: "print.ui.present")
-        if let outputType = arguments.string("outputType")?.lowercased(),
-           ["general", "photo", "grayscale"].contains(outputType) == false
+        if let outputType = arguments.string("outputType"),
+           PrintOutputType.codeModeValue(matching: outputType) == nil
         {
             throw BridgeError.invalidArguments("print.ui.present outputType must be general, photo, or grayscale")
         }
@@ -201,8 +201,8 @@ public final class SystemUIBridge: @unchecked Sendable {
     }
 
     private func validatePhotoPickerArguments(_ arguments: [String: JSONValue], capability: String = "photos.ui.pick") throws {
-        if let mediaType = arguments.string("mediaType")?.lowercased(),
-           ["any", "image", "photo", "video"].contains(mediaType) == false
+        if let mediaType = arguments.string("mediaType"),
+           MediaTypeFilter.codeModeValue(matching: mediaType) == nil
         {
             throw BridgeError.invalidArguments("\(capability) mediaType must be any, image, photo, or video")
         }
@@ -219,20 +219,20 @@ public final class SystemUIBridge: @unchecked Sendable {
         try validatePhotoPickerArguments(arguments, capability: "camera.ui.capture")
         try validateOptionalBool(arguments, key: "allowsEditing", capability: "camera.ui.capture")
 
-        if let cameraDevice = arguments.string("cameraDevice")?.lowercased(),
-           ["rear", "front"].contains(cameraDevice) == false
+        if let cameraDevice = arguments.string("cameraDevice"),
+           CameraDevice.codeModeValue(matching: cameraDevice) == nil
         {
             throw BridgeError.invalidArguments("camera.ui.capture cameraDevice must be rear or front")
         }
 
-        if let flashMode = arguments.string("flashMode")?.lowercased(),
-           ["auto", "on", "off"].contains(flashMode) == false
+        if let flashMode = arguments.string("flashMode"),
+           CameraFlashMode.codeModeValue(matching: flashMode) == nil
         {
             throw BridgeError.invalidArguments("camera.ui.capture flashMode must be auto, on, or off")
         }
 
-        if let videoQuality = arguments.string("videoQuality")?.lowercased(),
-           ["high", "medium", "low", "640x480", "iframe1280x720", "iframe960x540"].contains(videoQuality) == false
+        if let videoQuality = arguments.string("videoQuality"),
+           CameraVideoQuality.codeModeValue(matching: videoQuality) == nil
         {
             throw BridgeError.invalidArguments("camera.ui.capture videoQuality must be high, medium, low, 640x480, iFrame1280x720, or iFrame960x540")
         }
@@ -254,8 +254,8 @@ public final class SystemUIBridge: @unchecked Sendable {
     }
 
     private func validateAlertArguments(_ arguments: [String: JSONValue]) throws {
-        if let preferredStyle = arguments.string("preferredStyle")?.lowercased(),
-           ["alert", "actionSheet", "actionsheet"].contains(preferredStyle) == false
+        if let preferredStyle = arguments.string("preferredStyle"),
+           AlertPreferredStyle.codeModeValue(matching: preferredStyle) == nil
         {
             throw BridgeError.invalidArguments("ui.alert.present preferredStyle must be alert or actionSheet")
         }
@@ -291,9 +291,7 @@ public final class SystemUIBridge: @unchecked Sendable {
 
     private func validatePromptArguments(_ arguments: [String: JSONValue]) throws {
         try validateAlertArguments(arguments, capability: "ui.prompt.present")
-        if let preferredStyle = arguments.string("preferredStyle")?.lowercased(),
-           ["actionSheet", "actionsheet"].contains(preferredStyle)
-        {
+        if AlertPreferredStyle.codeModeValue(matching: arguments.string("preferredStyle") ?? "") == .actionSheet {
             throw BridgeError.invalidArguments("ui.prompt.present preferredStyle must be alert")
         }
 
@@ -318,8 +316,8 @@ public final class SystemUIBridge: @unchecked Sendable {
     }
 
     private func validateAlertArguments(_ arguments: [String: JSONValue], capability: String) throws {
-        if let preferredStyle = arguments.string("preferredStyle")?.lowercased(),
-           ["alert", "actionSheet", "actionsheet"].contains(preferredStyle) == false
+        if let preferredStyle = arguments.string("preferredStyle"),
+           AlertPreferredStyle.codeModeValue(matching: preferredStyle) == nil
         {
             throw BridgeError.invalidArguments("\(capability) preferredStyle must be alert or actionSheet")
         }
@@ -353,8 +351,8 @@ public final class SystemUIBridge: @unchecked Sendable {
     }
 
     private func validateDataScannerArguments(_ arguments: [String: JSONValue]) throws {
-        if let mode = arguments.string("mode")?.lowercased(),
-           ["any", "text", "barcode"].contains(mode) == false
+        if let mode = arguments.string("mode"),
+           DataScannerMode.codeModeValue(matching: mode) == nil
         {
             throw BridgeError.invalidArguments("camera.ui.scanData mode must be any, text, or barcode")
         }
@@ -369,8 +367,8 @@ public final class SystemUIBridge: @unchecked Sendable {
         }
 
         try validateStringArray(arguments, key: "languages", capability: "camera.ui.scanData")
-        if let qualityLevel = arguments.string("qualityLevel")?.lowercased(),
-           ["balanced", "fast", "accurate"].contains(qualityLevel) == false
+        if let qualityLevel = arguments.string("qualityLevel"),
+           DataScannerQualityLevel.codeModeValue(matching: qualityLevel) == nil
         {
             throw BridgeError.invalidArguments("camera.ui.scanData qualityLevel must be balanced, fast, or accurate")
         }
