@@ -54,7 +54,7 @@ public struct CapabilityArgumentConstraints: Sendable, Codable, Equatable {
             ])
         case .calendarDelete:
             return .init(allowedStringValues: [
-                "span": ["thisEvent", "futureEvents"],
+                "span": ["thisEvent", "futureEvents", "this_event", "future_events", "this", "future"],
             ])
         case .calendarUIPickCalendar:
             return .init(allowedStringValues: [
@@ -82,7 +82,7 @@ public struct CapabilityArgumentConstraints: Sendable, Codable, Equatable {
                 "mediaType": ["any", "image", "photo", "video"],
                 "cameraDevice": ["rear", "front"],
                 "flashMode": ["auto", "on", "off"],
-                "videoQuality": ["high", "medium", "low", "640x480", "iFrame1280x720", "iFrame960x540", "iframe1280x720", "iframe960x540"],
+                "videoQuality": ["high", "medium", "low", "640x480", "iFrame1280x720", "iFrame960x540"],
             ])
         case .cameraUIScanData:
             return .init(allowedStringValues: [
@@ -130,7 +130,10 @@ public struct CapabilityArgumentConstraints: Sendable, Codable, Equatable {
             guard let string = value.stringValue else {
                 throw BridgeError.invalidArguments("\(capabilityName) expected '\(path)' as string, received \(Self.jsonTypeName(for: value))")
             }
-            guard allowed.contains(string) else {
+            // Bridges parse these values case-insensitively; match that here so the
+            // registry never rejects an argument the bridge would accept.
+            let normalized = string.lowercased()
+            guard allowed.contains(where: { $0.lowercased() == normalized }) else {
                 throw BridgeError.invalidArguments("\(capabilityName) \(path) must be one of \(allowed.joined(separator: ", "))")
             }
         }

@@ -496,6 +496,52 @@ private func jsNames(for capability: CapabilityID) -> [String] {
     #expect(network.argumentConstraints.allowedStringValues["options.responseEncoding"] == ["text", "base64"])
 }
 
+@Test func noBuiltInRegistrationGatesOnHealthKitPermission() {
+    // The default broker can never report .granted for HealthKit (read authorization
+    // is opaque by design), so any registration declaring .healthKit in
+    // requiredPermissions would fail closed unconditionally through the registry.
+    // HealthBridge performs its own per-type authorization instead.
+    for registration in DefaultCapabilityLoader.loadAllRegistrations() {
+        #expect(
+            registration.descriptor.requiredPermissions.contains(.healthKit) == false,
+            "\(registration.descriptor.id.rawValue) must not gate on .healthKit via the registry"
+        )
+    }
+}
+
+@Test func constraintValidationMatchesCaseInsensitively() throws {
+    let constraints = CapabilityArgumentConstraints.defaults(for: .contactsUIPick)
+
+    try constraints.validate(arguments: ["mode": .string("single")], capabilityName: "contacts.ui.pick")
+    try constraints.validate(arguments: ["mode": .string("Single")], capabilityName: "contacts.ui.pick")
+    try constraints.validate(arguments: ["mode": .string("MULTIPLE")], capabilityName: "contacts.ui.pick")
+
+    #expect(throws: (any Error).self) {
+        try constraints.validate(arguments: ["mode": .string("triple")], capabilityName: "contacts.ui.pick")
+    }
+}
+
+@Test func calendarDeleteSpanConstraintAcceptsEverySpellingTheBridgeAccepts() throws {
+    let constraints = CapabilityArgumentConstraints.defaults(for: .calendarDelete)
+
+    // Keep in sync with EventKitBridge.eventSpan, which lowercases its input
+    // and accepts these aliases.
+    let bridgeAcceptedSpellings = [
+        "thisEvent", "thisevent", "this_event", "this",
+        "futureEvents", "futureevents", "future_events", "future",
+    ]
+    for spelling in bridgeAcceptedSpellings {
+        try constraints.validate(
+            arguments: ["span": .string(spelling)],
+            capabilityName: "calendar.delete"
+        )
+    }
+
+    #expect(throws: (any Error).self) {
+        try constraints.validate(arguments: ["span": .string("allEvents")], capabilityName: "calendar.delete")
+    }
+}
+
 @Test func registryValidationRejectsUnknownArguments() throws {
     let descriptor = CapabilityDescriptor(
         id: .fsRead,
