@@ -63,10 +63,8 @@ public struct CapabilityArgumentConstraints: Sendable, Codable, Equatable {
         // activityEnd (ActivityDismissalPolicy) and mapsRouteEstimate/mapsOpen
         // (MapsTransportType) constraints now come from their tools'
         // CodeModeStringEnum arguments (IntentsModelsActivityMapsCodeModeTools.swift).
-        case .musicPlaybackControl:
-            return .init(allowedStringValues: [
-                "action": ["play", "pause", "stop", "skipToNext", "skipToPrevious", "playCatalog", "playLibrary"],
-            ])
+        // musicPlaybackControl action constraint now comes from the tool's
+        // MusicPlaybackAction argument (CommerceCodeModeTools.swift).
         default:
             return .none
         }

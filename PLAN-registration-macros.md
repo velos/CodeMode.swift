@@ -28,9 +28,29 @@ the *compiler* enforces the semantics on the expansion rather than the macro
 guessing; and the transitional `raw: [String: JSONValue]` passthrough is a
 convention the macro fills (canonicalized) when declared as the last stored
 property — it disappears per-domain in Phase 3 when a bridge goes typed.
-Remaining Phase-2 notes: the fifth metadata surface (hand-written JS function
-table in `RuntimeJavaScript.swift`) is still a Phase-3 item, and the
-authoring-facing `@CodeMode` has not yet gained enum-constraint support.
+
+**Phase 3 landed 2026-07-12 (per `PHASE3-HANDOFF.md`).** All seven remaining
+domains migrated: SystemUI, Core/filesystem, People/Photos/Documents,
+SystemServices, CloudKit/Push/Speech, Intents/Models/Activity/Maps, and
+Commerce. Net result: **114 of 115 built-in capabilities are macro-authored**;
+only `networkFetch` stays on the flat init because its nested dotted-path
+arguments (`options.method`, …) can't be expressed by the flat `Arguments`
+model (documented PHASE3-SKIP). The central `defaults(for:)` constraint table
+now holds only networkFetch's `options.responseEncoding` row; every other
+constrained value moved to a per-tool `CodeModeStringEnum`, and the owning
+bridge/system-client parses through that same enum (SystemUIBridge,
+PhotosBridge, SystemCloudKitMapping, SystemMapsMapping). Migration was guarded
+throughout by `CapabilityMetadataGoldenTests` — the only golden changes across
+all seven domains were `argumentHints` gaining entries for arguments that
+previously advertised none (the flat-init idiom allowed missing hints; the tool
+idiom requires one per argument). Two `.any` traps were caught by the golden and
+preserved as `JSONValue` rather than tightened: `foundationModelsGenerate.prompt`
+and `musicPlaylistWrite.name` (both absent from the inference table).
+
+Remaining follow-ups (all deferred, none blocking): the fifth metadata surface
+(hand-written JS function table in `RuntimeJavaScript.swift`); deleting
+`inferArgumentTypes` + the last constraint row once networkFetch is handled; and
+enum-constraint support for the host-facing `@CodeMode`.
 
 ---
 

@@ -450,7 +450,10 @@ private func jsNames(for capability: CapabilityID) -> [String] {
         tags: ["test"],
         example: "noop",
         requiredPermissions: [.music],
-        requiredArguments: ["action"]
+        requiredArguments: ["action"],
+        // Explicit constraint so the test verifies constraint-before-permission
+        // ordering without depending on any capability's central table row.
+        argumentConstraints: CapabilityArgumentConstraints(allowedStringValues: ["action": ["play", "pause"]])
     )
 
     let registry = CapabilityRegistry(

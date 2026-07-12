@@ -103,30 +103,36 @@ just the watchdog:
 
 ## STRUCTURAL IMPROVEMENTS (bridge/registry metadata drift)
 
-Biggest maintenance risk: ~115 capabilities / ~2,540 lines of hand-written
-registrations with four parallel sources of truth. Phase 1 of
-`PLAN-registration-macros.md` landed 2026-07-11 (owner approved swift-syntax
-in the core graph, so Phase 2 is unblocked):
-- [/] Move argument types/constraints to per-capability, co-located declarations
+Biggest maintenance risk was ~115 capabilities / ~2,540 lines of hand-written
+registrations with four parallel sources of truth. Phases 1–3 of
+`PLAN-registration-macros.md` landed 2026-07-11/12 (owner approved swift-syntax
+in the core graph): **114 of 115 capabilities are now macro-authored
+`@BuiltInCodeMode` tools**; only `networkFetch` remains on the flat init
+(PHASE3-SKIP — its nested dotted-path arguments can't be expressed by the flat
+tool model).
+- [x] Move argument types/constraints to per-capability, co-located declarations
   — `BuiltInCodeModeTool` protocol + `CodeModeStringEnum` (constrained string
   args declared once: advertised values, decode, and bridge parsing all come
-  from the enum). EventKit migrated (9 registrations, 5 enums); the
-  calendarWrite/calendarDelete/calendarUIPickCalendar/remindersWrite rows are
-  deleted from the central constraint table. Remaining: 7 registration files.
+  from the enum). All seven domains migrated; the central
+  `CapabilityArgumentConstraints.defaults(for:)` table now holds only
+  networkFetch's `options.responseEncoding` dotted-path row.
   - [ ] **fail loudly instead of degrading unknown args to `.any`**
-    (`inferArgumentTypes`) — still pending; goes away as domains migrate.
-- [/] Add a test asserting registration metadata matches bridge reality —
-  `constrainedArgumentMetadataIsCoherentForAllRegistrations` (every constrained
-  arg must be declared) + span test now pins enum↔descriptor↔bridge agreement.
-  Golden-testing `resultSummary` against bridge JSON encoders still open.
-- [/] Standardize on one registration idiom — target idiom is
-  `BuiltInCodeModeTool`; EventKit, Keychain, Location/Weather converged
-  (the raw-`CodeModeRegistration` and `builtInCapability:` glue idioms are
-  deleted). 7 `CapabilityRegistrations+*.swift` files still on the flat init.
+    (`inferArgumentTypes`) — still pending; only networkFetch depends on it now,
+    so the table can be deleted once that capability is handled.
+- [x] Add a test asserting registration metadata matches bridge reality —
+  `CapabilityMetadataGoldenTests` pins the full advertised surface of all 115
+  capabilities against a committed JSON baseline;
+  `constrainedArgumentMetadataIsCoherentForAllRegistrations` + the span test pin
+  enum↔descriptor↔bridge agreement. (Golden-testing `resultSummary` against
+  bridge JSON encoders still open — the golden pins the string, not the encoder.)
+- [x] Standardize on one registration idiom — `BuiltInCodeModeTool` /
+  `@BuiltInCodeMode` is now the sole idiom for built-ins; the flat descriptor
+  init survives only for the single networkFetch skip. The
+  raw-`CodeModeRegistration` and `builtInCapability:` glue idioms are gone.
 - [ ] **Fifth metadata surface found during migration:** the hand-written JS
   function table in `RuntimeJavaScript.swift` (e.g. `completeReminder` injects
-  `operation: 'complete', isCompleted: true`). Candidate for generation from
-  registrations in Phase 3.
+  `operation: 'complete', isCompleted: true`). Untouched by Phase 3; candidate
+  for generation from registrations as a follow-up.
 - [ ] Unify permission ownership — `calendarRead` checks in both registry and
   bridge; `calendarWrite` checks only in the bridge.
 - [x] Decide the fate of `Tools/CodeModeAuthoring` — resolved 2026-07-11: owner
