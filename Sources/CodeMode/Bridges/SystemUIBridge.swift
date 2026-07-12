@@ -243,8 +243,8 @@ public final class SystemUIBridge: @unchecked Sendable {
     }
 
     private func validateContactPickerArguments(_ arguments: [String: JSONValue]) throws {
-        if let mode = arguments.string("mode")?.lowercased(),
-           ["single", "multiple"].contains(mode) == false
+        if let mode = arguments.string("mode"),
+           ContactPickerMode.codeModeValue(matching: mode) == nil
         {
             throw BridgeError.invalidArguments("contacts.ui.pick mode must be single or multiple")
         }

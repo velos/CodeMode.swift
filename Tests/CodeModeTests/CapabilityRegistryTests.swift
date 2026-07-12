@@ -510,7 +510,10 @@ private func jsNames(for capability: CapabilityID) -> [String] {
 }
 
 @Test func constraintValidationMatchesCaseInsensitively() throws {
-    let constraints = CapabilityArgumentConstraints.defaults(for: .contactsUIPick)
+    // Exercises the generic CapabilityArgumentConstraints.validate matching,
+    // constructed inline so it does not depend on any capability's table row
+    // (those migrate to per-tool CodeModeStringEnums over time).
+    let constraints = CapabilityArgumentConstraints(allowedStringValues: ["mode": ["single", "multiple"]])
 
     try constraints.validate(arguments: ["mode": .string("single")], capabilityName: "contacts.ui.pick")
     try constraints.validate(arguments: ["mode": .string("Single")], capabilityName: "contacts.ui.pick")

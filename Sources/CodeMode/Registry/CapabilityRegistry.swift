@@ -51,18 +51,10 @@ public struct CapabilityArgumentConstraints: Sendable, Codable, Equatable {
         // calendarWrite / calendarDelete / calendarUIPickCalendar / remindersWrite
         // constraints now come from their tools' CodeModeStringEnum arguments
         // (EventKitCodeModeTools.swift), not this table.
-        case .photosRead:
-            return .init(allowedStringValues: [
-                "mediaType": ["any", "image", "photo", "video"],
-            ])
-        case .photosUIPick:
-            return .init(allowedStringValues: [
-                "mediaType": ["any", "image", "photo", "video"],
-            ])
-        case .contactsUIPick:
-            return .init(allowedStringValues: [
-                "mode": ["single", "multiple"],
-            ])
+        // photosRead / photosUIPick (MediaTypeFilter) and contactsUIPick
+        // (ContactPickerMode) constraints now come from their tools'
+        // CodeModeStringEnum arguments (SystemUICodeModeTools.swift /
+        // PeoplePhotosDocumentsCodeModeTools.swift), not this table.
         // cameraUICapture / cameraUIScanData / printUIPresent / uiAlertPresent
         // constraints now come from their tools' CodeModeStringEnum arguments
         // (SystemUICodeModeTools.swift), not this table.
