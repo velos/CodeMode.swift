@@ -58,10 +58,8 @@ public struct CapabilityArgumentConstraints: Sendable, Codable, Equatable {
         // cameraUICapture / cameraUIScanData / printUIPresent / uiAlertPresent
         // constraints now come from their tools' CodeModeStringEnum arguments
         // (SystemUICodeModeTools.swift), not this table.
-        case .cloudKitRecordsQuery, .cloudKitRecordSave, .cloudKitRecordDelete, .cloudKitSubscriptionSave:
-            return .init(allowedStringValues: [
-                "database": ["private", "shared", "public"],
-            ])
+        // cloudKit database constraint now comes from the tools' CloudKitDatabase
+        // argument (CloudPushSpeechCodeModeTools.swift), not this table.
         case .activityEnd:
             return .init(allowedStringValues: [
                 "dismissalPolicy": ["default", "immediate"],

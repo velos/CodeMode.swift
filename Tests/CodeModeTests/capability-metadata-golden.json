@@ -1208,13 +1208,15 @@
       ]
     },
     "argumentHints" : {
+      "containerIdentifier" : "Optional iCloud container identifier.",
       "database" : "private (default), shared, or public.",
       "firesOnRecordCreation" : "Whether creation events are enqueued; default true.",
       "firesOnRecordDeletion" : "Whether delete events are enqueued; default true.",
       "firesOnRecordUpdate" : "Whether update events are enqueued; default true.",
       "predicate" : "Host-supported predicate object or string.",
       "recordType" : "CloudKit record type to observe.",
-      "subscriptionID" : "Stable host-visible subscription identifier."
+      "subscriptionID" : "Stable host-visible subscription identifier.",
+      "zoneID" : "Optional custom zone identifier."
     },
     "argumentTypes" : {
       "containerIdentifier" : "string",

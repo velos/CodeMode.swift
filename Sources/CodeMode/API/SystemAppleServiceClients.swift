@@ -401,14 +401,12 @@ private extension String {
 }
 
 enum SystemCloudKitMapping {
-    static let allowedDatabases = ["private", "shared", "public"]
-
     static func databaseName(arguments: [String: JSONValue]) throws -> String {
-        let database = arguments.string("database") ?? "private"
-        guard allowedDatabases.contains(database) else {
-            throw BridgeError.invalidArguments("CloudKit database must be one of \(allowedDatabases.joined(separator: ", "))")
+        let raw = arguments.string("database") ?? "private"
+        guard let database = CloudKitDatabase.codeModeValue(matching: raw) else {
+            throw BridgeError.invalidArguments("CloudKit database must be one of \(CloudKitDatabase.codeModeAllowedValues.joined(separator: ", "))")
         }
-        return database
+        return database.rawValue
     }
 
     static func recordFields(arguments: [String: JSONValue], capability: String) throws -> [String: JSONValue] {
@@ -501,7 +499,7 @@ enum SystemCloudKitMapping {
         case "public":
             return container.publicCloudDatabase
         default:
-            throw BridgeError.invalidArguments("CloudKit database must be one of \(allowedDatabases.joined(separator: ", "))")
+            throw BridgeError.invalidArguments("CloudKit database must be one of \(CloudKitDatabase.codeModeAllowedValues.joined(separator: ", "))")
         }
     }
 
