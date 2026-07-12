@@ -636,7 +636,6 @@ private extension CKAccountStatus {
 #endif
 
 enum SystemMapsMapping {
-    static let allowedTransportTypes = ["automobile", "walking", "transit", "any"]
 
     static func coordinate(arguments: [String: JSONValue], name: String, capability: String) throws -> (latitude: Double, longitude: Double) {
         guard let latitude = arguments.double("latitude") else {
@@ -652,10 +651,10 @@ enum SystemMapsMapping {
         guard let value = arguments.string("transportType") ?? defaultValue else {
             throw BridgeError.invalidArguments("Maps transportType is required")
         }
-        guard allowedTransportTypes.contains(value) else {
-            throw BridgeError.invalidArguments("Maps transportType must be one of \(allowedTransportTypes.joined(separator: ", "))")
+        guard let transportType = MapsTransportType.codeModeValue(matching: value) else {
+            throw BridgeError.invalidArguments("Maps transportType must be one of \(MapsTransportType.codeModeAllowedValues.joined(separator: ", "))")
         }
-        return value
+        return transportType.rawValue
     }
 
     static func appleMapsQueryURL(query: String) throws -> URL {

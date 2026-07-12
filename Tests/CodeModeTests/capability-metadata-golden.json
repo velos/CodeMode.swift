@@ -7,7 +7,9 @@
       ]
     },
     "argumentHints" : {
-
+      "contentState" : "Optional final adapter-defined content state.",
+      "dismissalPolicy" : "default (default) or immediate.",
+      "identifier" : "Live Activity identifier from apple.activity.list\/start."
     },
     "argumentTypes" : {
       "contentState" : "object",
@@ -43,7 +45,8 @@
 
     },
     "argumentHints" : {
-
+      "activityType" : "Optional host-registered activity adapter type filter.",
+      "limit" : "Maximum activities to return."
     },
     "argumentTypes" : {
       "activityType" : "string",
@@ -78,7 +81,7 @@
 
     },
     "argumentHints" : {
-
+      "identifier" : "Live Activity identifier from apple.activity.list\/start."
     },
     "argumentTypes" : {
       "identifier" : "string"
@@ -155,7 +158,10 @@
 
     },
     "argumentHints" : {
-
+      "alert" : "Optional alert configuration object for the update.",
+      "contentState" : "Adapter-defined mutable content state.",
+      "identifier" : "Live Activity identifier from apple.activity.list\/start.",
+      "staleDate" : "Optional ISO8601 stale date."
     },
     "argumentTypes" : {
       "alert" : "object",
@@ -2639,6 +2645,7 @@
       "latitude" : "Latitude when opening coordinates.",
       "longitude" : "Longitude when opening coordinates.",
       "query" : "Place\/search query to open.",
+      "transportType" : "automobile (default), walking, transit, or any.",
       "url" : "Optional maps URL to open."
     },
     "argumentTypes" : {
@@ -2683,7 +2690,9 @@
 
     },
     "argumentHints" : {
-
+      "latitude" : "Latitude in decimal degrees.",
+      "locale" : "Optional BCP-47 locale identifier for result localization.",
+      "longitude" : "Longitude in decimal degrees."
     },
     "argumentTypes" : {
       "latitude" : "number",
@@ -2725,6 +2734,8 @@
       ]
     },
     "argumentHints" : {
+      "arrivalDate" : "Optional ISO8601 arrival date.",
+      "departureDate" : "Optional ISO8601 departure date.",
       "destination" : "Coordinate or map item object.",
       "origin" : "Coordinate or map item object.",
       "transportType" : "automobile (default), walking, or transit when supported."

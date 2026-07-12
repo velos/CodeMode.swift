@@ -60,14 +60,9 @@ public struct CapabilityArgumentConstraints: Sendable, Codable, Equatable {
         // (SystemUICodeModeTools.swift), not this table.
         // cloudKit database constraint now comes from the tools' CloudKitDatabase
         // argument (CloudPushSpeechCodeModeTools.swift), not this table.
-        case .activityEnd:
-            return .init(allowedStringValues: [
-                "dismissalPolicy": ["default", "immediate"],
-            ])
-        case .mapsRouteEstimate, .mapsOpen:
-            return .init(allowedStringValues: [
-                "transportType": ["automobile", "walking", "transit", "any"],
-            ])
+        // activityEnd (ActivityDismissalPolicy) and mapsRouteEstimate/mapsOpen
+        // (MapsTransportType) constraints now come from their tools'
+        // CodeModeStringEnum arguments (IntentsModelsActivityMapsCodeModeTools.swift).
         case .musicPlaybackControl:
             return .init(allowedStringValues: [
                 "action": ["play", "pause", "stop", "skipToNext", "skipToPrevious", "playCatalog", "playLibrary"],
