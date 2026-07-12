@@ -15,14 +15,15 @@ on:
         description: "Delay before each model request"
         required: false
         default: "1000"
-  schedule:
-    - cron: "17 10 * * *"
 
 concurrency:
   group: codemode-evals-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
+  # Deterministic evals + platform builds are continuous: they run on every PR
+  # and on pushes to main (merges). No schedule — a daily cron re-running
+  # unchanged main added no signal for these offline checks.
   deterministic:
     name: Deterministic evals
     runs-on: macos-latest
@@ -92,14 +93,28 @@ jobs:
             -skipMacroValidation \
             CODE_SIGNING_ALLOWED=NO
 
-  llm-plan:
-    name: LLM eval planning
+  # Live LLM regression gate. Manual only (workflow_dispatch) — it spends real
+  # provider calls, so it is never automatic.
+  #
+  # Requirements to actually execute the live run (all private, absent from this
+  # public repo by design):
+  #   1. Build the eval CLI with the private overlay so the real Wavelike-backed
+  #      `codemode-eval llm` command is compiled in place of the LLMUnavailable
+  #      stub (un-exclude LLM.swift + add the private Wavelike/CallableFunction
+  #      package dependencies).
+  #   2. A WAVELIKE_API_KEY repository secret.
+  # Until both are present the job runs the budget preview and then skips the
+  # live+compare steps with a warning, instead of pretending or failing noisily.
+  llm-live:
+    name: LLM eval (live regression gate)
     runs-on: macos-latest
     needs: deterministic
-    if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
+    if: github.event_name == 'workflow_dispatch'
     env:
       INPUT_REPEAT_COUNT: ${{ github.event.inputs.repeat_count }}
       INPUT_REQUEST_DELAY_MS: ${{ github.event.inputs.request_delay_ms }}
+      WAVELIKE_API_KEY: ${{ secrets.WAVELIKE_API_KEY }}
+      WAVELIKE_MODEL_ID: ${{ vars.WAVELIKE_MODEL_ID }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -107,27 +122,59 @@ jobs:
       - name: Toolchain
         run: swift --version
 
+      - name: Determine whether live execution is configured
+        id: gate
+        run: |
+          if [ -z "${WAVELIKE_API_KEY}" ]; then
+            echo "::warning::WAVELIKE_API_KEY not set — live LLM evals need the private Wavelike runner and credentials. Running budget preview only."
+            echo "live=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "live=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Build eval CLI
         run: swift build --package-path Tools/CodeModeEval
 
-      - name: Preview LLM eval suites
+      - name: Preview LLM eval budget
         run: |
           repeat_count="${INPUT_REPEAT_COUNT:-5}"
           request_delay_ms="${INPUT_REQUEST_DELAY_MS:-1000}"
+          for suite in core failures catalog; do
+            swift run --package-path Tools/CodeModeEval codemode-eval plan \
+              --suite "$suite" \
+              --repeat "$repeat_count" \
+              --request-delay-ms "$request_delay_ms"
+          done
 
-          swift run --package-path Tools/CodeModeEval codemode-eval plan \
-            --suite core \
-            --repeat "$repeat_count" \
-            --request-delay-ms "$request_delay_ms"
+      # Real regression gate: run the live suites that have committed baselines,
+      # then `compare` (default policy: no pass-rate or exact-capability
+      # regression) which fails the job on regression. `catalog` is previewed
+      # above but not compared until its baseline is generated and committed.
+      - name: Run live LLM evals and compare against baselines
+        if: steps.gate.outputs.live == 'true'
+        run: |
+          repeat_count="${INPUT_REPEAT_COUNT:-5}"
+          request_delay_ms="${INPUT_REQUEST_DELAY_MS:-1000}"
+          reports="Tools/CodeModeEval/.build/reports"
+          mkdir -p "$reports"
+          for suite in core failures; do
+            candidate="${reports}/${suite}-r${repeat_count}.json"
+            swift run --package-path Tools/CodeModeEval codemode-eval llm \
+              --suite "$suite" \
+              --repeat "$repeat_count" \
+              --request-delay-ms "$request_delay_ms" \
+              --output "$candidate"
+            swift run --package-path Tools/CodeModeEval codemode-eval compare \
+              "Tools/CodeModeEval/Baselines/${suite}-r5-summary.json" \
+              "$candidate" \
+              --retry-tolerance 0.5 \
+              --turn-tolerance 0.5
+          done
 
-          swift run --package-path Tools/CodeModeEval codemode-eval plan \
-            --suite failures \
-            --repeat "$repeat_count" \
-            --request-delay-ms "$request_delay_ms"
-
-          swift run --package-path Tools/CodeModeEval codemode-eval plan \
-            --suite catalog \
-            --repeat "$repeat_count" \
-            --request-delay-ms "$request_delay_ms"
-
-          echo "Live Wavelike-backed LLM execution is disabled in this workflow while the default eval package avoids private dependencies."
+      - name: Upload live eval reports
+        if: steps.gate.outputs.live == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: llm-eval-reports
+          path: Tools/CodeModeEval/.build/reports/*.json
+          if-no-files-found: warn

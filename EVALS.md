@@ -61,13 +61,24 @@ swift run --package-path Tools/CodeModeEval codemode-eval summarize \
 
 ## CI Policy
 
-The GitHub Actions workflow runs deterministic evals on PRs and pushes. Scheduled and manually dispatched runs build the same public eval CLI and preview `core`, `failures`, and `catalog` LLM suite budgets without making live provider calls or resolving private Wavelike dependencies.
+The GitHub Actions workflow runs the deterministic evals and the iOS/visionOS
+platform builds continuously — on every pull request and on pushes to `main`
+(merges). There is no schedule; a daily cron over unchanged `main` added no
+signal for these offline checks.
 
-Scheduled/manual planning runs:
+The live LLM regression gate (`llm-live` job) is **manual only**
+(`workflow_dispatch`) because it spends real provider calls:
 
-- Preview `core`, `failures`, and `catalog` with repeat count 5 by default.
-- Honor the manual `repeat_count` and `request_delay_ms` inputs for budget estimates.
-- Leave baseline comparison to private live-report generation until a reviewed candidate report exists.
+- It always previews `core`, `failures`, and `catalog` budgets (honoring the
+  manual `repeat_count` / `request_delay_ms` inputs).
+- If a `WAVELIKE_API_KEY` secret is configured **and** the CLI is built with the
+  private overlay (the real `codemode-eval llm` command rather than the
+  `LLMUnavailable` stub), it then runs the `core` and `failures` suites live and
+  `compare`s each against its committed baseline, failing the job on any
+  pass-rate or exact-capability regression. `catalog` is previewed but not
+  compared until its baseline is generated and committed.
+- Without those, the live+compare steps skip with a warning, so the manual run
+  still succeeds and only reports the budget preview.
 
 ## Updating Baselines
 
