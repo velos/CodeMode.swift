@@ -1,5 +1,6 @@
 // swift-tools-version: 6.1
 import PackageDescription
+import CompilerPluginSupport
 
 let package = Package(
     name: "CodeMode",
@@ -14,13 +15,44 @@ let package = Package(
             targets: ["CodeMode"]
         ),
         .library(
+            name: "CodeModeAuthoring",
+            targets: ["CodeModeAuthoring"]
+        ),
+        .library(
             name: "CodeModeEvaluation",
             targets: ["CodeModeEvaluation"]
         ),
     ],
+    dependencies: [
+        // Used by the CodeModeMacros compiler plugin only; consumers get the
+        // prebuilt swift-syntax libraries on current toolchains (measured cost
+        // in PLAN-registration-macros.md).
+        .package(url: "https://github.com/swiftlang/swift-syntax.git", exact: "601.0.1"),
+    ],
     targets: [
         .target(
-            name: "CodeMode"
+            name: "CCodeModeJSC",
+            linkerSettings: [
+                .linkedFramework("JavaScriptCore")
+            ]
+        ),
+        .macro(
+            name: "CodeModeMacros",
+            dependencies: [
+                .product(name: "SwiftSyntax", package: "swift-syntax"),
+                .product(name: "SwiftSyntaxBuilder", package: "swift-syntax"),
+                .product(name: "SwiftSyntaxMacros", package: "swift-syntax"),
+                .product(name: "SwiftDiagnostics", package: "swift-syntax"),
+                .product(name: "SwiftCompilerPlugin", package: "swift-syntax"),
+            ]
+        ),
+        .target(
+            name: "CodeMode",
+            dependencies: ["CCodeModeJSC", "CodeModeMacros"]
+        ),
+        .target(
+            name: "CodeModeAuthoring",
+            dependencies: ["CodeMode", "CodeModeMacros"]
         ),
         .target(
             name: "CodeModeEvaluation",
@@ -29,6 +61,14 @@ let package = Package(
         .testTarget(
             name: "CodeModeTests",
             dependencies: ["CodeMode"]
+        ),
+        .testTarget(
+            name: "CodeModeAuthoringTests",
+            dependencies: [
+                "CodeModeAuthoring",
+                "CodeModeMacros",
+                .product(name: "SwiftSyntaxMacrosTestSupport", package: "swift-syntax"),
+            ]
         ),
         .testTarget(
             name: "CodeModeEvalTests",

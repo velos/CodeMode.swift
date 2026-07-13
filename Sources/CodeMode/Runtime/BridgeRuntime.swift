@@ -436,46 +436,110 @@ final class BridgeRuntime: @unchecked Sendable {
         });
         """
 
+        let watchdog = ExecutionWatchdog(timeoutMs: timeoutMs, cancellationController: cancellationController)
+        watchdog.install(on: context)
+        defer { watchdog.uninstall(from: context) }
+
         lastException.set(nil)
         let evaluation = context.evaluateScript(script)
+
+        switch watchdog.termination {
+        case .timedOut:
+            throw toolError(
+                code: "EXECUTION_TIMEOUT",
+                message: "Execution timed out after \(timeoutMs)ms",
+                transcript: invocationContext
+            )
+        case .cancelled:
+            throw toolError(
+                code: "CANCELLED",
+                message: "Execution cancelled",
+                transcript: invocationContext
+            )
+        case nil:
+            break
+        }
+
         let snapshot = lastException.get() ?? Self.snapshot(from: context.exception)
         if snapshot != nil || evaluation == nil {
             throw syntaxError(from: snapshot, lineOffset: 4)
         }
 
-        let deadline = Date().addingTimeInterval(Double(timeoutMs) / 1000.0)
+        let settlement = try waitForSettlement(
+            context: context,
+            watchdog: watchdog,
+            cancellationController: cancellationController,
+            invocationContext: invocationContext,
+            timeoutCode: "EXECUTION_TIMEOUT",
+            timeoutMessage: "Execution timed out after \(timeoutMs)ms",
+            cancelMessage: "Execution cancelled"
+        )
 
-        while Date() < deadline {
+        // Give result serialization its own bounded budget so a script that
+        // settled near the deadline still serializes, while a runaway getter or
+        // toJSON is terminated instead of hanging the execution thread.
+        watchdog.rearm(timeoutMs: max(timeoutMs, 1_000))
+
+        switch settlement {
+        case .fulfilled:
+            let output = try decodeOutput(from: context)
+            if output == nil {
+                invocationContext.recordDiagnostic(Self.noReturnValueDiagnostic(for: code))
+            }
+            return output
+        case .rejected:
+            let payload = rejectionPayload(from: context)
+            throw classifyRejectedError(payload, invocationContext: invocationContext)
+        }
+    }
+
+    private enum SettlementState {
+        case fulfilled
+        case rejected
+    }
+
+    /// Polls the wrapped promise's settled state until it resolves, is
+    /// cancelled, or the watchdog deadline passes. The settled state is checked
+    /// before the deadline on every iteration, so a script that has already
+    /// fulfilled — the common case under the synchronous bridge model — returns
+    /// its result even if evaluation finished a hair past the deadline, instead
+    /// of being discarded with a spurious timeout.
+    private func waitForSettlement(
+        context: JSContext,
+        watchdog: ExecutionWatchdog,
+        cancellationController: ExecutionCancellationController,
+        invocationContext: BridgeInvocationContext,
+        timeoutCode: String,
+        timeoutMessage: String,
+        cancelMessage: String
+    ) throws -> SettlementState {
+        while true {
             if cancellationController.isCancelled || Task.isCancelled {
                 cancellationController.cancel()
-                throw toolError(
-                    code: "CANCELLED",
-                    message: "Execution cancelled",
-                    transcript: invocationContext
-                )
+                throw toolError(code: "CANCELLED", message: cancelMessage, transcript: invocationContext)
             }
 
             let state = context.evaluateScript("globalThis.__codemode.state")?.toString() ?? "unknown"
             switch state {
             case "fulfilled":
-                let output = try decodeOutput(from: context)
-                if output == nil {
-                    invocationContext.recordDiagnostic(Self.noReturnValueDiagnostic(for: code))
-                }
-                return output
+                return .fulfilled
             case "rejected":
-                let payload = rejectionPayload(from: context)
-                throw classifyRejectedError(payload, invocationContext: invocationContext)
+                return .rejected
             default:
+                if let termination = watchdog.termination {
+                    switch termination {
+                    case .cancelled:
+                        throw toolError(code: "CANCELLED", message: cancelMessage, transcript: invocationContext)
+                    case .timedOut:
+                        throw toolError(code: timeoutCode, message: timeoutMessage, transcript: invocationContext)
+                    }
+                }
+                if Date() >= watchdog.deadline {
+                    throw toolError(code: timeoutCode, message: timeoutMessage, transcript: invocationContext)
+                }
                 Thread.sleep(forTimeInterval: 0.01)
             }
         }
-
-        throw toolError(
-            code: "EXECUTION_TIMEOUT",
-            message: "Execution timed out after \(timeoutMs)ms",
-            transcript: invocationContext
-        )
     }
 
     private static func noReturnValueDiagnostic(for code: String) -> ToolDiagnostic {
@@ -547,46 +611,58 @@ final class BridgeRuntime: @unchecked Sendable {
         });
         """
 
+        let watchdog = ExecutionWatchdog(timeoutMs: timeoutMs, cancellationController: cancellationController)
+        watchdog.install(on: context)
+        defer { watchdog.uninstall(from: context) }
+
         lastException.set(nil)
         let evaluation = context.evaluateScript(script)
+
+        switch watchdog.termination {
+        case .timedOut:
+            throw toolError(
+                code: "SEARCH_TIMEOUT",
+                message: "Search timed out after \(timeoutMs)ms",
+                transcript: invocationContext
+            )
+        case .cancelled:
+            throw toolError(
+                code: "CANCELLED",
+                message: "Search cancelled",
+                transcript: invocationContext
+            )
+        case nil:
+            break
+        }
+
         let snapshot = lastException.get() ?? Self.snapshot(from: context.exception)
         if snapshot != nil || evaluation == nil {
             throw syntaxError(from: snapshot, lineOffset: 5)
         }
 
-        let deadline = Date().addingTimeInterval(Double(timeoutMs) / 1000.0)
-
-        while Date() < deadline {
-            if cancellationController.isCancelled || Task.isCancelled {
-                cancellationController.cancel()
-                throw toolError(
-                    code: "CANCELLED",
-                    message: "Search cancelled",
-                    transcript: invocationContext
-                )
-            }
-
-            let state = context.evaluateScript("globalThis.__codemode.state")?.toString() ?? "unknown"
-            switch state {
-            case "fulfilled":
-                return try decodeOutput(
-                    from: context,
-                    errorCode: "INVALID_SEARCH_RESULT",
-                    errorMessagePrefix: "Search result must be JSON-serializable"
-                )
-            case "rejected":
-                let payload = rejectionPayload(from: context)
-                throw classifySearchRejectedError(payload, invocationContext: invocationContext)
-            default:
-                Thread.sleep(forTimeInterval: 0.01)
-            }
-        }
-
-        throw toolError(
-            code: "SEARCH_TIMEOUT",
-            message: "Search timed out after \(timeoutMs)ms",
-            transcript: invocationContext
+        let settlement = try waitForSettlement(
+            context: context,
+            watchdog: watchdog,
+            cancellationController: cancellationController,
+            invocationContext: invocationContext,
+            timeoutCode: "SEARCH_TIMEOUT",
+            timeoutMessage: "Search timed out after \(timeoutMs)ms",
+            cancelMessage: "Search cancelled"
         )
+
+        watchdog.rearm(timeoutMs: max(timeoutMs, 1_000))
+
+        switch settlement {
+        case .fulfilled:
+            return try decodeOutput(
+                from: context,
+                errorCode: "INVALID_SEARCH_RESULT",
+                errorMessagePrefix: "Search result must be JSON-serializable"
+            )
+        case .rejected:
+            let payload = rejectionPayload(from: context)
+            throw classifySearchRejectedError(payload, invocationContext: invocationContext)
+        }
     }
 
     private func decodeOutput(
@@ -858,6 +934,12 @@ final class BridgeRuntime: @unchecked Sendable {
                 "Configure CodeModeConfiguration.systemUIPresenter before using UI-presenting helpers.",
                 "Do not retry this helper until the host provides a SystemUIPresenter.",
             ]
+        case .networkPolicyViolation:
+            suggestions = [
+                "The host app's network access policy refused this destination.",
+                "This is not repaired by adding more allowedCapabilities; do not retry the same URL.",
+                "Only public HTTP(S) destinations permitted by CodeModeConfiguration.networkAccessPolicy are reachable.",
+            ]
         default:
             suggestions = bridgeSuggestions(for: capability, capabilityKey: capabilityKey)
         }
@@ -920,6 +1002,7 @@ final class BridgeRuntime: @unchecked Sendable {
             "UI_PRESENTER_UNAVAILABLE",
             "EXECUTION_TIMEOUT",
             "PATH_POLICY_VIOLATION",
+            "NETWORK_POLICY_VIOLATION",
             "JAVASCRIPT_ERROR",
             "NATIVE_FAILURE",
             "CANCELLED",

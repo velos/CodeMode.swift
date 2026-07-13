@@ -2,6 +2,7 @@ import Foundation
 
 public struct CodeModeConfiguration: Sendable {
     public var pathPolicy: any PathPolicy
+    public var networkAccessPolicy: NetworkAccessPolicy
     public var fileSystem: any CodeModeFileSystem
     public var artifactStore: any ArtifactStore
     public var permissionBroker: any PermissionBroker
@@ -23,6 +24,7 @@ public struct CodeModeConfiguration: Sendable {
 
     public init(
         pathPolicy: any PathPolicy = DefaultPathPolicy(),
+        networkAccessPolicy: NetworkAccessPolicy = .standard,
         fileSystem: any CodeModeFileSystem = LocalCodeModeFileSystem(),
         artifactStore: any ArtifactStore = InMemoryArtifactStore(),
         permissionBroker: any PermissionBroker = SystemPermissionBroker(),
@@ -43,6 +45,7 @@ public struct CodeModeConfiguration: Sendable {
         hostPlatform: HostPlatform = .current
     ) {
         self.pathPolicy = pathPolicy
+        self.networkAccessPolicy = networkAccessPolicy
         self.fileSystem = fileSystem
         self.artifactStore = artifactStore
         self.permissionBroker = permissionBroker

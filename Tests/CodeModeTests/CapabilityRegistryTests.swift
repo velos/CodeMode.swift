@@ -450,7 +450,10 @@ private func jsNames(for capability: CapabilityID) -> [String] {
         tags: ["test"],
         example: "noop",
         requiredPermissions: [.music],
-        requiredArguments: ["action"]
+        requiredArguments: ["action"],
+        // Explicit constraint so the test verifies constraint-before-permission
+        // ordering without depending on any capability's central table row.
+        argumentConstraints: CapabilityArgumentConstraints(allowedStringValues: ["action": ["play", "pause"]])
     )
 
     let registry = CapabilityRegistry(
@@ -494,6 +497,83 @@ private func jsNames(for capability: CapabilityID) -> [String] {
 
     let network = try #require(catalog.reference(for: .networkFetch))
     #expect(network.argumentConstraints.allowedStringValues["options.responseEncoding"] == ["text", "base64"])
+}
+
+@Test func noBuiltInRegistrationGatesOnHealthKitPermission() {
+    // The default broker can never report .granted for HealthKit (read authorization
+    // is opaque by design), so any registration declaring .healthKit in
+    // requiredPermissions would fail closed unconditionally through the registry.
+    // HealthBridge performs its own per-type authorization instead.
+    for registration in DefaultCapabilityLoader.loadAllRegistrations() {
+        #expect(
+            registration.descriptor.requiredPermissions.contains(.healthKit) == false,
+            "\(registration.descriptor.id.rawValue) must not gate on .healthKit via the registry"
+        )
+    }
+}
+
+@Test func constraintValidationMatchesCaseInsensitively() throws {
+    // Exercises the generic CapabilityArgumentConstraints.validate matching,
+    // constructed inline so it does not depend on any capability's table row
+    // (those migrate to per-tool CodeModeStringEnums over time).
+    let constraints = CapabilityArgumentConstraints(allowedStringValues: ["mode": ["single", "multiple"]])
+
+    try constraints.validate(arguments: ["mode": .string("single")], capabilityName: "contacts.ui.pick")
+    try constraints.validate(arguments: ["mode": .string("Single")], capabilityName: "contacts.ui.pick")
+    try constraints.validate(arguments: ["mode": .string("MULTIPLE")], capabilityName: "contacts.ui.pick")
+
+    #expect(throws: (any Error).self) {
+        try constraints.validate(arguments: ["mode": .string("triple")], capabilityName: "contacts.ui.pick")
+    }
+}
+
+@Test func calendarDeleteSpanConstraintAcceptsEverySpellingTheBridgeAccepts() throws {
+    // The constraint now comes from CalendarEventSpan on the tool; the bridge
+    // parses through the same enum, so advertised and accepted cannot drift.
+    let registration = try #require(
+        DefaultCapabilityLoader.loadAllRegistrations().first { $0.descriptor.id == .calendarDelete }
+    )
+    let constraints = registration.descriptor.argumentConstraints
+    let advertised = try #require(constraints.allowedStringValues["span"])
+    #expect(advertised.contains("thisEvent"))
+    #expect(advertised.contains("futureEvents"))
+    #expect(advertised.contains("this_event"))
+    #expect(advertised.contains("future"))
+
+    for spelling in advertised {
+        try constraints.validate(
+            arguments: ["span": .string(spelling)],
+            capabilityName: "calendar.delete"
+        )
+        #expect(CalendarEventSpan.codeModeValue(matching: spelling) != nil)
+        #expect(CalendarEventSpan.codeModeValue(matching: spelling.uppercased()) != nil)
+    }
+
+    #expect(throws: (any Error).self) {
+        try constraints.validate(arguments: ["span": .string("allEvents")], capabilityName: "calendar.delete")
+    }
+    #expect(CalendarEventSpan.codeModeValue(matching: "allEvents") == nil)
+}
+
+@Test func constrainedArgumentMetadataIsCoherentForAllRegistrations() {
+    // Every constrained top-level argument a registration advertises must be a
+    // declared argument of that registration — catches metadata typos and
+    // constraint entries that outlive a renamed argument.
+    for registration in DefaultCapabilityLoader.loadAllRegistrations() {
+        let descriptor = registration.descriptor
+        let declared = Set(descriptor.requiredArguments + descriptor.optionalArguments)
+        for (path, allowed) in descriptor.argumentConstraints.allowedStringValues {
+            #expect(
+                allowed.isEmpty == false,
+                "\(descriptor.id.rawValue) advertises an empty allowed-value list for \(path)"
+            )
+            guard path.contains(".") == false else { continue }
+            #expect(
+                declared.contains(path),
+                "\(descriptor.id.rawValue) constrains '\(path)' but does not declare it as an argument"
+            )
+        }
+    }
 }
 
 @Test func registryValidationRejectsUnknownArguments() throws {

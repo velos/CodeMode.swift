@@ -30,7 +30,13 @@ GitHub: [velos/CodeMode.swift](https://github.com/velos/CodeMode.swift)
 Add `CodeMode.swift` with Swift Package Manager:
 
 ```swift
-.package(name: "CodeMode", url: "https://github.com/velos/CodeMode.swift", from: "0.1.0")
+.package(url: "https://github.com/velos/CodeMode.swift", branch: "main")
+```
+
+No release has been tagged yet, so depend on `main` for now. Once `0.1.0` is tagged, prefer the versioned form:
+
+```swift
+.package(url: "https://github.com/velos/CodeMode.swift", from: "0.1.0")
 ```
 
 Then add the product to your target:
@@ -125,6 +131,27 @@ let tools = CodeModeAgentTools(
 
 `CodeModeFileSystem` receives paths after `PathPolicy` resolution, so sandbox root enforcement stays in CodeMode while the host can route reads, writes, listings, moves, copies, deletes, and stats through another backing implementation. `LocalCodeModeFileSystem` preserves the default `FileManager` behavior.
 
+## Network Access Policy
+
+`network.fetch` egress is governed by `CodeModeConfiguration.networkAccessPolicy`:
+
+- The default `NetworkAccessPolicy.standard` refuses loopback, RFC 1918, link-local (including cloud metadata addresses such as `169.254.169.254`), CGNAT, and unique-local destinations, plus `localhost` and `.local`/`.localhost`/`.internal` names, and caps buffered response bodies at 10 MB.
+- Redirect targets are re-validated against the policy before they are followed.
+- Refusals throw structured `NETWORK_POLICY_VIOLATION` errors and are written to the audit logger along with successful fetch destinations.
+- `allowedHosts` restricts fetch to an explicit list (entries match the host and its subdomains, and deliberately allowlisted private hosts such as `localhost` are honored); `blockedHosts` refuses specific hosts; `NetworkAccessPolicy.permissive` restores unrestricted behavior.
+- Matching is by URL host only; DNS resolution is not performed, so a public hostname that resolves to a private address is not detected. Hosts that need stricter guarantees should set `allowedHosts`.
+
+```swift
+let tools = CodeModeAgentTools(
+    config: CodeModeConfiguration(
+        networkAccessPolicy: NetworkAccessPolicy(
+            allowedHosts: ["api.example.com"],
+            maxResponseBytes: 2_000_000
+        )
+    )
+)
+```
+
 ## Search
 
 `searchJavaScriptAPI` accepts `JavaScriptAPISearchRequest`:
@@ -213,7 +240,24 @@ System UI helpers are installed only on supported UI platforms. Shared iOS/visio
 
 - on success it returns `JavaScriptExecutionResult`
 - on failure it throws `CodeModeToolError`
-- `call.cancel()` performs best-effort cancellation
+- `call.cancel()` interrupts in-flight JavaScript
+
+### Timeout and cancellation
+
+`timeoutMs` and `cancel()` are enforced preemptively: a JavaScriptCore execution
+time limit terminates CPU-bound scripts (for example `while (true) {}`) instead
+of relying on a wall-clock check that cannot interrupt running JavaScript.
+
+- `timeoutMs` bounds total wall-clock for the execution, including the
+  synchronous portion of the script and any time already elapsed while a bridge
+  call blocked on native I/O (network, a UI picker). Hosts that present
+  long-running UI or issue slow requests should size `timeoutMs` accordingly;
+  the default is `10000`.
+- Preemption uses `JSContextGroupSetExecutionTimeLimit`, which JavaScriptCore
+  exports but declares only in a private WebKit header. CodeMode reaches it
+  through a thin C shim (`CCodeModeJSC`). This is JavaScriptCore's only
+  mechanism for interrupting runaway scripts; hosts submitting to the App Store
+  should be aware they rely on this exported-but-private symbol.
 
 `CodeModeToolError` includes structured fields such as:
 

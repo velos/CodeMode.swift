@@ -1,6 +1,11 @@
 # CodeModeAuthoring
 
-`CodeModeAuthoring` contains the optional `@CodeMode` macro package. It lives outside the core `CodeMode` package so runtime clients and eval tooling do not inherit a `swift-syntax` dependency.
+`CodeModeAuthoring` is the optional `@CodeMode` macro surface for host-authored
+tools, shipped as a product of the main package (depend on the
+`CodeModeAuthoring` product). The `CodeModeMacros` compiler plugin behind it is
+the same one the core library uses internally for `@BuiltInCodeMode`; current
+toolchains resolve swift-syntax as prebuilt libraries, so the build cost is
+small (measured in `PLAN-registration-macros.md`).
 
 Hosts that want macro-authored providers can import `CodeModeAuthoring`:
 

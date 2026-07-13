@@ -128,6 +128,7 @@ public enum CodeModeAgentToolDescriptions {
         PERMISSION_DENIED: the capability is allowlisted but the OS, host, or custom provider denied permission; request permission if a helper exists, otherwise tell the user or host.
         UI_PRESENTER_UNAVAILABLE: host configuration issue; do not retry the same call.
         INVALID_ARGUMENTS: use the catalog requiredArguments, optionalArguments, argumentHints, and example.
+        NETWORK_POLICY_VIOLATION: the host's network access policy refused the destination; do not retry the same URL and do not add capabilities to work around it.
         """
     )
 

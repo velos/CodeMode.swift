@@ -38,8 +38,8 @@ public final class EventKitBridge: @unchecked Sendable {
     }
 
     public func writeEvent(arguments: [String: JSONValue], context: BridgeInvocationContext) throws -> JSONValue {
-        let operation = eventOperation(arguments)
-        let permission: PermissionKind = operation == "update" ? .calendar : .calendarWriteOnly
+        let operation = try eventOperation(arguments)
+        let permission: PermissionKind = operation == .update ? .calendar : .calendarWriteOnly
         let status = resolvePermission(permission, context: context)
         guard status == .granted else {
             throw BridgeError.permissionDenied(permission)
@@ -47,12 +47,10 @@ public final class EventKitBridge: @unchecked Sendable {
 
         #if canImport(EventKit)
         switch operation {
-        case "create":
+        case .create:
             return try createEvent(arguments: arguments)
-        case "update":
+        case .update:
             return try updateEvent(arguments: arguments)
-        default:
-            throw BridgeError.invalidArguments("calendar.write operation must be create or update")
         }
         #else
         _ = arguments
@@ -146,13 +144,11 @@ public final class EventKitBridge: @unchecked Sendable {
         }
 
         #if canImport(EventKit)
-        switch reminderOperation(arguments) {
-        case "create":
+        switch try reminderOperation(arguments) {
+        case .create:
             return try createReminder(arguments: arguments)
-        case "update", "complete":
+        case .update, .complete:
             return try updateReminder(arguments: arguments)
-        default:
-            throw BridgeError.invalidArguments("reminders.write operation must be create, update, or complete")
         }
         #else
         _ = arguments
@@ -199,18 +195,24 @@ public final class EventKitBridge: @unchecked Sendable {
         return ISO8601DateFormatter().date(from: text)
     }
 
-    private func eventOperation(_ arguments: [String: JSONValue]) -> String {
-        if let operation = arguments.string("operation")?.lowercased() {
+    private func eventOperation(_ arguments: [String: JSONValue]) throws -> CalendarWriteOperation {
+        if let text = arguments.string("operation") {
+            guard let operation = CalendarWriteOperation.codeModeValue(matching: text) else {
+                throw BridgeError.invalidArguments("calendar.write operation must be one of \(CalendarWriteOperation.codeModeAllowedValues.joined(separator: ", "))")
+            }
             return operation
         }
-        return arguments.string("identifier") == nil ? "create" : "update"
+        return arguments.string("identifier") == nil ? .create : .update
     }
 
-    private func reminderOperation(_ arguments: [String: JSONValue]) -> String {
-        if let operation = arguments.string("operation")?.lowercased() {
+    private func reminderOperation(_ arguments: [String: JSONValue]) throws -> ReminderWriteOperation {
+        if let text = arguments.string("operation") {
+            guard let operation = ReminderWriteOperation.codeModeValue(matching: text) else {
+                throw BridgeError.invalidArguments("reminders.write operation must be one of \(ReminderWriteOperation.codeModeAllowedValues.joined(separator: ", "))")
+            }
             return operation
         }
-        return arguments.string("identifier") == nil ? "create" : "update"
+        return arguments.string("identifier") == nil ? .create : .update
     }
 
     #if canImport(EventKit)
@@ -469,14 +471,13 @@ public final class EventKitBridge: @unchecked Sendable {
     }
 
     private func eventSpan(_ text: String?) throws -> EKSpan {
-        switch text?.lowercased() ?? "thisevent" {
-        case "thisevent", "this_event", "this":
+        guard let text, text.isEmpty == false else {
             return .thisEvent
-        case "futureevents", "future_events", "future":
-            return .futureEvents
-        default:
-            throw BridgeError.invalidArguments("calendar.delete span must be thisEvent or futureEvents")
         }
+        guard let span = CalendarEventSpan.codeModeValue(matching: text) else {
+            throw BridgeError.invalidArguments("calendar.delete span must be one of \(CalendarEventSpan.codeModeAllowedValues.joined(separator: ", "))")
+        }
+        return span.ekSpan
     }
 
     private static func eventJSON(_ event: EKEvent) -> JSONValue {

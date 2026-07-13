@@ -207,13 +207,24 @@ public struct SystemMapsClient: MapsClient {
         let limit = arguments.int("limit") ?? 10
         let geocoder = CLGeocoder()
         let placemarks: [CLPlacemark] = try waitForSystemClient(timeoutMs: timeoutMs, feature: "MapKit geocoding") { completion in
-            geocoder.geocodeAddressString(address, in: SystemMapsMapping.coreLocationRegion(arguments.object("region"))) { placemarks, error in
+            let handler: ([CLPlacemark]?, Error?) -> Void = { placemarks, error in
                 if let error {
                     completion.complete(.failure(error))
                 } else {
                     completion.complete(.success(placemarks ?? []))
                 }
             }
+            // CLRegion (and the region-scoped geocode overload) are unavailable
+            // on visionOS; fall back to an unscoped geocode there.
+            #if os(visionOS)
+            geocoder.geocodeAddressString(address, completionHandler: handler)
+            #else
+            geocoder.geocodeAddressString(
+                address,
+                in: SystemMapsMapping.coreLocationRegion(arguments.object("region")),
+                completionHandler: handler
+            )
+            #endif
         }
         return .array(placemarks.prefix(limit).map(SystemMapsMapping.placemarkJSON))
         #else
@@ -390,14 +401,12 @@ private extension String {
 }
 
 enum SystemCloudKitMapping {
-    static let allowedDatabases = ["private", "shared", "public"]
-
     static func databaseName(arguments: [String: JSONValue]) throws -> String {
-        let database = arguments.string("database") ?? "private"
-        guard allowedDatabases.contains(database) else {
-            throw BridgeError.invalidArguments("CloudKit database must be one of \(allowedDatabases.joined(separator: ", "))")
+        let raw = arguments.string("database") ?? "private"
+        guard let database = CloudKitDatabase.codeModeValue(matching: raw) else {
+            throw BridgeError.invalidArguments("CloudKit database must be one of \(CloudKitDatabase.codeModeAllowedValues.joined(separator: ", "))")
         }
-        return database
+        return database.rawValue
     }
 
     static func recordFields(arguments: [String: JSONValue], capability: String) throws -> [String: JSONValue] {
@@ -490,7 +499,7 @@ enum SystemCloudKitMapping {
         case "public":
             return container.publicCloudDatabase
         default:
-            throw BridgeError.invalidArguments("CloudKit database must be one of \(allowedDatabases.joined(separator: ", "))")
+            throw BridgeError.invalidArguments("CloudKit database must be one of \(CloudKitDatabase.codeModeAllowedValues.joined(separator: ", "))")
         }
     }
 
@@ -627,7 +636,6 @@ private extension CKAccountStatus {
 #endif
 
 enum SystemMapsMapping {
-    static let allowedTransportTypes = ["automobile", "walking", "transit", "any"]
 
     static func coordinate(arguments: [String: JSONValue], name: String, capability: String) throws -> (latitude: Double, longitude: Double) {
         guard let latitude = arguments.double("latitude") else {
@@ -643,10 +651,10 @@ enum SystemMapsMapping {
         guard let value = arguments.string("transportType") ?? defaultValue else {
             throw BridgeError.invalidArguments("Maps transportType is required")
         }
-        guard allowedTransportTypes.contains(value) else {
-            throw BridgeError.invalidArguments("Maps transportType must be one of \(allowedTransportTypes.joined(separator: ", "))")
+        guard let transportType = MapsTransportType.codeModeValue(matching: value) else {
+            throw BridgeError.invalidArguments("Maps transportType must be one of \(MapsTransportType.codeModeAllowedValues.joined(separator: ", "))")
         }
-        return value
+        return transportType.rawValue
     }
 
     static func appleMapsQueryURL(query: String) throws -> URL {
@@ -659,6 +667,9 @@ enum SystemMapsMapping {
     }
 
     #if canImport(CoreLocation)
+    // CLRegion / CLCircularRegion are unavailable on visionOS; the region-scoped
+    // geocode overload is guarded out there, so this helper is too.
+    #if !os(visionOS)
     static func coreLocationRegion(_ arguments: [String: JSONValue]?) -> CLRegion? {
         guard let arguments else {
             return nil
@@ -686,6 +697,7 @@ enum SystemMapsMapping {
         }
         return nil
     }
+    #endif
 
     static func placemarkJSON(_ placemark: CLPlacemark) -> JSONValue {
         var object: [String: JSONValue] = [:]

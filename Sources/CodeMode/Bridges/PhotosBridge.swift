@@ -19,18 +19,18 @@ public final class PhotosBridge: @unchecked Sendable {
 
         #if canImport(Photos)
         let limit = max(1, arguments.int("limit") ?? 50)
-        let mediaTypeFilter = (arguments.string("mediaType") ?? "any").lowercased()
+        let mediaTypeFilter = MediaTypeFilter.codeModeValue(matching: arguments.string("mediaType") ?? "any")
 
         let options = PHFetchOptions()
         options.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: false)]
 
         let assets: PHFetchResult<PHAsset>
         switch mediaTypeFilter {
-        case "image", "photo":
+        case .image, .photo:
             assets = PHAsset.fetchAssets(with: .image, options: options)
-        case "video":
+        case .video:
             assets = PHAsset.fetchAssets(with: .video, options: options)
-        default:
+        case .any, nil:
             assets = PHAsset.fetchAssets(with: options)
         }
 

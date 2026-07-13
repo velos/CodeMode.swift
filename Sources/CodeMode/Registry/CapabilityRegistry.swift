@@ -48,71 +48,23 @@ public struct CapabilityArgumentConstraints: Sendable, Codable, Equatable {
             return .init(allowedStringValues: [
                 "options.responseEncoding": ["text", "base64"],
             ])
-        case .calendarWrite:
-            return .init(allowedStringValues: [
-                "operation": ["create", "update"],
-            ])
-        case .calendarDelete:
-            return .init(allowedStringValues: [
-                "span": ["thisEvent", "futureEvents"],
-            ])
-        case .calendarUIPickCalendar:
-            return .init(allowedStringValues: [
-                "selectionStyle": ["single", "multiple"],
-                "displayStyle": ["writable", "all"],
-            ])
-        case .remindersWrite:
-            return .init(allowedStringValues: [
-                "operation": ["create", "update", "complete"],
-            ])
-        case .photosRead:
-            return .init(allowedStringValues: [
-                "mediaType": ["any", "image", "photo", "video"],
-            ])
-        case .photosUIPick:
-            return .init(allowedStringValues: [
-                "mediaType": ["any", "image", "photo", "video"],
-            ])
-        case .contactsUIPick:
-            return .init(allowedStringValues: [
-                "mode": ["single", "multiple"],
-            ])
-        case .cameraUICapture:
-            return .init(allowedStringValues: [
-                "mediaType": ["any", "image", "photo", "video"],
-                "cameraDevice": ["rear", "front"],
-                "flashMode": ["auto", "on", "off"],
-                "videoQuality": ["high", "medium", "low", "640x480", "iFrame1280x720", "iFrame960x540", "iframe1280x720", "iframe960x540"],
-            ])
-        case .cameraUIScanData:
-            return .init(allowedStringValues: [
-                "mode": ["any", "text", "barcode"],
-                "qualityLevel": ["balanced", "fast", "accurate"],
-            ])
-        case .printUIPresent:
-            return .init(allowedStringValues: [
-                "outputType": ["general", "photo", "grayscale"],
-            ])
-        case .uiAlertPresent:
-            return .init(allowedStringValues: [
-                "preferredStyle": ["alert", "actionSheet", "actionsheet"],
-            ])
-        case .cloudKitRecordsQuery, .cloudKitRecordSave, .cloudKitRecordDelete, .cloudKitSubscriptionSave:
-            return .init(allowedStringValues: [
-                "database": ["private", "shared", "public"],
-            ])
-        case .activityEnd:
-            return .init(allowedStringValues: [
-                "dismissalPolicy": ["default", "immediate"],
-            ])
-        case .mapsRouteEstimate, .mapsOpen:
-            return .init(allowedStringValues: [
-                "transportType": ["automobile", "walking", "transit", "any"],
-            ])
-        case .musicPlaybackControl:
-            return .init(allowedStringValues: [
-                "action": ["play", "pause", "stop", "skipToNext", "skipToPrevious", "playCatalog", "playLibrary"],
-            ])
+        // calendarWrite / calendarDelete / calendarUIPickCalendar / remindersWrite
+        // constraints now come from their tools' CodeModeStringEnum arguments
+        // (EventKitCodeModeTools.swift), not this table.
+        // photosRead / photosUIPick (MediaTypeFilter) and contactsUIPick
+        // (ContactPickerMode) constraints now come from their tools'
+        // CodeModeStringEnum arguments (SystemUICodeModeTools.swift /
+        // PeoplePhotosDocumentsCodeModeTools.swift), not this table.
+        // cameraUICapture / cameraUIScanData / printUIPresent / uiAlertPresent
+        // constraints now come from their tools' CodeModeStringEnum arguments
+        // (SystemUICodeModeTools.swift), not this table.
+        // cloudKit database constraint now comes from the tools' CloudKitDatabase
+        // argument (CloudPushSpeechCodeModeTools.swift), not this table.
+        // activityEnd (ActivityDismissalPolicy) and mapsRouteEstimate/mapsOpen
+        // (MapsTransportType) constraints now come from their tools'
+        // CodeModeStringEnum arguments (IntentsModelsActivityMapsCodeModeTools.swift).
+        // musicPlaybackControl action constraint now comes from the tool's
+        // MusicPlaybackAction argument (CommerceCodeModeTools.swift).
         default:
             return .none
         }
@@ -130,7 +82,10 @@ public struct CapabilityArgumentConstraints: Sendable, Codable, Equatable {
             guard let string = value.stringValue else {
                 throw BridgeError.invalidArguments("\(capabilityName) expected '\(path)' as string, received \(Self.jsonTypeName(for: value))")
             }
-            guard allowed.contains(string) else {
+            // Bridges parse these values case-insensitively; match that here so the
+            // registry never rejects an argument the bridge would accept.
+            let normalized = string.lowercased()
+            guard allowed.contains(where: { $0.lowercased() == normalized }) else {
                 throw BridgeError.invalidArguments("\(capabilityName) \(path) must be one of \(allowed.joined(separator: ", "))")
             }
         }

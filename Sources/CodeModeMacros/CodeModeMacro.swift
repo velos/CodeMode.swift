@@ -11,6 +11,8 @@ struct CodeModePlugin: CompilerPlugin {
         CodeModeMacro.self,
         CodeModeParamMacro.self,
         CodeModeResultMacro.self,
+        BuiltInCodeModeMacro.self,
+        ToolParamMacro.self,
     ]
 }
 

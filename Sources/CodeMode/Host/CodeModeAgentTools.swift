@@ -8,6 +8,7 @@ public final class CodeModeAgentTools: @unchecked Sendable {
     public init(config: CodeModeConfiguration = .init()) {
         let allDefaultRegistrations = DefaultCapabilityLoader.loadAllRegistrations(
             fileSystem: config.fileSystem,
+            networkAccessPolicy: config.networkAccessPolicy,
             eventInbox: config.eventInbox,
             cloudKitClient: config.cloudKitClient,
             remoteNotificationsClient: config.remoteNotificationsClient,
