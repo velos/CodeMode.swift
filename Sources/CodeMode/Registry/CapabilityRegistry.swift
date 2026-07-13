@@ -559,12 +559,68 @@ public final class CapabilityRegistry: @unchecked Sendable {
     }
 
     private func invoke(_ function: RegisteredCodeModeFunction, arguments: [String: JSONValue], context: BridgeInvocationContext) throws -> JSONValue {
-        try validateArguments(arguments, for: function)
+        // Coerce common LLM output quirks (a number sent as a string, a bool sent
+        // as "true"/"false") into the declared type before validation, so both the
+        // type check and the bridge see canonical values instead of rejecting the
+        // call. Only declared `.number`/`.bool` arguments are touched.
+        let normalized = normalizedArguments(arguments, for: function)
+        try validateArguments(normalized, for: function)
         try validatePermissions(function.requiredPermissions, context: context)
         try context.checkCancellation()
         return try mapCodeModeFunctionError {
-            try function.handler(arguments, context)
+            try function.handler(normalized, context)
         }
+    }
+
+    private func normalizedArguments(_ arguments: [String: JSONValue], for function: RegisteredCodeModeFunction) -> [String: JSONValue] {
+        var result = arguments
+        for (path, expectedType) in function.argumentTypes where expectedType == .number || expectedType == .bool {
+            guard let value = value(atPath: path, in: result),
+                  let coerced = Self.coerceScalarString(value, to: expectedType)
+            else {
+                continue
+            }
+            result = Self.setValue(coerced, atPath: path, in: result)
+        }
+        return result
+    }
+
+    /// Coerces a JSON string into the declared scalar type. JSON numbers/bools are
+    /// already the right type and are left untouched (returns nil). Booleans accept
+    /// only case-insensitive "true"/"false" — not 1/0 or "yes"/"no" — so safety
+    /// gates like `confirmed` still require an explicit affirmative.
+    private static func coerceScalarString(_ value: JSONValue, to type: CapabilityArgumentType) -> JSONValue? {
+        guard case let .string(raw) = value else { return nil }
+        let trimmed = raw.trimmingCharacters(in: .whitespaces)
+        switch type {
+        case .number:
+            guard let number = Double(trimmed) else { return nil }
+            return .number(number)
+        case .bool:
+            switch trimmed.lowercased() {
+            case "true": return .bool(true)
+            case "false": return .bool(false)
+            default: return nil
+            }
+        default:
+            return nil
+        }
+    }
+
+    /// Replaces the value at a dotted path (e.g. `options.timeoutMs`), rebuilding
+    /// the intermediate objects. Missing intermediates are treated as empty objects.
+    private static func setValue(_ newValue: JSONValue, atPath path: String, in root: [String: JSONValue]) -> [String: JSONValue] {
+        let segments = path.split(separator: ".").map(String.init)
+        guard let first = segments.first else { return root }
+        var result = root
+        if segments.count == 1 {
+            result[first] = newValue
+        } else {
+            let rest = segments.dropFirst().joined(separator: ".")
+            let child = result[first]?.objectValue ?? [:]
+            result[first] = .object(setValue(newValue, atPath: rest, in: child))
+        }
+        return result
     }
 
     private func mapCodeModeFunctionError(_ body: () throws -> JSONValue) throws -> JSONValue {

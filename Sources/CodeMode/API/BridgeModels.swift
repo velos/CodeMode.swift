@@ -151,6 +151,73 @@ public struct JavaScriptExecutionRequest: Sendable, Codable, Equatable {
         self.timeoutMs = timeoutMs
         self.context = context
     }
+
+    private enum CodingKeys: String, CodingKey {
+        case code
+        case allowedCapabilities
+        case allowedCapabilityKeys
+        case timeoutMs
+        case context
+    }
+
+    // Custom decoding tolerant of common LLM tool-call quirks, and aligned with the
+    // advertised schema where only `code` and `allowedCapabilities` are required:
+    //  - `allowedCapabilityKeys`, `timeoutMs`, and `context` may be omitted (the
+    //    synthesized decoder wrongly required all three, so an otherwise-valid call
+    //    that left them out was rejected).
+    //  - `timeoutMs` accepts a JSON number or a numeric string ("10000").
+    //  - an unknown capability ID in `allowedCapabilities` produces a clear,
+    //    actionable error naming the offending value(s) instead of an opaque
+    //    Codable failure.
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+
+        self.code = try container.decode(String.self, forKey: .code)
+
+        let rawCapabilities = try container.decode([String].self, forKey: .allowedCapabilities)
+        var capabilities: [CapabilityID] = []
+        var unknown: [String] = []
+        for raw in rawCapabilities {
+            if let id = CapabilityID(rawValue: raw) {
+                capabilities.append(id)
+            } else {
+                unknown.append(raw)
+            }
+        }
+        guard unknown.isEmpty else {
+            throw DecodingError.dataCorruptedError(
+                forKey: .allowedCapabilities,
+                in: container,
+                debugDescription: "Unknown capability ID(s): \(unknown.joined(separator: ", ")). Use searchJavaScriptAPI to discover valid capability IDs."
+            )
+        }
+        self.allowedCapabilities = capabilities
+
+        self.allowedCapabilityKeys = try container.decodeIfPresent([CodeModeCapabilityKey].self, forKey: .allowedCapabilityKeys) ?? []
+        self.timeoutMs = try Self.decodeTimeoutMs(from: container) ?? 10_000
+        self.context = try container.decodeIfPresent(ExecutionContext.self, forKey: .context) ?? .init()
+    }
+
+    private static func decodeTimeoutMs(from container: KeyedDecodingContainer<CodingKeys>) throws -> Int? {
+        guard container.contains(.timeoutMs), try !container.decodeNil(forKey: .timeoutMs) else {
+            return nil
+        }
+        if let value = try? container.decode(Int.self, forKey: .timeoutMs) {
+            return value
+        }
+        if let value = try? container.decode(Double.self, forKey: .timeoutMs) {
+            return Int(value)
+        }
+        if let string = try? container.decode(String.self, forKey: .timeoutMs),
+           let value = Double(string.trimmingCharacters(in: .whitespaces)) {
+            return Int(value)
+        }
+        throw DecodingError.dataCorruptedError(
+            forKey: .timeoutMs,
+            in: container,
+            debugDescription: "timeoutMs must be an integer or a numeric string."
+        )
+    }
 }
 
 public enum JavaScriptExecutionEvent: Sendable, Equatable {

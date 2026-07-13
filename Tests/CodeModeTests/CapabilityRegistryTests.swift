@@ -431,9 +431,12 @@ private func jsNames(for capability: CapabilityID) -> [String] {
     defer { cleanup(sandbox) }
 
     do {
+        // A bool where a number is expected: a genuine type mismatch that is not
+        // one of the coerced quirks (numeric string / "true"/"false"), so it must
+        // still be rejected.
         _ = try registry.invoke(
             "weather.read",
-            arguments: ["latitude": .string("37.0"), "longitude": .number(-122.0)],
+            arguments: ["latitude": .bool(true), "longitude": .number(-122.0)],
             context: context
         )
         Issue.record("Expected type mismatch validation to throw")
