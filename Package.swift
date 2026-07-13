@@ -26,8 +26,10 @@ let package = Package(
     dependencies: [
         // Used by the CodeModeMacros compiler plugin only; consumers get the
         // prebuilt swift-syntax libraries on current toolchains (measured cost
-        // in PLAN-registration-macros.md).
-        .package(url: "https://github.com/swiftlang/swift-syntax.git", exact: "601.0.1"),
+        // in PLAN-registration-macros.md). Keep the range wide so consumers can
+        // co-resolve with other swift-syntax users (mlx-swift-lm needs >= 602);
+        // the macro diagnostic tests assume the >= 602 position behavior.
+        .package(url: "https://github.com/swiftlang/swift-syntax.git", "602.0.0"..<"604.0.0"),
     ],
     targets: [
         .target(

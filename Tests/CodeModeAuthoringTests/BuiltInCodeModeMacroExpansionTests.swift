@@ -149,7 +149,7 @@ private func builtInTestMacros() -> [String: Macro.Type] {
         }
         """,
         diagnostics: [
-            DiagnosticSpec(message: "@BuiltInCodeMode Arguments properties need @ToolParam(\"hint\") (or be the raw passthrough)", line: 4, column: 9),
+            DiagnosticSpec(message: "@BuiltInCodeMode Arguments properties need @ToolParam(\"hint\") (or be the raw passthrough)", line: 4, column: 13),
         ],
         macros: builtInTestMacros()
     )

@@ -209,10 +209,8 @@ private func observe(_ call: JavaScriptExecutionCall) async -> ObservedExecution
         struct Demo: Sendable {
             struct Arguments {
                 var name: String
-
                 var excited: Bool?
             }
-
             struct Result {
                 var greeting: String
                 var excited: Bool?
@@ -224,7 +222,9 @@ private func observe(_ call: JavaScriptExecutionCall) async -> ObservedExecution
         }
 
         extension Demo: CodeModeProvider {
-            var codeModePath: String { "macro.api.greet" }
+            var codeModePath: String {
+                "macro.api.greet"
+            }
 
             func codeModeRegistrations() -> [CodeModeRegistration] {
                 [
@@ -281,7 +281,9 @@ private func observe(_ call: JavaScriptExecutionCall) async -> ObservedExecution
         }
 
         extension Ping: CodeModeProvider {
-            var codeModePath: String { "macro.api.ping" }
+            var codeModePath: String {
+                "macro.api.ping"
+            }
 
             func codeModeRegistrations() -> [CodeModeRegistration] {
                 [
@@ -351,7 +353,7 @@ private func observe(_ call: JavaScriptExecutionCall) async -> ObservedExecution
         }
         """,
         diagnostics: [
-            DiagnosticSpec(message: "@CodeMode requires a nested Arguments struct", line: 2, column: 8),
+            DiagnosticSpec(message: "@CodeMode requires a nested Arguments struct", line: 1, column: 1),
         ],
         macros: codeModeTestMacros()
     )
@@ -456,7 +458,7 @@ private func observe(_ call: JavaScriptExecutionCall) async -> ObservedExecution
         }
         """,
         diagnostics: [
-            DiagnosticSpec(message: "@CodeMode does not support generic types", line: 2, column: 8),
+            DiagnosticSpec(message: "@CodeMode does not support generic types", line: 1, column: 1),
         ],
         macros: codeModeTestMacros()
     )
@@ -481,7 +483,7 @@ private func observe(_ call: JavaScriptExecutionCall) async -> ObservedExecution
         }
         """,
         diagnostics: [
-            DiagnosticSpec(message: "@CodeMode requires exactly one call(arguments:) method", line: 2, column: 8),
+            DiagnosticSpec(message: "@CodeMode requires exactly one call(arguments:) method", line: 1, column: 1),
         ],
         macros: codeModeTestMacros()
     )
