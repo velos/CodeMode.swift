@@ -45,6 +45,12 @@ import HomeKit
 #endif
 
 public final class SystemPermissionBroker: PermissionBroker, @unchecked Sendable {
+    /// How long a `request(for:)` waits on the system's TCC dialog before giving
+    /// up and re-reading the status. This is a human-latency budget, and it is
+    /// short: a user who takes longer than this leaves the caller reading the
+    /// pre-prompt status.
+    static let permissionPromptTimeoutSeconds: TimeInterval = 10
+
     public init() {}
 
     public func status(for permission: PermissionKind) -> PermissionStatus {
@@ -111,8 +117,15 @@ public final class SystemPermissionBroker: PermissionBroker, @unchecked Sendable
 
     private func locationStatus() -> PermissionStatus {
         #if canImport(CoreLocation)
-        let manager = CLLocationManager()
-        switch manager.authorizationStatus {
+        return Self.mapLocationAuthorization(CLLocationManager().authorizationStatus)
+        #else
+        return .unavailable
+        #endif
+    }
+
+    #if canImport(CoreLocation)
+    static func mapLocationAuthorization(_ status: CLAuthorizationStatus) -> PermissionStatus {
+        switch status {
         case .authorizedWhenInUse, .authorizedAlways:
             return .granted
         case .denied:
@@ -124,10 +137,8 @@ public final class SystemPermissionBroker: PermissionBroker, @unchecked Sendable
         @unknown default:
             return .unavailable
         }
-        #else
-        return .unavailable
-        #endif
     }
+    #endif
 
     private func contactsStatus() -> PermissionStatus {
         #if canImport(Contacts)
@@ -419,24 +430,41 @@ public final class SystemPermissionBroker: PermissionBroker, @unchecked Sendable
 
     private func requestLocationPermission() -> PermissionStatus {
         #if canImport(CoreLocation) && os(iOS)
-        let manager = CLLocationManager()
         let delegate = LocationPermissionDelegate()
-        manager.delegate = delegate
 
         if Thread.isMainThread {
+            let manager = CLLocationManager()
+            manager.delegate = delegate
+            delegate.hold(manager)
             manager.requestWhenInUseAuthorization()
+            // Cannot block main for the callback; the caller sees the pre-prompt
+            // status and a later call observes the resolved one.
             return locationStatus()
         }
 
-        // async, not sync: execution runs on a background queue, and the host may be
-        // blocking the main thread waiting on the result — main.sync would deadlock.
-        // If main never runs the request, the delegate wait below times out instead.
+        // `CLLocationManager` delivers delegate callbacks on the run loop of the
+        // thread that *created* it, and the bridge's GCD workers have none — so a
+        // manager constructed here never called back, the wait below always burned
+        // its full 10s, and the result was reported from a status re-read that
+        // races the TCC write. Creating the manager, assigning the delegate, and
+        // requesting all happen on main.
+        //
+        // async, not sync: the host may be blocking main waiting on our result, so
+        // main.sync would deadlock. If main never runs this, the wait times out.
         DispatchQueue.main.async {
+            let manager = CLLocationManager()
+            manager.delegate = delegate
+            delegate.hold(manager)
             manager.requestWhenInUseAuthorization()
         }
 
-        _ = delegate.wait(timeout: 10)
-        return locationStatus()
+        guard delegate.wait(timeout: 10) == .success else {
+            return locationStatus()
+        }
+
+        // Prefer the status the delegate callback carried over a fresh read,
+        // which can still observe the pre-prompt value.
+        return delegate.observedStatus().map(Self.mapLocationAuthorization) ?? locationStatus()
         #else
         return .unavailable
         #endif
@@ -444,12 +472,10 @@ public final class SystemPermissionBroker: PermissionBroker, @unchecked Sendable
 
     private func requestContactsPermission() -> PermissionStatus {
         #if canImport(Contacts)
-        let semaphore = DispatchSemaphore(value: 0)
         let store = CNContactStore()
-        store.requestAccess(for: .contacts) { _, _ in
-            semaphore.signal()
+        CompletionWait.completion(timeout: Self.permissionPromptTimeoutSeconds) { complete in
+            store.requestAccess(for: .contacts) { _, _ in complete() }
         }
-        _ = semaphore.wait(timeout: .now() + 10)
         return contactsStatus()
         #else
         return .unavailable
@@ -459,19 +485,13 @@ public final class SystemPermissionBroker: PermissionBroker, @unchecked Sendable
     private func requestCalendarPermission() -> PermissionStatus {
         #if canImport(EventKit)
         let store = EKEventStore()
-        let semaphore = DispatchSemaphore(value: 0)
-
-        if #available(iOS 17.0, macOS 14.0, *) {
-            store.requestFullAccessToEvents { _, _ in
-                semaphore.signal()
-            }
-        } else {
-            store.requestAccess(to: .event) { _, _ in
-                semaphore.signal()
+        CompletionWait.completion(timeout: Self.permissionPromptTimeoutSeconds) { complete in
+            if #available(iOS 17.0, macOS 14.0, *) {
+                store.requestFullAccessToEvents { _, _ in complete() }
+            } else {
+                store.requestAccess(to: .event) { _, _ in complete() }
             }
         }
-
-        _ = semaphore.wait(timeout: .now() + 10)
         return calendarReadStatus()
         #else
         return .unavailable
@@ -481,19 +501,13 @@ public final class SystemPermissionBroker: PermissionBroker, @unchecked Sendable
     private func requestCalendarWritePermission() -> PermissionStatus {
         #if canImport(EventKit)
         let store = EKEventStore()
-        let semaphore = DispatchSemaphore(value: 0)
-
-        if #available(iOS 17.0, macOS 14.0, *) {
-            store.requestWriteOnlyAccessToEvents { _, _ in
-                semaphore.signal()
-            }
-        } else {
-            store.requestAccess(to: .event) { _, _ in
-                semaphore.signal()
+        CompletionWait.completion(timeout: Self.permissionPromptTimeoutSeconds) { complete in
+            if #available(iOS 17.0, macOS 14.0, *) {
+                store.requestWriteOnlyAccessToEvents { _, _ in complete() }
+            } else {
+                store.requestAccess(to: .event) { _, _ in complete() }
             }
         }
-
-        _ = semaphore.wait(timeout: .now() + 10)
         return calendarWriteStatus()
         #else
         return .unavailable
@@ -503,19 +517,13 @@ public final class SystemPermissionBroker: PermissionBroker, @unchecked Sendable
     private func requestRemindersPermission() -> PermissionStatus {
         #if canImport(EventKit)
         let store = EKEventStore()
-        let semaphore = DispatchSemaphore(value: 0)
-
-        if #available(iOS 17.0, macOS 14.0, *) {
-            store.requestFullAccessToReminders { _, _ in
-                semaphore.signal()
-            }
-        } else {
-            store.requestAccess(to: .reminder) { _, _ in
-                semaphore.signal()
+        CompletionWait.completion(timeout: Self.permissionPromptTimeoutSeconds) { complete in
+            if #available(iOS 17.0, macOS 14.0, *) {
+                store.requestFullAccessToReminders { _, _ in complete() }
+            } else {
+                store.requestAccess(to: .reminder) { _, _ in complete() }
             }
         }
-
-        _ = semaphore.wait(timeout: .now() + 10)
         return remindersStatus()
         #else
         return .unavailable
@@ -524,19 +532,13 @@ public final class SystemPermissionBroker: PermissionBroker, @unchecked Sendable
 
     private func requestPhotoLibraryPermission() -> PermissionStatus {
         #if canImport(Photos)
-        let semaphore = DispatchSemaphore(value: 0)
-
-        if #available(iOS 14.0, macOS 11.0, *) {
-            PHPhotoLibrary.requestAuthorization(for: .readWrite) { _ in
-                semaphore.signal()
-            }
-        } else {
-            PHPhotoLibrary.requestAuthorization { _ in
-                semaphore.signal()
+        CompletionWait.completion(timeout: Self.permissionPromptTimeoutSeconds) { complete in
+            if #available(iOS 14.0, macOS 11.0, *) {
+                PHPhotoLibrary.requestAuthorization(for: .readWrite) { _ in complete() }
+            } else {
+                PHPhotoLibrary.requestAuthorization { _ in complete() }
             }
         }
-
-        _ = semaphore.wait(timeout: .now() + 10)
         return photoLibraryStatus()
         #else
         return .unavailable
@@ -545,13 +547,11 @@ public final class SystemPermissionBroker: PermissionBroker, @unchecked Sendable
 
     private func requestNotificationsPermission() -> PermissionStatus {
         #if canImport(UserNotifications)
-        let semaphore = DispatchSemaphore(value: 0)
-
-        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .badge, .sound]) { _, _ in
-            semaphore.signal()
+        CompletionWait.completion(timeout: Self.permissionPromptTimeoutSeconds) { complete in
+            UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .badge, .sound]) { _, _ in
+                complete()
+            }
         }
-
-        _ = semaphore.wait(timeout: .now() + 10)
         return notificationsStatus()
         #else
         return .unavailable
@@ -669,9 +669,31 @@ public final class SystemPermissionBroker: PermissionBroker, @unchecked Sendable
 #if canImport(CoreLocation) && os(iOS)
 private final class LocationPermissionDelegate: NSObject, CLLocationManagerDelegate {
     private let semaphore = DispatchSemaphore(value: 0)
+    private let lock = NSLock()
+    private var status: CLAuthorizationStatus?
+    /// The manager is created inside a `DispatchQueue.main.async` block and would
+    /// otherwise be released as soon as that block returns — before the callback
+    /// it exists to receive. `CLLocationManager` does not retain its delegate, so
+    /// the ownership runs the other way here.
+    private var manager: CLLocationManager?
+
+    func hold(_ manager: CLLocationManager) {
+        lock.lock()
+        self.manager = manager
+        lock.unlock()
+    }
 
     func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
+        lock.lock()
+        status = manager.authorizationStatus
+        lock.unlock()
         semaphore.signal()
+    }
+
+    func observedStatus() -> CLAuthorizationStatus? {
+        lock.lock()
+        defer { lock.unlock() }
+        return status
     }
 
     func wait(timeout: TimeInterval) -> DispatchTimeoutResult {

@@ -5,6 +5,8 @@ import EventKit
 #endif
 
 public final class EventKitBridge: @unchecked Sendable {
+    static let reminderFetchTimeoutSeconds: TimeInterval = 15
+
     public init() {}
 
     public func readEvents(arguments: [String: JSONValue], context: BridgeInvocationContext) throws -> JSONValue {
@@ -97,8 +99,6 @@ public final class EventKitBridge: @unchecked Sendable {
 
         #if canImport(EventKit)
         let store = EKEventStore()
-        let semaphore = DispatchSemaphore(value: 0)
-        var result: [JSONValue] = []
         let includeCompleted = arguments.bool("includeCompleted") ?? false
         let start = isoDate(arguments.string("start"))
         let end = isoDate(arguments.string("end"))
@@ -113,23 +113,30 @@ public final class EventKitBridge: @unchecked Sendable {
         let predicate = includeCompleted
             ? store.predicateForReminders(in: calendars)
             : store.predicateForIncompleteReminders(withDueDateStarting: start, ending: end, calendars: calendars)
-        store.fetchReminders(matching: predicate) { reminders in
-            let filtered = (reminders ?? [])
-                .filter { reminder in
-                    guard includeCompleted else { return true }
-                    guard let dueDate = reminder.dueDateComponents?.date else {
-                        return start == nil && end == nil
+        // Previously a `var` written from EventKit's completion queue, read after
+        // a semaphore wait whose timeout result was discarded — a data race with
+        // the late callback, and an empty array on timeout that the script could
+        // not tell apart from "no reminders".
+        let result = try CompletionWait.value(
+            timeout: Self.reminderFetchTimeoutSeconds,
+            operationName: "reminders.read"
+        ) { complete in
+            store.fetchReminders(matching: predicate) { reminders in
+                let filtered = (reminders ?? [])
+                    .filter { reminder in
+                        guard includeCompleted else { return true }
+                        guard let dueDate = reminder.dueDateComponents?.date else {
+                            return start == nil && end == nil
+                        }
+                        if let start, dueDate < start { return false }
+                        if let end, dueDate > end { return false }
+                        return true
                     }
-                    if let start, dueDate < start { return false }
-                    if let end, dueDate > end { return false }
-                    return true
-                }
-                .prefix(limit)
-            result = filtered.map { Self.reminderJSON($0) }
-            semaphore.signal()
+                    .prefix(limit)
+                complete(filtered.map { Self.reminderJSON($0) })
+            }
         }
 
-        _ = semaphore.wait(timeout: .now() + 15)
         return .array(result)
         #else
         _ = arguments
