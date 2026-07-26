@@ -3283,7 +3283,7 @@
     "argumentHints" : {
       "options.body" : "UTF-8 request body string.",
       "options.bodyBase64" : "Base64-encoded request body. Mutually exclusive with options.body.",
-      "options.headers" : "Object of header key\/value string pairs.",
+      "options.headers" : "Object of header key\/value string pairs. Cookie, Authorization, and Proxy-* are refused unless the host app permits credential headers.",
       "options.method" : "HTTP method; defaults to GET.",
       "options.responseEncoding" : "text (default) or base64.",
       "options.timeoutMs" : "Request and bridge wait timeout in milliseconds; defaults to 30000.",
@@ -3318,7 +3318,7 @@
 
     ],
     "resultSummary" : "Object with ok\/status\/statusText\/headers\/bodyText or bodyBase64.",
-    "summary" : "Perform HTTP(S) requests through URLSession via a fetch-compatible API.",
+    "summary" : "Perform HTTP(S) requests through an isolated URLSession via a fetch-compatible API. Requests carry no app cookies or stored credentials, and credential headers (Cookie, Authorization, Proxy-*) are refused unless the host app permits them.",
     "tags" : [
       "network",
       "http",

@@ -141,6 +141,12 @@ let tools = CodeModeAgentTools(
 - `allowedHosts` restricts fetch to an explicit list (entries match the host and its subdomains, and deliberately allowlisted private hosts such as `localhost` are honored); `blockedHosts` refuses specific hosts; `NetworkAccessPolicy.permissive` restores unrestricted behavior.
 - Matching is by URL host only; DNS resolution is not performed, so a public hostname that resolves to a private address is not detected. Hosts that need stricter guarantees should set `allowedHosts`.
 
+Script traffic also carries no ambient authority:
+
+- `network.fetch` runs on an isolated ephemeral `URLSession` with no cookie storage, no credential storage, and no shared cache — not `URLSession.shared`, which would let a script ride whatever the host app is already logged in to and let a `Set-Cookie` poison the app's cookie jar.
+- Script-supplied `Cookie`, `Authorization`, and `Proxy-*` request headers are refused. Set `allowsCredentialHeaders: true` when scripts legitimately call an authenticated API.
+- A host that passes its own `session` to `NetworkBridge` takes responsibility for this; requests still disable per-request cookie handling.
+
 ```swift
 let tools = CodeModeAgentTools(
     config: CodeModeConfiguration(
