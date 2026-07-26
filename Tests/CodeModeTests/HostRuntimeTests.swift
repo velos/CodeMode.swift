@@ -602,7 +602,11 @@ import Testing
     )
 
     #expect(observed.result == nil)
-    #expect(observed.error?.code == "EXECUTION_TIMEOUT")
+    // A promise with no resolve path and no pending timer is provably
+    // unsettleable under this runtime, so it is reported immediately instead of
+    // sleeping a thread until the deadline for a result that can never arrive.
+    #expect(observed.error?.code == "JS_RUNTIME_ERROR")
+    #expect(observed.error?.message.contains("can never settle") == true)
 }
 
 @Test func executeRecoversWithFreshContextAfterTimeout() async throws {
@@ -617,7 +621,7 @@ import Testing
             timeoutMs: 30
         )
     )
-    #expect(timedOut.error?.code == "EXECUTION_TIMEOUT")
+    #expect(timedOut.error?.code == "JS_RUNTIME_ERROR")
 
     let recovered = try await execute(
         tools,
@@ -700,13 +704,17 @@ import Testing
     let (tools, sandbox) = try makeTools()
     defer { cleanup(sandbox) }
 
+    // A long timer, not an unsettleable promise: the latter now fails fast with
+    // JS_RUNTIME_ERROR, which would win the race against the cancellation this
+    // test is about.
     let call = try await tools.executeJavaScript(
         JavaScriptExecutionRequest(
             code: """
-            await new Promise(() => {});
+            await new Promise(resolve => setTimeout(resolve, 20000));
             return { never: true };
             """,
-            allowedCapabilities: []
+            allowedCapabilities: [],
+            timeoutMs: 60_000
         )
     )
 

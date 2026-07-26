@@ -315,6 +315,25 @@ System UI helpers are installed only on supported UI platforms. Shared iOS/visio
 - on failure it throws `CodeModeToolError`
 - `call.cancel()` interrupts in-flight JavaScript
 
+### Timers and the event loop
+
+`setTimeout`/`clearTimeout` are real: callbacks are deferred, delays are honoured,
+`clearTimeout` cancels, and an error thrown inside a callback becomes a
+`TIMER_CALLBACK_ERROR` diagnostic rather than propagating to whoever called
+`setTimeout`. So `await new Promise(r => setTimeout(r, 1000))` — the standard
+backoff — actually waits instead of spinning. A long wait remains cancellable and
+is still bounded by `timeoutMs`.
+
+There is no I/O event loop yet: the bridge ABI is synchronous, so native calls run
+one at a time and `Promise.all` over several helpers completes them sequentially.
+Because a timer is the only thing that can advance a pending program, a promise
+with no resolve path and no queued timer is provably unsettleable and fails
+immediately with `JS_RUNTIME_ERROR` instead of running out the clock.
+
+Bridge calls that fail while the script still returns successfully — typically a
+forgotten `await`, which silently discards the rejection — produce a
+`BRIDGE_FAILURES_NOT_SURFACED` warning diagnostic.
+
 ### Timeout and cancellation
 
 `timeoutMs` and `cancel()` are enforced preemptively: a JavaScriptCore execution

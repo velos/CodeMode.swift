@@ -21,6 +21,7 @@ public final class BridgeInvocationContext: @unchecked Sendable {
 
     private let lock = NSLock()
     private var validatedPermissions: Set<PermissionKind> = []
+    private var failedCapabilityInvocations: [(capability: String, code: String)] = []
     private let transcript: ExecutionTranscript
     private let cancellationController: ExecutionCancellationController
 
@@ -116,6 +117,23 @@ public final class BridgeInvocationContext: @unchecked Sendable {
 
     func recordDiagnostic(_ diagnostic: ToolDiagnostic) {
         transcript.record(diagnostic: diagnostic)
+    }
+
+    /// Notes a capability call that failed, so a script that finishes
+    /// *successfully* despite failed bridge calls can be flagged. Nothing installs
+    /// an unhandled-rejection hook — a forgotten `await` is the most common LLM
+    /// JavaScript mistake, and it silently discards a `CAPABILITY_DENIED` while
+    /// the agent is told the run succeeded.
+    func recordCapabilityFailure(capability: String, code: String) {
+        lock.lock()
+        failedCapabilityInvocations.append((capability, code))
+        lock.unlock()
+    }
+
+    func capabilityFailures() -> [(capability: String, code: String)] {
+        lock.lock()
+        defer { lock.unlock() }
+        return failedCapabilityInvocations
     }
 
     func checkCancellation() throws {

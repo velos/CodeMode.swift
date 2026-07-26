@@ -128,7 +128,9 @@ public enum CodeModeAgentToolDescriptions {
 
         Calling conventions: apple.* and other namespaced helpers take one object argument, for example apple.fs.read({ path: "tmp:file.txt" }) and often return structured objects such as { text, base64 }. Node-style filesystem aliases under fs.promises.* use positional arguments, for example fs.promises.readFile("tmp:file.txt", "utf8"), and return Node-like values such as a string for readFile. When in doubt, use the ref.dts from searchJavaScriptAPI — it states the exact signature. fetch(url, options) is a global helper and returns a Response-like object with text(), json(), headers.get(), status, and ok.
 
-        Return semantics: the runtime wraps your code in an async function. For multi-statement code, return the final graded value with an explicit top-level return statement. A script that is only a bare final top-level await expression, such as await apple.fs.read({ path: "tmp:file.txt" }), returns that awaited value. Do not use an unreturned async IIFE as the final expression. setTimeout callbacks fire synchronously in this runtime.
+        Return semantics: the runtime wraps your code in an async function. For multi-statement code, return the final graded value with an explicit top-level return statement. A script that is only a bare final top-level await expression, such as await apple.fs.read({ path: "tmp:file.txt" }), returns that awaited value. Do not use an unreturned async IIFE as the final expression.
+
+        Concurrency: setTimeout and clearTimeout work normally — callbacks are deferred and delays are honoured, so `await new Promise(r => setTimeout(r, 1000))` really waits. There is no I/O event loop, though: native calls run one at a time, so Promise.all over several helpers completes them sequentially rather than concurrently. A promise with no resolve path and no pending timer can never settle and fails fast with JS_RUNTIME_ERROR rather than running out the clock.
 
         Allowlisting: include only the required built-in capabilities in allowedCapabilities and only custom provider keys in allowedCapabilityKeys. The two fields are not interchangeable: a built-in capability listed in allowedCapabilityKeys is ignored. These fields declare what your script needs; the host app applies its own ceiling on top, so a capability you list may still be withheld. Execution defaults to a 10000ms timeout and returns structured CodeModeToolError failures for syntax errors, missing JS helpers, runtime throws, validation failures, permission denials, timeouts, cancellation, and internal errors.
 
@@ -139,6 +141,12 @@ public enum CodeModeAgentToolDescriptions {
         UI_PRESENTER_UNAVAILABLE: host configuration issue; do not retry the same call.
         INVALID_ARGUMENTS: use the catalog requiredArguments, optionalArguments, argumentHints, and example.
         NETWORK_POLICY_VIOLATION: the host's network access policy refused the destination; do not retry the same URL and do not add capabilities to work around it.
+        JS_RUNTIME_ERROR "can never settle": a promise in your script has no resolve path; await every promise and make sure each one resolves.
+
+        Warning diagnostics worth acting on:
+        BRIDGE_FAILURES_NOT_SURFACED: a helper failed but your script still returned successfully — usually a missing await, which discards the rejection.
+        RESULT_TRUNCATED: the return value exceeded the size limit; return a summary or write the payload to the sandbox and return the path.
+        TIMER_CALLBACK_ERROR: a setTimeout callback threw; its error cannot reach the caller, so handle it inside the callback.
         """
     )
 

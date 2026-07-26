@@ -295,6 +295,7 @@ final class BridgeRuntime: @unchecked Sendable {
                     capabilityKey: capabilityKey,
                     invocationContext: invocationContext
                 )
+                invocationContext.recordCapabilityFailure(capability: capability, code: errorPayload.code)
                 invocationContext.log(.error, message: "Capability failed \(capability): \(errorPayload.message)")
                 invocationContext.auditLogger.log(AuditEvent(capability: capability, message: "failed: \(errorPayload.message)"))
 
@@ -521,6 +522,7 @@ final class BridgeRuntime: @unchecked Sendable {
 
         switch settlement {
         case .fulfilled:
+            recordSwallowedFailures(invocationContext: invocationContext)
             let output = try decodeOutput(
                 from: context,
                 watchdog: watchdog,
@@ -541,12 +543,20 @@ final class BridgeRuntime: @unchecked Sendable {
         case rejected
     }
 
-    /// Polls the wrapped promise's settled state until it resolves, is
-    /// cancelled, or the watchdog deadline passes. The settled state is checked
-    /// before the deadline on every iteration, so a script that has already
-    /// fulfilled — the common case under the synchronous bridge model — returns
-    /// its result even if evaluation finished a hair past the deadline, instead
-    /// of being discarded with a spurious timeout.
+    /// Runs the runtime's event loop until the wrapped promise settles, the
+    /// deadline passes, or the program is provably stuck.
+    ///
+    /// The settled state is checked before the deadline on every iteration, so a
+    /// script that has already fulfilled returns its result even if evaluation
+    /// finished a hair past the deadline, instead of being discarded with a
+    /// spurious timeout.
+    ///
+    /// When the promise is still pending, the *only* thing that can advance it
+    /// under the synchronous bridge model is a queued timer — microtasks have
+    /// already drained inside `evaluateScript`, and no native call is
+    /// outstanding. So this either sleeps until the next timer is due and fires
+    /// it, or, when no timer is queued, reports immediately that the promise can
+    /// never settle instead of sleeping a thread to the deadline for nothing.
     private func waitForSettlement(
         context: JSContext,
         watchdog: ExecutionWatchdog,
@@ -584,9 +594,126 @@ final class BridgeRuntime: @unchecked Sendable {
                 if watchdog.hasPassedDeadline {
                     throw toolError(code: timeoutCode, message: timeoutMessage, transcript: invocationContext)
                 }
-                Thread.sleep(forTimeInterval: 0.01)
+
+                let nextTimerDelay = context
+                    .evaluateScript("globalThis.__codemode.nextTimerDelay()")?
+                    .toNumber()?
+                    .doubleValue ?? -1
+
+                guard nextTimerDelay >= 0 else {
+                    throw toolError(
+                        code: "JS_RUNTIME_ERROR",
+                        message: "Script finished with a promise that can never settle: nothing is left to resolve it. This runtime has no I/O event loop, so only a pending setTimeout can advance a program after the synchronous work is done.",
+                        transcript: invocationContext,
+                        suggestions: [
+                            "Await every promise the script creates, and make sure each one has a resolve path.",
+                            "A `new Promise(...)` whose executor never calls resolve or reject will hang forever here.",
+                        ]
+                    )
+                }
+
+                try runDueTimers(
+                    delayMs: nextTimerDelay,
+                    context: context,
+                    watchdog: watchdog,
+                    cancellationController: cancellationController,
+                    invocationContext: invocationContext,
+                    timeoutCode: timeoutCode,
+                    timeoutMessage: timeoutMessage,
+                    cancelMessage: cancelMessage
+                )
             }
         }
+    }
+
+    /// Sleeps out a timer's delay — bounded by the deadline and responsive to
+    /// cancellation — then fires everything that has come due.
+    private func runDueTimers(
+        delayMs: Double,
+        context: JSContext,
+        watchdog: ExecutionWatchdog,
+        cancellationController: ExecutionCancellationController,
+        invocationContext: BridgeInvocationContext,
+        timeoutCode: String,
+        timeoutMessage: String,
+        cancelMessage: String
+    ) throws {
+        let start = ContinuousClock.now
+        let target = start.advanced(by: .milliseconds(Int(delayMs.rounded(.up))))
+
+        while ContinuousClock.now < target {
+            if cancellationController.isCancelled {
+                throw toolError(code: "CANCELLED", message: cancelMessage, transcript: invocationContext)
+            }
+            if watchdog.hasPassedDeadline {
+                throw toolError(code: timeoutCode, message: timeoutMessage, transcript: invocationContext)
+            }
+            // Short slices so cancellation and the deadline stay responsive
+            // during a long backoff.
+            Thread.sleep(forTimeInterval: 0.005)
+        }
+
+        let elapsed = Double((ContinuousClock.now - start).components.attoseconds) / 1e15
+            + Double((ContinuousClock.now - start).components.seconds) * 1_000
+        _ = context.evaluateScript("globalThis.__codemode.advanceTimers(\(max(elapsed, delayMs)))")
+
+        recordTimerErrors(from: context, invocationContext: invocationContext)
+    }
+
+    /// An error thrown by a timer callback cannot propagate to whoever called
+    /// `setTimeout`, so it surfaces as a diagnostic the way an uncaught task
+    /// error does in a real event loop.
+    private func recordTimerErrors(from context: JSContext, invocationContext: BridgeInvocationContext) {
+        guard let json = context.evaluateScript("JSON.stringify(globalThis.__codemode.takeTimerErrors())")?.toString(),
+              let data = json.data(using: .utf8),
+              let messages = try? JSONDecoder.codeModeBridge.decode([String].self, from: data),
+              messages.isEmpty == false
+        else {
+            return
+        }
+
+        for message in messages {
+            invocationContext.recordDiagnostic(
+                ToolDiagnostic(
+                    severity: .warning,
+                    code: "TIMER_CALLBACK_ERROR",
+                    message: "A setTimeout callback threw and the error was discarded: \(message)",
+                    category: "execution",
+                    suggestions: ["Handle errors inside timer callbacks; they cannot propagate to the caller of setTimeout."]
+                )
+            )
+        }
+    }
+
+    /// Flags bridge calls that failed while the script still reported success.
+    ///
+    /// The runtime installs no unhandled-rejection hook, so a forgotten `await` —
+    /// the most common LLM JavaScript mistake — discards a `CAPABILITY_DENIED`
+    /// and the agent is told the run completed. This does not prove the failure
+    /// was unhandled (a deliberate try/catch looks the same), so it is a warning
+    /// rather than an error, but it makes the silent case visible.
+    private func recordSwallowedFailures(invocationContext: BridgeInvocationContext) {
+        let failures = invocationContext.capabilityFailures()
+        guard failures.isEmpty == false else {
+            return
+        }
+
+        let summary = failures
+            .map { "\($0.capability) (\($0.code))" }
+            .joined(separator: ", ")
+
+        invocationContext.recordDiagnostic(
+            ToolDiagnostic(
+                severity: .warning,
+                code: "BRIDGE_FAILURES_NOT_SURFACED",
+                message: "The script completed successfully, but \(failures.count) bridge call(s) failed and the failure did not reach the result: \(summary).",
+                category: "execution",
+                suggestions: [
+                    "If that was not deliberate, check for a missing await — an un-awaited helper's rejection is silently discarded here.",
+                    "If it was deliberate, ignore this; the result is what the script returned.",
+                ]
+            )
+        )
     }
 
     private static func noReturnValueDiagnostic(for code: String) -> ToolDiagnostic {

@@ -16,6 +16,8 @@ public enum CodeModeEvalScenarios {
         filesystemCapabilityDenied,
         executionConsoleLogs,
         executionTimeout,
+        executionUnsettleablePromise,
+        executionTimerBackoff,
         reminderCatalogDiscovery,
         catalogFileSystemReadShape,
         catalogConsoleDiagnostics,
@@ -491,10 +493,10 @@ public enum CodeModeEvalScenarios {
         )
     )
 
-    public static let executionTimeout = CodeModeEvalScenario(
-        id: "execution.timeout",
-        title: "Unresolved promises time out",
-        task: "Await a never-resolving JavaScript promise. Do not catch the error in JavaScript; let executeJavaScript surface the structured execution-timeout error.",
+    public static let executionUnsettleablePromise = CodeModeEvalScenario(
+        id: "execution.unsettleable-promise",
+        title: "Unresolvable promises are reported, not waited out",
+        task: "Await a never-resolving JavaScript promise. Do not catch the error in JavaScript; let executeJavaScript surface the structured error.",
         executeCode: """
         await new Promise(() => {});
         return { never: true };
@@ -505,7 +507,46 @@ public enum CodeModeEvalScenarios {
             toolOrder: [.executeJavaScript],
             exactAllowedCapabilities: [],
             requiredExecuteCodeFragments: ["new Promise"],
+            expectedErrorCode: "JS_RUNTIME_ERROR"
+        )
+    )
+
+    public static let executionTimeout = CodeModeEvalScenario(
+        id: "execution.timeout",
+        title: "CPU-bound scripts hit the execution timeout",
+        task: "Run a CPU-bound infinite loop. Do not catch the error in JavaScript; let executeJavaScript surface the structured execution-timeout error.",
+        executeCode: """
+        while (true) {}
+        """,
+        allowedCapabilities: [],
+        timeoutMs: 200,
+        expectation: CodeModeEvalExpectation(
+            toolOrder: [.executeJavaScript],
+            exactAllowedCapabilities: [],
+            requiredExecuteCodeFragments: ["while"],
             expectedErrorCode: "EXECUTION_TIMEOUT"
+        )
+    )
+
+    public static let executionTimerBackoff = CodeModeEvalScenario(
+        id: "execution.timer-backoff",
+        title: "setTimeout honours its delay",
+        task: "Use setTimeout to wait before returning, and cancel a second timer with clearTimeout so its callback never runs.",
+        executeCode: """
+        const marks = [];
+        const cancelled = setTimeout(() => { marks.push('cancelled'); }, 5);
+        clearTimeout(cancelled);
+        await new Promise(resolve => setTimeout(resolve, 20));
+        marks.push('resumed');
+        return { marks };
+        """,
+        allowedCapabilities: [],
+        timeoutMs: 2_000,
+        expectation: CodeModeEvalExpectation(
+            toolOrder: [.executeJavaScript],
+            exactAllowedCapabilities: [],
+            requiredExecuteCodeFragments: ["setTimeout"],
+            expectedOutput: .object(["marks": .array([.string("resumed")])])
         )
     )
 

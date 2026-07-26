@@ -1,6 +1,79 @@
 import Foundation
 
 enum RuntimeJavaScript {
+    /// Shared by the execution and search runtimes.
+    private static let timerRuntime = """
+    // A real timer queue, drained by the host between JavaScript turns.
+    //
+    // `setTimeout` used to invoke its callback synchronously and ignore the
+    // delay, which made three things wrong at once: `clearTimeout` could never
+    // cancel, an error thrown by the callback propagated to setTimeout's *caller*
+    // rather than being an uncaught task error, and
+    // `await new Promise(r => setTimeout(r, 2000))` — the standard backoff — was
+    // a hot loop that hammered remote APIs through `fetch`.
+    globalThis.__codemode.timers = { nextID: 1, entries: [], errors: [] };
+
+    globalThis.setTimeout = function(fn, delay) {
+        if (typeof fn !== 'function') {
+            return 0;
+        }
+        const timers = globalThis.__codemode.timers;
+        const id = timers.nextID++;
+        timers.entries.push({
+            id: id,
+            fn: fn,
+            args: Array.prototype.slice.call(arguments, 2),
+            dueIn: Math.max(0, Number(delay) || 0)
+        });
+        return id;
+    };
+
+    globalThis.clearTimeout = function(id) {
+        const timers = globalThis.__codemode.timers;
+        timers.entries = timers.entries.filter(function(entry){ return entry.id !== id; });
+    };
+
+    // Milliseconds until the earliest pending timer, or -1 when none are queued.
+    // -1 means nothing can advance the program: under this runtime's synchronous
+    // bridge there is no other source of asynchrony.
+    globalThis.__codemode.nextTimerDelay = function() {
+        const entries = globalThis.__codemode.timers.entries;
+        if (entries.length === 0) {
+            return -1;
+        }
+        return entries.reduce(function(min, entry){ return Math.min(min, entry.dueIn); }, Infinity);
+    };
+
+    globalThis.__codemode.advanceTimers = function(elapsedMs) {
+        const timers = globalThis.__codemode.timers;
+        const due = [];
+        const remaining = [];
+        timers.entries.forEach(function(entry){
+            entry.dueIn -= elapsedMs;
+            if (entry.dueIn <= 0) { due.push(entry); } else { remaining.push(entry); }
+        });
+        timers.entries = remaining;
+        // Registration order breaks ties, matching a real event loop.
+        due.sort(function(a, b){ return a.id - b.id; });
+        due.forEach(function(entry){
+            try {
+                entry.fn.apply(null, entry.args);
+            } catch (error) {
+                // An uncaught error in a task cannot propagate to whoever called
+                // setTimeout; the host reports it as a diagnostic instead.
+                timers.errors.push(String(error));
+            }
+        });
+        return due.length;
+    };
+
+    globalThis.__codemode.takeTimerErrors = function() {
+        const errors = globalThis.__codemode.timers.errors;
+        globalThis.__codemode.timers.errors = [];
+        return errors;
+    };
+    """
+
     static func pruningScript(removingJavaScriptNames names: some Sequence<String>) -> String {
         let bindingsToRemove = Array(Set(names)).sorted()
 
@@ -123,13 +196,7 @@ enum RuntimeJavaScript {
         error: function(){ __searchConsole('error', Array.from(arguments).map(function(v){ return String(v); }).join(' ')); }
     };
 
-    globalThis.setTimeout = function(fn, delay) {
-        if (typeof fn === 'function') {
-            fn();
-        }
-        return 0;
-    };
-    globalThis.clearTimeout = function(_) {};
+    \(timerRuntime)
     """
 
     static let bootstrap = """
@@ -200,13 +267,7 @@ enum RuntimeJavaScript {
         error: function(){ __nativeConsoleLog(Array.from(arguments).map(function(v){ return String(v); }).join(' ')); }
     };
 
-    globalThis.setTimeout = function(fn, delay) {
-        if (typeof fn === 'function') {
-            fn();
-        }
-        return 0;
-    };
-    globalThis.clearTimeout = function(_) {};
+    \(timerRuntime)
 
     if (typeof URLSearchParams === 'undefined') {
         globalThis.URLSearchParams = function(initial){
