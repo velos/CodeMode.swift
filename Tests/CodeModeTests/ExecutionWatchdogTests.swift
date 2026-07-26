@@ -151,8 +151,32 @@ import Testing
     )
 
     #expect(observed.result?.output == nil)
-    #expect(observed.error != nil)
+    // The watchdog fired, so this is a timeout — not the INVALID_RESULT
+    // "must be JSON-serializable" it used to report, which pointed the model at
+    // the wrong repair entirely.
+    #expect(observed.error?.code == "EXECUTION_TIMEOUT")
     #expect(Date().timeIntervalSince(started) < 5)
+}
+
+@Test func serializationBudgetDoesNotScaleWithTheExecutionTimeout() async throws {
+    let (tools, sandbox) = try makeTools()
+    defer { cleanup(sandbox) }
+
+    // A long execution budget used to buy an equally long serialization budget
+    // (`max`, not `min`), so a runaway getter after a 30s-budget script got
+    // another 30s. The serialization phase is bounded independently.
+    let started = Date()
+    let observed = try await execute(
+        tools,
+        request: JavaScriptExecutionRequest(
+            code: "return { get trap() { while (true) {} } };",
+            allowedCapabilities: [],
+            timeoutMs: 30_000
+        )
+    )
+
+    #expect(observed.error?.code == "EXECUTION_TIMEOUT")
+    #expect(Date().timeIntervalSince(started) < 10)
 }
 
 @Test func searchTerminatesCPUBoundInfiniteLoop() async throws {

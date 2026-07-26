@@ -9,6 +9,8 @@ public struct CodeModeConfiguration: Sendable {
     public var fileSystem: any CodeModeFileSystem
     /// Byte ceilings applied by the filesystem bridge to `fs.read` / `fs.write`.
     public var fileSystemLimits: FileSystemLimits
+    /// Bounds on retained result/log/event volume for a single execution.
+    public var executionLimits: ExecutionLimits
     public var artifactStore: any ArtifactStore
     public var permissionBroker: any PermissionBroker
     public var auditLogger: any AuditLogger
@@ -33,6 +35,7 @@ public struct CodeModeConfiguration: Sendable {
         capabilityGrant: CapabilityGrant = .unrestricted,
         fileSystem: any CodeModeFileSystem = LocalCodeModeFileSystem(),
         fileSystemLimits: FileSystemLimits = .standard,
+        executionLimits: ExecutionLimits = .standard,
         artifactStore: any ArtifactStore = InMemoryArtifactStore(),
         permissionBroker: any PermissionBroker = SystemPermissionBroker(),
         auditLogger: any AuditLogger = SyncAuditLogger(),
@@ -56,6 +59,7 @@ public struct CodeModeConfiguration: Sendable {
         self.capabilityGrant = capabilityGrant
         self.fileSystem = fileSystem
         self.fileSystemLimits = fileSystemLimits
+        self.executionLimits = executionLimits
         self.artifactStore = artifactStore
         self.permissionBroker = permissionBroker
         self.auditLogger = auditLogger

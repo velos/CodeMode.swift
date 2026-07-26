@@ -18,6 +18,11 @@ final class BridgeRuntime: @unchecked Sendable {
         var suggestions: [String]
     }
 
+    /// Ceiling on the re-armed watchdog budget for result serialization. Bounded
+    /// independently of the execution timeout so a long-running script cannot buy
+    /// an equally long serialization window.
+    private static let serializationBudgetMs = 1_000
+
     private let registry: CapabilityRegistry
     private let catalog: BridgeCatalog
     private let config: CodeModeConfiguration
@@ -49,7 +54,7 @@ final class BridgeRuntime: @unchecked Sendable {
             )
         }
 
-        let transcript = ExecutionTranscript()
+        let transcript = ExecutionTranscript(limits: config.executionLimits)
         let cancellationController = ExecutionCancellationController()
         let invocationContext = BridgeInvocationContext(
             executionContext: .init(),
@@ -104,10 +109,16 @@ final class BridgeRuntime: @unchecked Sendable {
     func makeExecutionCall(_ request: JavaScriptExecutionRequest) -> JavaScriptExecutionCall {
         let cancellationController = ExecutionCancellationController()
         let continuationBox = LockedBox<AsyncStream<JavaScriptExecutionEvent>.Continuation?>(nil)
-        let events = AsyncStream<JavaScriptExecutionEvent> { continuation in
+        // Bounded: the default policy buffers without limit, so a chatty script
+        // whose events the host is not draining grows the buffer until the app
+        // dies. Dropping the oldest keeps the terminal events — which is what
+        // the host actually needs — and the full transcript is on the result.
+        let events = AsyncStream<JavaScriptExecutionEvent>(
+            bufferingPolicy: .bufferingNewest(config.executionLimits.maxBufferedEvents)
+        ) { continuation in
             continuationBox.set(continuation)
         }
-        let transcript = ExecutionTranscript { event in
+        let transcript = ExecutionTranscript(limits: config.executionLimits) { event in
             continuationBox.get()?.yield(event)
         }
 
@@ -503,12 +514,18 @@ final class BridgeRuntime: @unchecked Sendable {
 
         // Give result serialization its own bounded budget so a script that
         // settled near the deadline still serializes, while a runaway getter or
-        // toJSON is terminated instead of hanging the execution thread.
-        watchdog.rearm(timeoutMs: max(timeoutMs, 1_000))
+        // toJSON is terminated instead of hanging the execution thread. `min`,
+        // not `max`: the point is a *bounded* budget, and `max` handed a 60s
+        // execution another 60s just to run JSON.stringify.
+        watchdog.rearm(timeoutMs: min(timeoutMs, Self.serializationBudgetMs))
 
         switch settlement {
         case .fulfilled:
-            let output = try decodeOutput(from: context)
+            let output = try decodeOutput(
+                from: context,
+                watchdog: watchdog,
+                invocationContext: invocationContext
+            )
             if output == nil {
                 invocationContext.recordDiagnostic(Self.noReturnValueDiagnostic(for: code))
             }
@@ -676,12 +693,14 @@ final class BridgeRuntime: @unchecked Sendable {
             cancelMessage: "Search cancelled"
         )
 
-        watchdog.rearm(timeoutMs: max(timeoutMs, 1_000))
+        watchdog.rearm(timeoutMs: min(timeoutMs, Self.serializationBudgetMs))
 
         switch settlement {
         case .fulfilled:
             return try decodeOutput(
                 from: context,
+                watchdog: watchdog,
+                invocationContext: invocationContext,
                 errorCode: "INVALID_SEARCH_RESULT",
                 errorMessagePrefix: "Search result must be JSON-serializable"
             )
@@ -693,6 +712,8 @@ final class BridgeRuntime: @unchecked Sendable {
 
     private func decodeOutput(
         from context: JSContext,
+        watchdog: ExecutionWatchdog? = nil,
+        invocationContext: BridgeInvocationContext? = nil,
         errorCode: String = "INVALID_RESULT",
         errorMessagePrefix: String = "Execution result must be JSON-serializable"
     ) throws -> JSONValue? {
@@ -700,23 +721,73 @@ final class BridgeRuntime: @unchecked Sendable {
             return nil
         }
 
+        let limits = config.executionLimits
+        // Size is measured and the result is replaced *inside* JS: bringing a
+        // gigabyte of JSON across into a Swift String and then rejecting it has
+        // already spent the memory the cap exists to protect. The replacement is
+        // still valid JSON, so the model gets a parseable value plus a
+        // diagnostic rather than a truncated fragment it cannot read.
         guard let serialization = context.evaluateScript(
             """
             (function(){
                 try {
-                    return { ok: true, json: JSON.stringify(globalThis.__codemode.result) };
+                    var json = JSON.stringify(globalThis.__codemode.result);
+                    if (typeof json !== 'string') {
+                        return { ok: true, json: json };
+                    }
+                    if (json.length > \(limits.maxResultCharacters)) {
+                        return {
+                            ok: true,
+                            truncated: true,
+                            size: json.length,
+                            json: JSON.stringify({
+                                __codeModeTruncated: true,
+                                characterCount: json.length,
+                                limit: \(limits.maxResultCharacters),
+                                preview: json.slice(0, \(limits.truncatedResultPreviewCharacters))
+                            })
+                        };
+                    }
+                    return { ok: true, json: json };
                 } catch (error) {
                     return { ok: false, message: String(error) };
                 }
             })()
             """
         ) else {
+            // A nil evaluation here after the watchdog fired is a termination,
+            // not a serialization problem. Reporting `INVALID_RESULT: must be
+            // JSON-serializable` for a runaway getter steered the model to fix
+            // the wrong thing.
+            if let termination = watchdog?.termination {
+                throw terminationError(termination, invocationContext: invocationContext, during: "result serialization")
+            }
             throw CodeModeToolError(code: errorCode, message: errorMessagePrefix)
+        }
+
+        if let termination = watchdog?.termination {
+            throw terminationError(termination, invocationContext: invocationContext, during: "result serialization")
         }
 
         if serialization.forProperty("ok")?.toBool() == false {
             let message = serialization.forProperty("message")?.toString() ?? errorMessagePrefix
             throw CodeModeToolError(code: errorCode, message: "\(errorMessagePrefix): \(message)")
+        }
+
+        if serialization.forProperty("truncated")?.toBool() == true {
+            let size = serialization.forProperty("size")?.toNumber()?.intValue ?? limits.maxResultCharacters
+            invocationContext?.recordDiagnostic(
+                ToolDiagnostic(
+                    severity: .warning,
+                    code: "RESULT_TRUNCATED",
+                    message: "The result serialized to \(size) characters, over the \(limits.maxResultCharacters)-character limit. It was replaced with a descriptor object carrying a \(limits.truncatedResultPreviewCharacters)-character preview.",
+                    category: "execution",
+                    suggestions: [
+                        "Return a summary, a count, or a slice instead of the whole collection.",
+                        "Write large payloads to the sandbox with apple.fs.write and return the path.",
+                    ]
+                )
+            )
         }
 
         guard let jsonValue = serialization.forProperty("json"), jsonValue.isUndefined == false, jsonValue.isNull == false,
@@ -730,6 +801,27 @@ final class BridgeRuntime: @unchecked Sendable {
         }
 
         return try JSONDecoder.codeModeBridge.decode(JSONValue.self, from: data)
+    }
+
+    /// Reports a watchdog termination that happened outside the script body — so
+    /// far, during result serialization — as the timeout or cancellation it
+    /// actually is.
+    private func terminationError(
+        _ termination: ExecutionWatchdog.Termination,
+        invocationContext: BridgeInvocationContext?,
+        during phase: String
+    ) -> CodeModeToolError {
+        let (code, message): (String, String) = switch termination {
+        case .timedOut:
+            ("EXECUTION_TIMEOUT", "Execution timed out during \(phase). A getter or toJSON on the returned value did not finish within the serialization budget.")
+        case .cancelled:
+            ("CANCELLED", "Execution cancelled during \(phase)")
+        }
+
+        guard let invocationContext else {
+            return CodeModeToolError(code: code, message: message)
+        }
+        return toolError(code: code, message: message, transcript: invocationContext)
     }
 
     private func bridgeFailurePayload(

@@ -36,6 +36,7 @@ func cleanup(_ sandbox: TestSandbox) {
 func makeTools(
     permissionBroker: any PermissionBroker = NoopPermissionBroker(),
     capabilityGrant: CapabilityGrant = .unrestricted,
+    executionLimits: ExecutionLimits = .standard,
     fileSystem: any CodeModeFileSystem = LocalCodeModeFileSystem(),
     systemUIPresenter: any SystemUIPresenter = UnavailableSystemUIPresenter(),
     eventInbox: any CodeModeEventInbox = UnavailableCodeModeEventInbox(),
@@ -62,6 +63,7 @@ func makeTools(
         pathPolicy: pathPolicy,
         capabilityGrant: capabilityGrant,
         fileSystem: fileSystem,
+        executionLimits: executionLimits,
         artifactStore: InMemoryArtifactStore(),
         permissionBroker: permissionBroker,
         auditLogger: SyncAuditLogger(),
