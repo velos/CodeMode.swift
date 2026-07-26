@@ -197,3 +197,92 @@ private func failureSummary(_ results: [CodeModeEvalResult]) -> String {
     #expect(result.toolCalls.filter { $0.tool == .executeJavaScript }.count == 1)
     #expect(result.executionOutput != .string("second step succeeded"))
 }
+
+// MARK: - Grading the one-script-per-job standard
+
+// The docs now tell agents to do a whole job in one executeJavaScript call. That
+// is only a real standard if a transcript that ignores it fails, so this grades
+// the shape rather than just asserting the reference solution.
+
+@Test func aTranscriptSplitAcrossExecutionsFailsTheOneScriptScenario() {
+    let scenario = CodeModeEvalScenarios.filesystemWholeJobInOneScript
+
+    // The anti-pattern: list in one call, read in another, sum in a third —
+    // every intermediate result round-tripped through the model's context.
+    let split = [
+        CodeModeEvalToolCall(tool: .searchJavaScriptAPI, code: scenario.searchCode ?? ""),
+        CodeModeEvalToolCall(
+            tool: .executeJavaScript,
+            code: "return await apple.fs.list({ path: 'documents:receipts' });",
+            allowedCapabilities: [.fsList]
+        ),
+        CodeModeEvalToolCall(
+            tool: .executeJavaScript,
+            code: "return await apple.fs.read({ path: 'documents:receipts/a.json' });",
+            allowedCapabilities: [.fsRead]
+        ),
+        CodeModeEvalToolCall(
+            tool: .executeJavaScript,
+            code: "return await apple.fs.read({ path: 'documents:receipts/c.json' });",
+            allowedCapabilities: [.fsRead]
+        ),
+    ]
+
+    let failures = CodeModeEvalRunner().validateTranscript(
+        scenario: scenario,
+        toolCalls: split,
+        searchResult: .string("fs.list fs.read"),
+        executionOutput: .object(["total": .number(42), "count": .number(2)]),
+        error: nil
+    )
+
+    #expect(failures.contains { $0.contains("Tool order") })
+}
+
+@Test func theSingleScriptTranscriptPassesTheOneScriptScenario() {
+    let scenario = CodeModeEvalScenarios.filesystemWholeJobInOneScript
+
+    let single = [
+        CodeModeEvalToolCall(tool: .searchJavaScriptAPI, code: scenario.searchCode ?? ""),
+        CodeModeEvalToolCall(
+            tool: .executeJavaScript,
+            code: scenario.executeCode ?? "",
+            allowedCapabilities: [.fsList, .fsRead]
+        ),
+    ]
+
+    let failures = CodeModeEvalRunner().validateTranscript(
+        scenario: scenario,
+        toolCalls: single,
+        searchResult: .string("fs.list fs.read"),
+        executionOutput: .object(["total": .number(42), "count": .number(2)]),
+        error: nil
+    )
+
+    #expect(failures.isEmpty, "\(failures)")
+}
+
+@Test func anOverBroadCapabilityRequestFailsEvenWithTheRightAnswer() {
+    let scenario = CodeModeEvalScenarios.filesystemWholeJobInOneScript
+
+    // Minimization is now stated plainly in the tool description, so grading it
+    // is no longer an unstated rule.
+    let overBroad = [
+        CodeModeEvalToolCall(tool: .searchJavaScriptAPI, code: scenario.searchCode ?? ""),
+        CodeModeEvalToolCall(
+            tool: .executeJavaScript,
+            code: scenario.executeCode ?? "",
+            allowedCapabilities: [.fsList, .fsRead, .fsWrite]
+        ),
+    ]
+
+    let failures = CodeModeEvalRunner().validateTranscript(
+        scenario: scenario,
+        toolCalls: overBroad,
+        searchResult: .string("fs.list fs.read"),
+        executionOutput: .object(["total": .number(42), "count": .number(2)]),
+        error: nil
+    )
+
+    #expect(failures.contains { $0.contains("Allowed capabilities") || $0.contains("Forbidden capabilities") })
+}

@@ -158,6 +158,45 @@ let tools = CodeModeAgentTools(
 )
 ```
 
+## Agent Guidance
+
+The tool descriptions and the generated TypeScript tell a model *what the helpers
+are called*. Neither tells it *what shape its work should take* — so an agent can
+end up using `executeJavaScript` as a thin RPC, one call per operation, which is
+the pattern this package exists to replace.
+
+`CodeModeAgentGuidance` is the missing half. Pair it with `typeDeclarations()`:
+
+```swift
+let systemPrompt = CodeModeAgentGuidance.systemPrompt(.standard)
+    + "\n\n"
+    + tools.typeDeclarations()
+```
+
+Three tiers, each self-contained and additive — dropping to a smaller one loses
+examples, never a rule:
+
+| Tier | ~Tokens | Contents |
+| --- | --- | --- |
+| `.brief` | ~160 | The core idea: one call runs the whole task; request only the capabilities you use. |
+| `.standard` | ~580 | Adds the search → write → repair workflow and a worked multi-step example. |
+| `.full` | ~1000 | Adds partial-failure handling, the sequential-native-call reality, and the anti-pattern list. |
+
+Or let a budget choose:
+
+```swift
+CodeModeAgentGuidance.systemPrompt(approximateTokenBudget: 400)   // -> .standard
+```
+
+Token counts are estimated at four characters per token — a planning bound, not a
+real tokenization. A budget too small for any tier still returns `.brief`, on the
+grounds that some guidance is the difference between an agent that batches its
+work and one that does not.
+
+The `execution.*` and `fs.whole-job-one-script` eval scenarios grade this: a
+transcript that splits one obvious job across several executions, or that asks
+for capabilities it never calls, fails.
+
 ## TypeScript Declarations
 
 The registry already knows argument names, types, optionality, enum constraints,

@@ -18,6 +18,7 @@ public enum CodeModeEvalScenarios {
         executionTimeout,
         executionUnsettleablePromise,
         executionTimerBackoff,
+        filesystemWholeJobInOneScript,
         reminderCatalogDiscovery,
         catalogFileSystemReadShape,
         catalogConsoleDiagnostics,
@@ -525,6 +526,50 @@ public enum CodeModeEvalScenarios {
             exactAllowedCapabilities: [],
             requiredExecuteCodeFragments: ["while"],
             expectedErrorCode: "EXECUTION_TIMEOUT"
+        )
+    )
+
+    public static let filesystemWholeJobInOneScript = CodeModeEvalScenario(
+        id: "fs.whole-job-one-script",
+        title: "A multi-step job runs as one script",
+        task: "Read every .json receipt in documents:receipts, total the amounts for trip 'lisbon', and return { total, count }. Do the whole job in a single executeJavaScript call — list, read, filter, and sum inside the script — and return only the totals, not the receipts.",
+        searchCode: """
+        async () => {
+            return api.references
+                .filter(ref => ["fs.list", "fs.read"].includes(ref.capability))
+                .map(ref => ref.dts)
+                .join("\\n\\n");
+        }
+        """,
+        executeCode: """
+        const entries = await apple.fs.list({ path: 'documents:receipts' });
+        let total = 0;
+        let count = 0;
+        for (const entry of entries) {
+            if (entry.isDirectory || !entry.name.endsWith('.json')) continue;
+            const { text } = await apple.fs.read({ path: entry.path });
+            const receipt = JSON.parse(text);
+            if (receipt.trip !== 'lisbon') continue;
+            total += receipt.amount;
+            count += 1;
+        }
+        return { total, count };
+        """,
+        allowedCapabilities: [.fsList, .fsRead],
+        seedFiles: [
+            CodeModeEvalSeedFile(path: "documents:receipts/a.json", text: #"{"trip":"lisbon","amount":12}"#),
+            CodeModeEvalSeedFile(path: "documents:receipts/b.json", text: #"{"trip":"porto","amount":99}"#),
+            CodeModeEvalSeedFile(path: "documents:receipts/c.json", text: #"{"trip":"lisbon","amount":30}"#),
+        ],
+        expectation: CodeModeEvalExpectation(
+            // One search, one execute. A transcript that splits the list/read/sum
+            // across several executions fails here — that is the whole point of
+            // the scenario, and it only has teeth against real LLM transcripts.
+            toolOrder: [.searchJavaScriptAPI, .executeJavaScript],
+            exactAllowedCapabilities: [.fsList, .fsRead],
+            forbiddenCapabilities: [.fsWrite, .fsDelete, .fsMove],
+            requiredExecuteCodeFragments: ["apple.fs.list", "apple.fs.read"],
+            expectedOutput: .object(["total": .number(42), "count": .number(2)])
         )
     )
 
