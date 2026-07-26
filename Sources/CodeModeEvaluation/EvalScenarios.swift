@@ -319,10 +319,16 @@ public enum CodeModeEvalScenarios {
             return api.byJSName["apple.fs.read"];
         }
         """,
-        executeCode: """
-        return await apple.fs.read({ encoding: "utf8" });
-        """,
         executeSteps: [
+            // Deliberately wrong, so the next step can repair from the structured
+            // error. Marked so the runner does not treat it as the run failing.
+            CodeModeEvalExecuteStep(
+                code: """
+                return await apple.fs.read({ encoding: "utf8" });
+                """,
+                allowedCapabilities: [.fsRead],
+                expectsFailure: true
+            ),
             CodeModeEvalExecuteStep(
                 code: """
                 const result = await apple.fs.read({ path: "tmp:repair.txt", encoding: "utf8" });

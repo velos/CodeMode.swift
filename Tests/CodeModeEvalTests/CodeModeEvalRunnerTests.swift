@@ -142,3 +142,58 @@ private func failureSummary(_ results: [CodeModeEvalResult]) -> String {
         }
         .joined(separator: "\n")
 }
+
+// MARK: - Multi-step scenarios
+
+// The runner overwrote executionOutput/Logs/Diagnostics/observedError on every
+// step and did not stop on an intermediate error, so validation saw only the last
+// step: a scenario could pass while step 1 failed in a way step 2 masked, and
+// step 1's logs — the evidence — were gone.
+
+@Test func multiStepScenariosAccumulateLogsAcrossSteps() async throws {
+    let scenario = CodeModeEvalScenario(
+        id: "multi-step-log-accumulation",
+        title: "Logs from every step survive",
+        task: "internal test",
+        executeSteps: [
+            CodeModeEvalExecuteStep(code: "console.log('step-one-ran'); return 1;", allowedCapabilities: []),
+            CodeModeEvalExecuteStep(code: "console.log('step-two-ran'); return 2;", allowedCapabilities: []),
+        ],
+        expectation: CodeModeEvalExpectation(
+            toolOrder: [.executeJavaScript, .executeJavaScript],
+            exactAllowedCapabilities: [],
+            requiredExecutionLogFragments: ["step-one-ran", "step-two-ran"],
+            expectedOutput: .number(2)
+        )
+    )
+
+    let result = await CodeModeEvalRunner().run(scenario)
+    #expect(result.passed, "\(result.failures)")
+    #expect(result.executionLogs.contains { $0.message.contains("step-one-ran") })
+    #expect(result.executionLogs.contains { $0.message.contains("step-two-ran") })
+    #expect(result.executionOutput == .number(2))
+}
+
+@Test func anIntermediateStepFailureStopsTheRunAndIsReported() async throws {
+    let scenario = CodeModeEvalScenario(
+        id: "multi-step-intermediate-failure",
+        title: "A failing first step is not masked by a passing second",
+        task: "internal test",
+        executeSteps: [
+            // Denied: the step declares no capabilities.
+            CodeModeEvalExecuteStep(code: "return await apple.fs.read({ path: 'tmp:nope.txt' });", allowedCapabilities: []),
+            CodeModeEvalExecuteStep(code: "return 'second step succeeded';", allowedCapabilities: []),
+        ],
+        expectation: CodeModeEvalExpectation(
+            toolOrder: [.executeJavaScript],
+            exactAllowedCapabilities: [],
+            expectedErrorCode: "CAPABILITY_DENIED"
+        )
+    )
+
+    let result = await CodeModeEvalRunner().run(scenario)
+    #expect(result.error?.code == "CAPABILITY_DENIED")
+    // The second step must not have run and must not have supplied the output.
+    #expect(result.toolCalls.filter { $0.tool == .executeJavaScript }.count == 1)
+    #expect(result.executionOutput != .string("second step succeeded"))
+}
