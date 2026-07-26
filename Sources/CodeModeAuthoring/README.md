@@ -69,6 +69,12 @@ let call = try await tools.executeJavaScript(
 )
 ```
 
+The two allowlists are strictly disjoint: a built-in capability ID listed in
+`allowedCapabilityKeys` is ignored, and a provider key listed in
+`allowedCapabilities` will not decode. Both fields are model-authored, so treat
+them as a declaration of intent — set `CodeModeConfiguration.capabilityGrant` for
+the host-owned ceiling that actually enforces access.
+
 Macro v1 maps one type to one JavaScript function. `Arguments` must be a nested struct, and no-arg tools use an empty `Arguments` struct. `call(arguments:)` must be `throws` or `async throws`, and it can return `Void` or a nested `Result` struct.
 
 Supported `Arguments` and `Result` property shapes are JSON primitives, `JSONValue`, arrays/dictionaries of JSON-shaped values, and optional forms. Throw `CodeModeFunctionError` for structured failures that should surface as CodeMode bridge errors.

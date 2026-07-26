@@ -215,10 +215,43 @@ async () => {
 
 - `code`
 - `allowedCapabilities`
+- `allowedCapabilityKeys`
 - `timeoutMs`
 - `context`
 
 It returns a `JavaScriptExecutionCall` immediately.
+
+### Capability allowlists are model-authored; the grant is not
+
+`allowedCapabilities` and `allowedCapabilityKeys` travel in the advertised tool
+schema, so the *model* fills them in. They are a least-privilege declaration and
+a useful audit signal, but on their own they are not a sandbox: a host that pipes
+tool JSON straight into `executeJavaScript` gives the script whatever the script
+asked for.
+
+`CodeModeConfiguration.capabilityGrant` is the host-owned ceiling. The effective
+set is always `requested ∩ granted`:
+
+```swift
+let tools = CodeModeAgentTools(
+    config: CodeModeConfiguration(
+        capabilityGrant: .only(
+            [.fsRead, .fsWrite, .networkFetch],
+            capabilityKeys: ["myapp.tasks.complete"]
+        )
+    )
+)
+```
+
+It defaults to `.unrestricted` for source compatibility. Anything the request
+declares and the grant withholds fails with `CAPABILITY_DENIED`, is reported to
+the model as not repairable by retrying, and is recorded as a
+`CAPABILITY_WITHHELD_BY_HOST` diagnostic.
+
+The two allowlists are strictly disjoint. Built-in `CapabilityID`s are granted
+only by `allowedCapabilities`; `allowedCapabilityKeys` accepts arbitrary strings
+and reaches custom providers only, so it cannot be used to spell a built-in past
+a host that vets the typed field.
 
 Cross-platform privileged helpers are installed under `apple.*`. Platform-specific helpers are installed only where supported, for example `ios.alarm.*` on iOS hosts that support AlarmKit.
 

@@ -2,8 +2,17 @@ import Foundation
 
 public final class BridgeInvocationContext: @unchecked Sendable {
     public let executionContext: ExecutionContext
+    /// Built-in capabilities this execution may reach: the model's declaration
+    /// intersected with the host's `CapabilityGrant`.
     public let allowedCapabilities: Set<CapabilityID>
+    /// Custom provider keys this execution may reach. Deliberately disjoint from
+    /// `allowedCapabilities` — a built-in capability is never granted by a key, or
+    /// `allowedCapabilityKeys` would be a way around a host that vets only the
+    /// strictly-typed `allowedCapabilities`.
     public let allowedCapabilityKeys: Set<CodeModeCapabilityKey>
+    /// Identifiers the request asked for and the host's grant withheld. Used to
+    /// tell the model a denial is not repairable by widening `allowedCapabilities`.
+    public let hostWithheldCapabilityIdentifiers: Set<String>
     public let pathPolicy: any PathPolicy
     public let artifactStore: any ArtifactStore
     public let permissionBroker: any PermissionBroker
@@ -19,6 +28,7 @@ public final class BridgeInvocationContext: @unchecked Sendable {
         executionContext: ExecutionContext,
         allowedCapabilities: Set<CapabilityID>,
         allowedCapabilityKeys: Set<CodeModeCapabilityKey> = [],
+        hostWithheldCapabilityIdentifiers: Set<String> = [],
         pathPolicy: any PathPolicy,
         artifactStore: any ArtifactStore,
         permissionBroker: any PermissionBroker,
@@ -29,7 +39,8 @@ public final class BridgeInvocationContext: @unchecked Sendable {
     ) {
         self.executionContext = executionContext
         self.allowedCapabilities = allowedCapabilities
-        self.allowedCapabilityKeys = allowedCapabilityKeys.union(allowedCapabilities.map(\.codeModeKey))
+        self.allowedCapabilityKeys = allowedCapabilityKeys
+        self.hostWithheldCapabilityIdentifiers = hostWithheldCapabilityIdentifiers
         self.pathPolicy = pathPolicy
         self.artifactStore = artifactStore
         self.permissionBroker = permissionBroker
@@ -95,6 +106,12 @@ public final class BridgeInvocationContext: @unchecked Sendable {
         }
 
         return resolved
+    }
+
+    /// True when the request declared this identifier but the host's
+    /// `CapabilityGrant` withheld it — a denial the model cannot repair.
+    func isWithheldByHost(_ identifier: String) -> Bool {
+        hostWithheldCapabilityIdentifiers.contains(identifier)
     }
 
     func recordDiagnostic(_ diagnostic: ToolDiagnostic) {

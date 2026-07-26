@@ -42,7 +42,7 @@ public enum CodeModeAgentToolDescriptions {
                 "items": .object([
                     "type": .string("string"),
                 ]),
-                "description": .string("Custom provider capability keys required by the JavaScript. Built-in capability IDs may also be accepted here by hosts that expose one allowlist field."),
+                "description": .string("Custom provider capability keys required by the JavaScript, for example myapp.tasks.complete. Built-in capability IDs do not belong here and are ignored — list those in allowedCapabilities."),
             ]),
             "timeoutMs": .object([
                 "type": .string("integer"),
@@ -120,11 +120,11 @@ public enum CodeModeAgentToolDescriptions {
 
         Return semantics: the runtime wraps your code in an async function. For multi-statement code, return the final graded value with an explicit top-level return statement. A script that is only a bare final top-level await expression, such as await apple.fs.read({ path: "tmp:file.txt" }), returns that awaited value. Do not use an unreturned async IIFE as the final expression. setTimeout callbacks fire synchronously in this runtime.
 
-        Allowlisting: include only the required built-in capabilities in allowedCapabilities and custom provider keys in allowedCapabilityKeys. Execution defaults to a 10000ms timeout and returns structured CodeModeToolError failures for syntax errors, missing JS helpers, runtime throws, validation failures, permission denials, timeouts, cancellation, and internal errors.
+        Allowlisting: include only the required built-in capabilities in allowedCapabilities and only custom provider keys in allowedCapabilityKeys. The two fields are not interchangeable: a built-in capability listed in allowedCapabilityKeys is ignored. These fields declare what your script needs; the host app applies its own ceiling on top, so a capability you list may still be withheld. Execution defaults to a 10000ms timeout and returns structured CodeModeToolError failures for syntax errors, missing JS helpers, runtime throws, validation failures, permission denials, timeouts, cancellation, and internal errors.
 
         Error repair guide:
         JS_API_NOT_FOUND: use the suggested JS helper names or searchJavaScriptAPI.
-        CAPABILITY_DENIED: add the exact capability to allowedCapabilities or allowedCapabilityKeys and retry.
+        CAPABILITY_DENIED: add the exact capability to allowedCapabilities (built-ins) or allowedCapabilityKeys (custom provider keys) and retry — unless the error suggestions say the host withheld it, in which case retrying will not help.
         PERMISSION_DENIED: the capability is allowlisted but the OS, host, or custom provider denied permission; request permission if a helper exists, otherwise tell the user or host.
         UI_PRESENTER_UNAVAILABLE: host configuration issue; do not retry the same call.
         INVALID_ARGUMENTS: use the catalog requiredArguments, optionalArguments, argumentHints, and example.

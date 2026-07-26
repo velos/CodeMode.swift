@@ -506,14 +506,13 @@ public final class CapabilityRegistry: @unchecked Sendable {
         return registrations[capability].map(RegisteredCodeModeFunction.init)
     }
 
+    /// Resolves a *custom provider* key only. Built-ins are deliberately not
+    /// reachable here: they are dispatched by `CapabilityID` and gated by
+    /// `allowedCapabilities`, so resolving them through the loosely-typed key
+    /// namespace would let `allowedCapabilityKeys` alias a built-in.
     func registeredFunction(for capabilityKey: CodeModeCapabilityKey) -> RegisteredCodeModeFunction? {
         lock.lock()
         defer { lock.unlock() }
-        if let builtIn = CapabilityID(rawValue: capabilityKey.rawValue),
-           let registration = registrations[builtIn]
-        {
-            return RegisteredCodeModeFunction(registration)
-        }
         return codeModeRegistrations[capabilityKey].map(RegisteredCodeModeFunction.init)
     }
 
@@ -535,7 +534,11 @@ public final class CapabilityRegistry: @unchecked Sendable {
     }
 
     private func invokeBuiltIn(_ capability: CapabilityID, arguments: [String: JSONValue], context: BridgeInvocationContext) throws -> JSONValue {
-        guard context.allowedCapabilities.contains(capability) || context.allowedCapabilityKeys.contains(capability.codeModeKey) else {
+        // Built-ins are gated by `allowedCapabilities` alone. `allowedCapabilityKeys`
+        // accepts arbitrary strings and is not validated against `CapabilityID` at
+        // decode time, so honouring it here would bypass any host that vets only
+        // the strictly-typed field.
+        guard context.allowedCapabilities.contains(capability) else {
             throw BridgeError.capabilityDenied(capability)
         }
 
@@ -547,6 +550,13 @@ public final class CapabilityRegistry: @unchecked Sendable {
     }
 
     private func invokeCodeMode(_ capabilityKey: CodeModeCapabilityKey, arguments: [String: JSONValue], context: BridgeInvocationContext) throws -> JSONValue {
+        // Defense in depth: `invoke` already routes anything that parses as a
+        // built-in to `invokeBuiltIn`, but a key that spells a built-in must never
+        // reach a handler through the provider path.
+        if let builtIn = CapabilityID(rawValue: capabilityKey.rawValue) {
+            throw BridgeError.capabilityDenied(builtIn)
+        }
+
         guard context.allowedCapabilityKeys.contains(capabilityKey) else {
             throw BridgeError.capabilityKeyDenied(capabilityKey)
         }

@@ -3,6 +3,9 @@ import Foundation
 public struct CodeModeConfiguration: Sendable {
     public var pathPolicy: any PathPolicy
     public var networkAccessPolicy: NetworkAccessPolicy
+    /// Host-owned ceiling on the model-authored `allowedCapabilities` /
+    /// `allowedCapabilityKeys`. Defaults to `.unrestricted`; see `CapabilityGrant`.
+    public var capabilityGrant: CapabilityGrant
     public var fileSystem: any CodeModeFileSystem
     public var artifactStore: any ArtifactStore
     public var permissionBroker: any PermissionBroker
@@ -25,6 +28,7 @@ public struct CodeModeConfiguration: Sendable {
     public init(
         pathPolicy: any PathPolicy = DefaultPathPolicy(),
         networkAccessPolicy: NetworkAccessPolicy = .standard,
+        capabilityGrant: CapabilityGrant = .unrestricted,
         fileSystem: any CodeModeFileSystem = LocalCodeModeFileSystem(),
         artifactStore: any ArtifactStore = InMemoryArtifactStore(),
         permissionBroker: any PermissionBroker = SystemPermissionBroker(),
@@ -46,6 +50,7 @@ public struct CodeModeConfiguration: Sendable {
     ) {
         self.pathPolicy = pathPolicy
         self.networkAccessPolicy = networkAccessPolicy
+        self.capabilityGrant = capabilityGrant
         self.fileSystem = fileSystem
         self.artifactStore = artifactStore
         self.permissionBroker = permissionBroker

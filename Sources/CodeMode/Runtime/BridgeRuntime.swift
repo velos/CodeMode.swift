@@ -182,10 +182,35 @@ final class BridgeRuntime: @unchecked Sendable {
         transcript: ExecutionTranscript,
         cancellationController: ExecutionCancellationController
     ) throws -> JavaScriptExecutionResult {
+        // `allowedCapabilities` / `allowedCapabilityKeys` are model-authored, so they
+        // are a declaration of intent, not a boundary. The host's grant is the
+        // boundary: the effective set is always requested ∩ granted.
+        let grant = config.capabilityGrant.resolve(
+            requestedCapabilities: Set(request.allowedCapabilities),
+            requestedCapabilityKeys: Set(request.allowedCapabilityKeys)
+        )
+
+        let withheld = grant.withheldEverything
+        if withheld.isEmpty == false {
+            transcript.record(
+                diagnostic: ToolDiagnostic(
+                    severity: .warning,
+                    code: "CAPABILITY_WITHHELD_BY_HOST",
+                    message: "The host's capability grant withheld: \(withheld.joined(separator: ", ")). Calls needing these fail with CAPABILITY_DENIED and cannot be repaired from the script.",
+                    category: "security",
+                    suggestions: [
+                        "Do not retry with a wider allowedCapabilities; the host decides this set.",
+                        "Complete what you can with the granted capabilities, or report the missing access to the user.",
+                    ]
+                )
+            )
+        }
+
         let invocationContext = BridgeInvocationContext(
             executionContext: request.context,
-            allowedCapabilities: Set(request.allowedCapabilities),
-            allowedCapabilityKeys: Set(request.allowedCapabilityKeys),
+            allowedCapabilities: grant.capabilities,
+            allowedCapabilityKeys: grant.capabilityKeys,
+            hostWithheldCapabilityIdentifiers: Set(withheld),
             pathPolicy: config.pathPolicy,
             artifactStore: config.artifactStore,
             permissionBroker: config.permissionBroker,
@@ -256,7 +281,8 @@ final class BridgeRuntime: @unchecked Sendable {
                 let errorPayload = self.bridgeFailurePayload(
                     for: bridgeError,
                     capability: capabilityID,
-                    capabilityKey: capabilityKey
+                    capabilityKey: capabilityKey,
+                    invocationContext: invocationContext
                 )
                 invocationContext.log(.error, message: "Capability failed \(capability): \(errorPayload.message)")
                 invocationContext.auditLogger.log(AuditEvent(capability: capability, message: "failed: \(errorPayload.message)"))
@@ -709,9 +735,15 @@ final class BridgeRuntime: @unchecked Sendable {
     private func bridgeFailurePayload(
         for error: BridgeError,
         capability: CapabilityID?,
-        capabilityKey: CodeModeCapabilityKey?
+        capabilityKey: CodeModeCapabilityKey?,
+        invocationContext: BridgeInvocationContext? = nil
     ) -> CodeModeToolError {
-        let (message, suggestions) = enrichedBridgeFailure(for: error, capability: capability, capabilityKey: capabilityKey)
+        let (message, suggestions) = enrichedBridgeFailure(
+            for: error,
+            capability: capability,
+            capabilityKey: capabilityKey,
+            invocationContext: invocationContext
+        )
         return CodeModeToolError(
             code: error.diagnosticCode,
             message: message,
@@ -908,20 +940,29 @@ final class BridgeRuntime: @unchecked Sendable {
     private func enrichedBridgeFailure(
         for error: BridgeError,
         capability: CapabilityID?,
-        capabilityKey: CodeModeCapabilityKey?
+        capabilityKey: CodeModeCapabilityKey?,
+        invocationContext: BridgeInvocationContext? = nil
     ) -> (String, [String]) {
         let suggestions: [String]
         switch error {
         case let .capabilityDenied(capability):
-            suggestions = [
-                "Add \"\(capability.rawValue)\" to allowedCapabilities and retry.",
-                "If your host uses a unified capability-key allowlist, add \"\(capability.rawValue)\" to allowedCapabilityKeys.",
-            ] + bridgeSuggestions(for: capability, capabilityKey: capability.codeModeKey)
+            if invocationContext?.isWithheldByHost(capability.rawValue) == true {
+                suggestions = hostWithheldSuggestions(for: capability.rawValue)
+            } else {
+                suggestions = [
+                    "Add \"\(capability.rawValue)\" to allowedCapabilities and retry.",
+                    "Built-in capabilities are granted only by allowedCapabilities; listing one in allowedCapabilityKeys has no effect.",
+                ] + bridgeSuggestions(for: capability, capabilityKey: capability.codeModeKey)
+            }
         case let .capabilityKeyDenied(capabilityKey):
-            suggestions = [
-                "Add \"\(capabilityKey.rawValue)\" to allowedCapabilityKeys and retry.",
-                "Custom provider capabilities are not enabled by allowedCapabilities.",
-            ] + bridgeSuggestions(for: nil, capabilityKey: capabilityKey)
+            if invocationContext?.isWithheldByHost(capabilityKey.rawValue) == true {
+                suggestions = hostWithheldSuggestions(for: capabilityKey.rawValue)
+            } else {
+                suggestions = [
+                    "Add \"\(capabilityKey.rawValue)\" to allowedCapabilityKeys and retry.",
+                    "Custom provider capabilities are not enabled by allowedCapabilities.",
+                ] + bridgeSuggestions(for: nil, capabilityKey: capabilityKey)
+            }
         case let .permissionDenied(permission):
             suggestions = permissionDeniedSuggestions(for: permission)
         case .customPermissionDenied:
@@ -945,6 +986,14 @@ final class BridgeRuntime: @unchecked Sendable {
         }
 
         return (error.localizedDescription, suggestions)
+    }
+
+    private func hostWithheldSuggestions(for identifier: String) -> [String] {
+        [
+            "The host app's capability grant does not include \"\(identifier)\".",
+            "This is not repaired by adding it to allowedCapabilities or allowedCapabilityKeys; the host owns this decision.",
+            "Continue with the capabilities you do have, or report the missing access to the user.",
+        ]
     }
 
     private func permissionDeniedSuggestions(for permission: PermissionKind) -> [String] {

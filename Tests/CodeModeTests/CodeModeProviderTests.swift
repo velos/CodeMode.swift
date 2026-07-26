@@ -578,7 +578,11 @@ private func jsonLiteral(_ value: JSONValue) -> String {
     #expect(result.bool("done") == true)
 }
 
-@Test func builtInCapabilitiesCanBeAllowedByCapabilityKey() async throws {
+// `allowedCapabilityKeys` accepts arbitrary strings and is not validated against
+// `CapabilityID` at decode time, so it must never reach a built-in bridge — a host
+// that vets only the strictly-typed `allowedCapabilities` would otherwise be
+// bypassed by spelling the same ID in the loose field.
+@Test func builtInCapabilitiesAreNotGrantedByCapabilityKey() async throws {
     let (tools, sandbox) = try makeTools()
     defer { cleanup(sandbox) }
 
@@ -590,7 +594,76 @@ private func jsonLiteral(_ value: JSONValue) -> String {
         )
     )
     let observed = await observe(call)
+    let error = try #require(observed.error)
+    #expect(error.code == "CAPABILITY_DENIED")
+    #expect(error.capabilityKey == CapabilityID.keychainRead.codeModeKey)
+}
+
+@Test func builtInCapabilitiesRemainGrantedByCapabilityID() async throws {
+    let (tools, sandbox) = try makeTools()
+    defer { cleanup(sandbox) }
+
+    let call = try await tools.executeJavaScript(
+        JavaScriptExecutionRequest(
+            code: #"return await apple.keychain.get("missing-provider-key-test");"#,
+            allowedCapabilities: [.keychainRead]
+        )
+    )
+    let observed = await observe(call)
     #expect(observed.result?.output == .null)
+}
+
+@Test func hostCapabilityGrantOverridesModelAuthoredAllowlist() async throws {
+    let (tools, sandbox) = try makeTools(
+        capabilityGrant: .only([.fsRead], capabilityKeys: []),
+        codeModeProviders: [ManualProvider()]
+    )
+    defer { cleanup(sandbox) }
+
+    // The script asks for keychain.read and a provider key; the host grants neither.
+    let call = try await tools.executeJavaScript(
+        JavaScriptExecutionRequest(
+            code: #"return await apple.keychain.get("anything");"#,
+            allowedCapabilities: [.keychainRead],
+            allowedCapabilityKeys: ["myapp.api.doTheThing"]
+        )
+    )
+    let observed = await observe(call)
+    let error = try #require(observed.error)
+    #expect(error.code == "CAPABILITY_DENIED")
+    #expect(error.suggestions.contains { $0.contains("host app's capability grant") })
+    #expect(
+        error.diagnostics.contains { $0.code == "CAPABILITY_WITHHELD_BY_HOST" }
+    )
+
+    let providerCall = try await tools.executeJavaScript(
+        JavaScriptExecutionRequest(
+            code: #"return await myapp.api.doTheThing({ id: "123" });"#,
+            allowedCapabilities: [],
+            allowedCapabilityKeys: ["myapp.api.doTheThing"]
+        )
+    )
+    let providerObserved = await observe(providerCall)
+    #expect(providerObserved.error?.code == "CAPABILITY_DENIED")
+}
+
+@Test func hostCapabilityGrantPermitsWhatItIncludes() async throws {
+    let (tools, sandbox) = try makeTools(
+        capabilityGrant: .only([], capabilityKeys: ["myapp.api.doTheThing"]),
+        codeModeProviders: [ManualProvider()]
+    )
+    defer { cleanup(sandbox) }
+
+    let call = try await tools.executeJavaScript(
+        JavaScriptExecutionRequest(
+            code: #"return await myapp.api.doTheThing({ id: "123" });"#,
+            allowedCapabilities: [],
+            allowedCapabilityKeys: ["myapp.api.doTheThing"]
+        )
+    )
+    let observed = await observe(call)
+    let result = try #require(observed.result?.output?.objectValue)
+    #expect(result.string("id") == "123")
 }
 
 @Test func customProviderFunctionErrorsRemainStructured() async throws {
