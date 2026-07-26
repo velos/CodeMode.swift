@@ -17,8 +17,13 @@ public final class EventKitBridge: @unchecked Sendable {
 
         #if canImport(EventKit)
         let store = EKEventStore()
-        let start = isoDate(arguments.string("start")) ?? Date()
-        let end = isoDate(arguments.string("end")) ?? Calendar.current.date(byAdding: .day, value: 14, to: start) ?? start
+        // A value that is present but unparseable is an error, not a reason to
+        // fall back to now/+14d: that handed the script a plausible but wrong
+        // window with no diagnostic to notice it by.
+        let start = try CodeModeDate.optional(arguments.string("start"), argument: "start", capability: "calendar.read") ?? Date()
+        let end = try CodeModeDate.optional(arguments.string("end"), argument: "end", capability: "calendar.read")
+            ?? Calendar.current.date(byAdding: .day, value: 14, to: start)
+            ?? start
         let limit = arguments.int("limit") ?? 50
         let calendars = try resolveCalendars(
             from: arguments,
@@ -100,8 +105,8 @@ public final class EventKitBridge: @unchecked Sendable {
         #if canImport(EventKit)
         let store = EKEventStore()
         let includeCompleted = arguments.bool("includeCompleted") ?? false
-        let start = isoDate(arguments.string("start"))
-        let end = isoDate(arguments.string("end"))
+        let start = try CodeModeDate.optional(arguments.string("start"), argument: "start", capability: "reminders.read")
+        let end = try CodeModeDate.optional(arguments.string("end"), argument: "end", capability: "reminders.read")
         let limit = max(1, arguments.int("limit") ?? 50)
         let calendars = try resolveCalendars(
             from: arguments,
@@ -198,8 +203,7 @@ public final class EventKitBridge: @unchecked Sendable {
     }
 
     private func isoDate(_ text: String?) -> Date? {
-        guard let text, text.isEmpty == false else { return nil }
-        return ISO8601DateFormatter().date(from: text)
+        CodeModeDate.parse(text)
     }
 
     private func eventOperation(_ arguments: [String: JSONValue]) throws -> CalendarWriteOperation {
@@ -494,8 +498,11 @@ public final class EventKitBridge: @unchecked Sendable {
             "startDate": .string(event.startDate.ISO8601Format()),
             "endDate": .string(event.endDate.ISO8601Format()),
             "notes": .string(event.notes ?? ""),
-            "calendarIdentifier": .string(event.calendar.calendarIdentifier),
-            "calendarTitle": .string(event.calendar.title),
+            // `EKEvent.calendar` is `EKCalendar!` and is nil for an orphaned
+            // event — every neighboring field here is nil-coalesced, and this one
+            // crashed the execution thread.
+            "calendarIdentifier": .string(event.calendar?.calendarIdentifier ?? ""),
+            "calendarTitle": .string(event.calendar?.title ?? ""),
             "location": .string(event.location ?? ""),
             "url": .string(event.url?.absoluteString ?? ""),
             "isAllDay": .bool(event.isAllDay),
@@ -505,7 +512,8 @@ public final class EventKitBridge: @unchecked Sendable {
     private static func reminderJSON(_ reminder: EKReminder) -> JSONValue {
         var object: [String: JSONValue] = [
             "identifier": .string(reminder.calendarItemIdentifier),
-            "title": .string(reminder.title),
+            // `EKReminder.title` is `String!`.
+            "title": .string(reminder.title ?? ""),
             "isCompleted": .bool(reminder.isCompleted),
             "dueDate": .string(reminder.dueDateComponents?.date?.ISO8601Format() ?? ""),
             "completionDate": .string(reminder.completionDate?.ISO8601Format() ?? ""),

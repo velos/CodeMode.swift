@@ -78,7 +78,11 @@ final class ExecutionTranscript: @unchecked Sendable {
         }
         lock.unlock()
 
-        if accepted, diagnostic.severity != .error {
+        // Error-severity diagnostics used to be recorded but never emitted, so a
+        // host watching the stream saw every diagnostic *except* the ones that
+        // mattered most. They are on the result either way; the stream is the
+        // live view and should not be the incomplete one.
+        if accepted {
             emitEvent(.diagnostic(diagnostic))
         }
     }

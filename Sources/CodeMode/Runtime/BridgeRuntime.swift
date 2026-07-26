@@ -557,8 +557,12 @@ final class BridgeRuntime: @unchecked Sendable {
         cancelMessage: String
     ) throws -> SettlementState {
         while true {
-            if cancellationController.isCancelled || Task.isCancelled {
-                cancellationController.cancel()
+            // `Task.isCancelled` is not checked here: this runs on a plain GCD
+            // worker with no surrounding Task, so it was always false — dead code
+            // that read as a second layer of cancellation support. The
+            // controller, which `JavaScriptExecutionCall.cancel()` sets, is the
+            // real signal.
+            if cancellationController.isCancelled {
                 throw toolError(code: "CANCELLED", message: cancelMessage, transcript: invocationContext)
             }
 
@@ -577,7 +581,7 @@ final class BridgeRuntime: @unchecked Sendable {
                         throw toolError(code: timeoutCode, message: timeoutMessage, transcript: invocationContext)
                     }
                 }
-                if Date() >= watchdog.deadline {
+                if watchdog.hasPassedDeadline {
                     throw toolError(code: timeoutCode, message: timeoutMessage, transcript: invocationContext)
                 }
                 Thread.sleep(forTimeInterval: 0.01)

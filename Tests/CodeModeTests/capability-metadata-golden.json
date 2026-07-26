@@ -532,7 +532,7 @@
     },
     "argumentHints" : {
       "callbackURLScheme" : "Optional custom URL scheme that completes the session.",
-      "prefersEphemeralSession" : "Whether to prefer a private browser session; default false.",
+      "prefersEphemeralSession" : "Whether to use a private browser session; default true. Set false only when the flow must reuse the user's existing browser session.",
       "timeoutMs" : "Optional timeout for waiting on callback\/cancellation.",
       "url" : "Absolute HTTP(S) authentication URL."
     },
@@ -559,7 +559,7 @@
 
     ],
     "resultSummary" : "Object with action callback\/cancelled and callbackURL when available.",
-    "summary" : "Start an ASWebAuthenticationSession for OAuth-style browser authentication.",
+    "summary" : "Start an ASWebAuthenticationSession for OAuth-style browser authentication. Runs in a private browser session by default and the URL must satisfy the host's network access policy.",
     "tags" : [
       "auth",
       "oauth",

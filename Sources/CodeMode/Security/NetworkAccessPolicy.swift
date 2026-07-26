@@ -5,8 +5,11 @@ import Foundation
 ///
 /// The default (`.standard`) blocks loopback, private-range, link-local, and
 /// other non-public destinations so agent-authored JavaScript cannot reach
-/// `127.0.0.1`, cloud metadata endpoints such as `169.254.169.254`, or hosts on
-/// the local network, and caps buffered response bodies at 10 MB.
+/// `127.0.0.1`, cloud metadata endpoints such as `169.254.169.254`, or names that
+/// resolve onto the local network, and caps buffered response bodies at 10 MB.
+/// "Names that resolve onto the local network" covers `localhost`,
+/// `*.local`/`*.localhost`/`*.internal`, and bare single-label hosts such as
+/// `router` or `intranet`, which reach the LAN through the DHCP search domain.
 ///
 /// Host matching is by URL host only; DNS resolution is not performed, so a
 /// public hostname that resolves to a private address is not detected. Hosts
@@ -153,6 +156,14 @@ public struct NetworkAccessPolicy: Sendable, Equatable {
         var ipv6 = in6_addr()
         if inet_pton(AF_INET6, ipv6Host, &ipv6) == 1 {
             return isPrivateOrLocal(ipv6: ipv6)
+        }
+
+        // A bare single-label name — `router`, `intranet`, `nas`, `wpad` — is not
+        // a public destination. It resolves through the DHCP-supplied search
+        // domain, so it lands on the local network exactly like `*.local` does,
+        // and it previously fell straight through to "allowed".
+        if host.contains(".") == false {
+            return true
         }
 
         return false

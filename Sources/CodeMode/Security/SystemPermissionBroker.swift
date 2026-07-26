@@ -331,9 +331,47 @@ public final class SystemPermissionBroker: PermissionBroker, @unchecked Sendable
         #endif
     }
 
+    /// Reads HomeKit authorization *without* constructing a manager.
+    ///
+    /// Constructing `HMHomeManager` is itself what triggers the HomeKit TCC
+    /// prompt, so the previous implementation put a user-facing dialog inside a
+    /// status check — and `requestHomeKitPermission` called it twice, then built a
+    /// third manager. A status query now answers from the shared manager if one
+    /// already exists and otherwise fails closed with `.notDetermined`, which
+    /// routes the caller through the request path where a prompt belongs.
     private func homeKitStatus() -> PermissionStatus {
         #if canImport(HomeKit)
-        let status = HMHomeManager().authorizationStatus
+        guard let manager = Self.existingHomeManager() else {
+            return .notDetermined
+        }
+        return Self.mapHomeKitAuthorization(manager.authorizationStatus)
+        #else
+        return .unavailable
+        #endif
+    }
+
+    #if canImport(HomeKit)
+    /// Process-wide so repeated permission work reuses one manager instead of
+    /// re-triggering the prompt.
+    private static let homeManagerBox = LockedBox<HMHomeManager?>(nil)
+
+    private static func existingHomeManager() -> HMHomeManager? {
+        homeManagerBox.get()
+    }
+
+    /// Creates the shared manager if needed. This is the call that prompts.
+    private static func makeHomeManager(delegate: HMHomeManagerDelegate) -> HMHomeManager {
+        if let existing = homeManagerBox.get() {
+            existing.delegate = delegate
+            return existing
+        }
+        let manager = HMHomeManager()
+        manager.delegate = delegate
+        homeManagerBox.set(manager)
+        return manager
+    }
+
+    private static func mapHomeKitAuthorization(_ status: HMHomeManagerAuthorizationStatus) -> PermissionStatus {
         if status.contains(.authorized) {
             return .granted
         }
@@ -344,10 +382,8 @@ public final class SystemPermissionBroker: PermissionBroker, @unchecked Sendable
             return .notDetermined
         }
         return .unavailable
-        #else
-        return .unavailable
-        #endif
     }
+    #endif
 
     private func speechRecognitionStatus() -> PermissionStatus {
         #if canImport(Speech)
@@ -560,15 +596,17 @@ public final class SystemPermissionBroker: PermissionBroker, @unchecked Sendable
 
     private func requestHomeKitPermission() -> PermissionStatus {
         #if canImport(HomeKit)
-        if homeKitStatus() != .notDetermined {
-            return homeKitStatus()
+        // One status read, not two, and one manager, not three: each construction
+        // is a potential prompt.
+        let current = homeKitStatus()
+        if current != .notDetermined, Self.existingHomeManager() != nil {
+            return current
         }
 
         let delegate = HomeKitPermissionDelegate()
-        let manager = HMHomeManager()
-        manager.delegate = delegate
-        _ = delegate.wait(timeout: 10)
-        return homeKitStatus()
+        let manager = Self.makeHomeManager(delegate: delegate)
+        _ = delegate.wait(timeout: Self.permissionPromptTimeoutSeconds)
+        return Self.mapHomeKitAuthorization(manager.authorizationStatus)
         #else
         return .unavailable
         #endif

@@ -355,7 +355,10 @@ public final class JavaScriptExecutionCall: @unchecked Sendable {
     public var result: JavaScriptExecutionResult {
         get async throws {
             let outcome = await withTaskCancellationHandler {
-                await waitForResultOutcome()
+                // `resultTask.result` already detaches the await from the calling
+                // task's cancellation, so the previous `Task.detached` per access
+                // bought nothing but an extra task.
+                await resultTask.result
             } onCancel: {
                 self.cancel()
             }
@@ -365,8 +368,7 @@ public final class JavaScriptExecutionCall: @unchecked Sendable {
                 return result
             case let .failure(error as CodeModeToolError):
                 throw error
-            case let .failure(error as CancellationError):
-                _ = error
+            case .failure(is CancellationError):
                 throw CodeModeToolError(code: "CANCELLED", message: "Execution cancelled")
             case let .failure(error):
                 throw error
@@ -379,16 +381,12 @@ public final class JavaScriptExecutionCall: @unchecked Sendable {
         resultTask.cancel()
     }
 
-    private func waitForResultOutcome() async -> Result<JavaScriptExecutionResult, Error> {
-        await withCheckedContinuation { continuation in
-            Task.detached {
-                do {
-                    continuation.resume(returning: .success(try await self.resultTask.value))
-                } catch {
-                    continuation.resume(returning: .failure(error))
-                }
-            }
-        }
+    /// A dropped call must not keep running: without this, an execution whose
+    /// handle nobody holds continues to completion in the background, still
+    /// touching the filesystem, the network, and system UI on the user's behalf.
+    deinit {
+        cancelImpl()
+        resultTask.cancel()
     }
 }
 

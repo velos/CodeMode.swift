@@ -96,7 +96,6 @@ extension UIKitSystemUIPresenter {
 
     public func presentNewCalendarEvent(arguments: [String: JSONValue], context: BridgeInvocationContext) throws -> JSONValue {
         let timeoutMs = arguments.int("timeoutMs") ?? Self.defaultTimeoutMs
-        let formatter = ISO8601DateFormatter()
         let token = UUID()
 
         return try runUIOperation(timeoutMs: timeoutMs, onTimeout: { self.releaseCoordinator(token) }) { complete in
@@ -108,9 +107,9 @@ extension UIKitSystemUIPresenter {
                 event.notes = arguments.string("notes")
                 event.location = arguments.string("location")
 
-                let startDate = arguments.string("start").flatMap { formatter.date(from: $0) } ?? Date()
+                let startDate = CodeModeDate.parse(arguments.string("start")) ?? Date()
                 event.startDate = startDate
-                event.endDate = arguments.string("end").flatMap { formatter.date(from: $0) }
+                event.endDate = CodeModeDate.parse(arguments.string("end"))
                     ?? Calendar.current.date(byAdding: .hour, value: 1, to: startDate)
                     ?? startDate
                 event.calendar = store.defaultCalendarForNewEvents

@@ -119,7 +119,10 @@ public final class BridgeInvocationContext: @unchecked Sendable {
     }
 
     func checkCancellation() throws {
-        if cancellationController.isCancelled || Task.isCancelled {
+        // Bridge handlers run on a GCD worker, not inside a Task, so
+        // `Task.isCancelled` was always false here. The controller is the signal
+        // `JavaScriptExecutionCall.cancel()` actually sets.
+        if cancellationController.isCancelled {
             throw BridgeError.cancelled
         }
     }

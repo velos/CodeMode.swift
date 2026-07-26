@@ -139,13 +139,7 @@ public final class AlarmBridge: @unchecked Sendable {
     }
 
     private func isoDate(_ text: String?) -> Date? {
-        guard let text else { return nil }
-        let formatter = ISO8601DateFormatter()
-        if let date = formatter.date(from: text) {
-            return date
-        }
-        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        return formatter.date(from: text)
+        CodeModeDate.parse(text)
     }
 
     #if canImport(AlarmKit) && canImport(SwiftUI) && os(iOS)

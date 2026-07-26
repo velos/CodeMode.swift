@@ -94,7 +94,7 @@ struct DefaultCapabilityRegistrationBuilder {
         self.health = HealthBridge()
         self.home = HomeBridge()
         self.media = MediaBridge()
-        self.systemUI = SystemUIBridge()
+        self.systemUI = SystemUIBridge(networkAccessPolicy: networkAccessPolicy)
         self.eventInbox = eventInbox
         self.cloudKit = CloudKitBridge(client: cloudKitClient, eventInbox: eventInbox)
         self.remoteNotifications = RemoteNotificationsBridge(client: remoteNotificationsClient, eventInbox: eventInbox)

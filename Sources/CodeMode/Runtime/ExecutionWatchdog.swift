@@ -40,19 +40,26 @@ final class ExecutionWatchdog: @unchecked Sendable {
     fileprivate static let checkInterval: TimeInterval = 0.05
 
     private let lock = NSLock()
-    private var deadlineValue: Date
+    /// `ContinuousClock`, not `Date`: a wall-clock deadline moves when NTP
+    /// adjusts the clock, which can push a timeout arbitrarily far out (or fire it
+    /// immediately) while a script is running.
+    private var deadlineValue: ContinuousClock.Instant
     private var terminationValue: Termination?
     private let cancellationController: ExecutionCancellationController
 
     init(timeoutMs: Int, cancellationController: ExecutionCancellationController) {
-        self.deadlineValue = Date().addingTimeInterval(Double(timeoutMs) / 1_000)
+        self.deadlineValue = ContinuousClock.now.advanced(by: .milliseconds(timeoutMs))
         self.cancellationController = cancellationController
     }
 
-    var deadline: Date {
+    var deadline: ContinuousClock.Instant {
         lock.lock()
         defer { lock.unlock() }
         return deadlineValue
+    }
+
+    var hasPassedDeadline: Bool {
+        ContinuousClock.now >= deadline
     }
 
     var termination: Termination? {
@@ -67,7 +74,7 @@ final class ExecutionWatchdog: @unchecked Sendable {
     /// user-defined getters/`toJSON`), while a runaway getter is still terminated.
     func rearm(timeoutMs: Int) {
         lock.lock()
-        deadlineValue = Date().addingTimeInterval(Double(timeoutMs) / 1_000)
+        deadlineValue = ContinuousClock.now.advanced(by: .milliseconds(timeoutMs))
         lock.unlock()
     }
 
@@ -100,7 +107,7 @@ final class ExecutionWatchdog: @unchecked Sendable {
             terminationValue = .cancelled
             return true
         }
-        if Date() >= deadlineValue {
+        if ContinuousClock.now >= deadlineValue {
             terminationValue = .timedOut
             return true
         }
