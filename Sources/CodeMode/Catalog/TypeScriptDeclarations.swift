@@ -91,8 +91,8 @@ public enum TypeScriptDeclarations {
         guard let canonical = canonicalName(for: reference) else {
             return ""
         }
-        let signature = functionSignature(for: reference, name: lastComponent(of: canonical))
-        return "\(documentation(for: reference, canonicalName: canonical))\ndeclare function \(canonical.replacingOccurrences(of: ".", with: "_"))\(signature);"
+        let name = canonical.replacingOccurrences(of: ".", with: "_")
+        return "\(documentation(for: reference, canonicalName: canonical))\ndeclare function \(name)\(functionSignature(for: reference));"
     }
 
     /// The whole surface: the preamble plus every capability, grouped into
@@ -113,7 +113,7 @@ public enum TypeScriptDeclarations {
                 Member(
                     name: functionName,
                     documentation: documentation(for: reference, canonicalName: canonical),
-                    signature: functionSignature(for: reference, name: functionName)
+                    signature: functionSignature(for: reference)
                 ),
                 at: components
             )
@@ -144,10 +144,6 @@ public enum TypeScriptDeclarations {
             ?? reference.jsNames.first
     }
 
-    private static func lastComponent(of name: String) -> String {
-        name.split(separator: ".").last.map(String.init) ?? name
-    }
-
     private static func documentation(for reference: JavaScriptAPIReference, canonicalName: String) -> String {
         var lines = ["/**"]
         lines.append(" * \(reference.summary)")
@@ -171,13 +167,14 @@ public enum TypeScriptDeclarations {
         return lines.joined(separator: "\n")
     }
 
-    private static func functionSignature(for reference: JavaScriptAPIReference, name: String) -> String {
+    private static func functionSignature(for reference: JavaScriptAPIReference) -> String {
         let tree = ArgumentTree(reference: reference)
         guard tree.isEmpty == false else {
             return "(): Promise<CodeModeValue>"
         }
-        let hasRequired = reference.requiredArguments.isEmpty == false
-        return "(args\(hasRequired ? "" : "?"): \(tree.render(indent: "")))" + ": Promise<CodeModeValue>"
+        // `args` is optional only when nothing in it is required.
+        let optionalMarker = reference.requiredArguments.isEmpty ? "?" : ""
+        return "(args\(optionalMarker): \(tree.render(indent: ""))): Promise<CodeModeValue>"
     }
 
     // MARK: - Argument tree

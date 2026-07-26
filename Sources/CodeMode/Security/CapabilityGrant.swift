@@ -58,19 +58,18 @@ public struct CapabilityGrant: Sendable, Equatable {
         return Resolution(
             capabilities: effectiveCapabilities,
             capabilityKeys: effectiveKeys,
-            withheldCapabilities: requestedCapabilities.subtracting(effectiveCapabilities),
-            withheldCapabilityKeys: requestedCapabilityKeys.subtracting(effectiveKeys)
+            withheld: (
+                requestedCapabilities.subtracting(effectiveCapabilities).map(\.rawValue)
+                    + requestedCapabilityKeys.subtracting(effectiveKeys).map(\.rawValue)
+            ).sorted()
         )
     }
 
     public struct Resolution: Sendable, Equatable {
         public var capabilities: Set<CapabilityID>
         public var capabilityKeys: Set<CodeModeCapabilityKey>
-        public var withheldCapabilities: Set<CapabilityID>
-        public var withheldCapabilityKeys: Set<CodeModeCapabilityKey>
-
-        public var withheldEverything: [String] {
-            (withheldCapabilities.map(\.rawValue) + withheldCapabilityKeys.map(\.rawValue)).sorted()
-        }
+        /// Identifiers the request declared and the grant refused, sorted. Both
+        /// namespaces together, because every consumer reports them as one list.
+        public var withheld: [String]
     }
 }

@@ -303,3 +303,29 @@ import Testing
 
     #expect(outputs.compactMap { $0?.intValue }.sorted() == [0, 1, 2, 3])
 }
+
+@Test func aResultThatSettlesRightAtTheDeadlineIsNotDiscarded() async throws {
+    let (tools, sandbox) = try makeTools()
+    defer { cleanup(sandbox) }
+
+    // The settled state must be read before the deadline is enforced. Checking
+    // the deadline first turns a script that fulfilled a hair late into a
+    // spurious timeout, discarding a result that already exists.
+    for _ in 0..<12 {
+        let observed = try await execute(
+            tools,
+            request: JavaScriptExecutionRequest(
+                code: "await new Promise(resolve => setTimeout(resolve, 40)); return 'settled';",
+                allowedCapabilities: [],
+                timeoutMs: 40
+            )
+        )
+        // Either outcome is legitimate under the race, but a fulfilled script
+        // must never come back empty *and* successful.
+        if observed.error == nil {
+            #expect(observed.result?.output == .string("settled"))
+        } else {
+            #expect(observed.error?.code == "EXECUTION_TIMEOUT")
+        }
+    }
+}

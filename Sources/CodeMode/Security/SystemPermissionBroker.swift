@@ -51,6 +51,12 @@ public final class SystemPermissionBroker: PermissionBroker, @unchecked Sendable
     /// pre-prompt status.
     static let permissionPromptTimeoutSeconds: TimeInterval = 10
 
+    /// Every TCC request in this type waits that same budget, so the timeout is
+    /// not repeated at six call sites where it could drift apart.
+    private static func awaitingPrompt(_ request: (@escaping @Sendable () -> Void) -> Void) {
+        CompletionWait.completion(timeout: permissionPromptTimeoutSeconds, request)
+    }
+
     public init() {}
 
     public func status(for permission: PermissionKind) -> PermissionStatus {
@@ -509,7 +515,7 @@ public final class SystemPermissionBroker: PermissionBroker, @unchecked Sendable
     private func requestContactsPermission() -> PermissionStatus {
         #if canImport(Contacts)
         let store = CNContactStore()
-        CompletionWait.completion(timeout: Self.permissionPromptTimeoutSeconds) { complete in
+        Self.awaitingPrompt { complete in
             store.requestAccess(for: .contacts) { _, _ in complete() }
         }
         return contactsStatus()
@@ -521,7 +527,7 @@ public final class SystemPermissionBroker: PermissionBroker, @unchecked Sendable
     private func requestCalendarPermission() -> PermissionStatus {
         #if canImport(EventKit)
         let store = EKEventStore()
-        CompletionWait.completion(timeout: Self.permissionPromptTimeoutSeconds) { complete in
+        Self.awaitingPrompt { complete in
             if #available(iOS 17.0, macOS 14.0, *) {
                 store.requestFullAccessToEvents { _, _ in complete() }
             } else {
@@ -537,7 +543,7 @@ public final class SystemPermissionBroker: PermissionBroker, @unchecked Sendable
     private func requestCalendarWritePermission() -> PermissionStatus {
         #if canImport(EventKit)
         let store = EKEventStore()
-        CompletionWait.completion(timeout: Self.permissionPromptTimeoutSeconds) { complete in
+        Self.awaitingPrompt { complete in
             if #available(iOS 17.0, macOS 14.0, *) {
                 store.requestWriteOnlyAccessToEvents { _, _ in complete() }
             } else {
@@ -553,7 +559,7 @@ public final class SystemPermissionBroker: PermissionBroker, @unchecked Sendable
     private func requestRemindersPermission() -> PermissionStatus {
         #if canImport(EventKit)
         let store = EKEventStore()
-        CompletionWait.completion(timeout: Self.permissionPromptTimeoutSeconds) { complete in
+        Self.awaitingPrompt { complete in
             if #available(iOS 17.0, macOS 14.0, *) {
                 store.requestFullAccessToReminders { _, _ in complete() }
             } else {
@@ -568,7 +574,7 @@ public final class SystemPermissionBroker: PermissionBroker, @unchecked Sendable
 
     private func requestPhotoLibraryPermission() -> PermissionStatus {
         #if canImport(Photos)
-        CompletionWait.completion(timeout: Self.permissionPromptTimeoutSeconds) { complete in
+        Self.awaitingPrompt { complete in
             if #available(iOS 14.0, macOS 11.0, *) {
                 PHPhotoLibrary.requestAuthorization(for: .readWrite) { _ in complete() }
             } else {
@@ -583,7 +589,7 @@ public final class SystemPermissionBroker: PermissionBroker, @unchecked Sendable
 
     private func requestNotificationsPermission() -> PermissionStatus {
         #if canImport(UserNotifications)
-        CompletionWait.completion(timeout: Self.permissionPromptTimeoutSeconds) { complete in
+        Self.awaitingPrompt { complete in
             UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .badge, .sound]) { _, _ in
                 complete()
             }

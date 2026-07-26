@@ -11,7 +11,7 @@ enum RuntimeJavaScript {
     // rather than being an uncaught task error, and
     // `await new Promise(r => setTimeout(r, 2000))` — the standard backoff — was
     // a hot loop that hammered remote APIs through `fetch`.
-    globalThis.__codemode.timers = { nextID: 1, entries: [], errors: [] };
+    globalThis.__codemode.timers = { nextID: 1, entries: [] };
 
     globalThis.setTimeout = function(fn, delay) {
         if (typeof fn !== 'function') {
@@ -55,21 +55,18 @@ enum RuntimeJavaScript {
         timers.entries = remaining;
         // Registration order breaks ties, matching a real event loop.
         due.sort(function(a, b){ return a.id - b.id; });
+        const errors = [];
         due.forEach(function(entry){
             try {
                 entry.fn.apply(null, entry.args);
             } catch (error) {
                 // An uncaught error in a task cannot propagate to whoever called
                 // setTimeout; the host reports it as a diagnostic instead.
-                timers.errors.push(String(error));
+                errors.push(String(error));
             }
         });
-        return due.length;
-    };
-
-    globalThis.__codemode.takeTimerErrors = function() {
-        const errors = globalThis.__codemode.timers.errors;
-        globalThis.__codemode.timers.errors = [];
+        // Returned rather than buffered, so the host needs one round trip per
+        // tick instead of two.
         return errors;
     };
     """

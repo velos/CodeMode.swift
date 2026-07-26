@@ -214,7 +214,7 @@ final class BridgeRuntime: @unchecked Sendable {
             requestedCapabilityKeys: Set(request.allowedCapabilityKeys)
         )
 
-        let withheld = grant.withheldEverything
+        let withheld = grant.withheld
         if withheld.isEmpty == false {
             transcript.record(
                 diagnostic: ToolDiagnostic(
@@ -496,16 +496,14 @@ final class BridgeRuntime: @unchecked Sendable {
 
         switch watchdog.termination {
         case .timedOut:
-            throw toolError(
+            throw invocationContext.toolError(
                 code: "EXECUTION_TIMEOUT",
-                message: "Execution timed out after \(timeoutMs)ms",
-                transcript: invocationContext
+                message: "Execution timed out after \(timeoutMs)ms"
             )
         case .cancelled:
-            throw toolError(
+            throw invocationContext.toolError(
                 code: "CANCELLED",
-                message: "Execution cancelled",
-                transcript: invocationContext
+                message: "Execution cancelled"
             )
         case nil:
             break
@@ -518,12 +516,14 @@ final class BridgeRuntime: @unchecked Sendable {
 
         let settlement = try waitForSettlement(
             context: context,
-            watchdog: watchdog,
-            cancellationController: cancellationController,
-            invocationContext: invocationContext,
-            timeoutCode: "EXECUTION_TIMEOUT",
-            timeoutMessage: "Execution timed out after \(timeoutMs)ms",
-            cancelMessage: "Execution cancelled"
+            settlement: SettlementParameters(
+                watchdog: watchdog,
+                cancellationController: cancellationController,
+                invocationContext: invocationContext,
+                timeoutCode: "EXECUTION_TIMEOUT",
+                timeoutMessage: "Execution timed out after \(timeoutMs)ms",
+                cancelMessage: "Execution cancelled"
+            )
         )
 
         // Give result serialization its own bounded budget so a script that
@@ -572,21 +572,20 @@ final class BridgeRuntime: @unchecked Sendable {
     /// never settle instead of sleeping a thread to the deadline for nothing.
     private func waitForSettlement(
         context: JSContext,
-        watchdog: ExecutionWatchdog,
-        cancellationController: ExecutionCancellationController,
-        invocationContext: BridgeInvocationContext,
-        timeoutCode: String,
-        timeoutMessage: String,
-        cancelMessage: String
+        settlement: SettlementParameters
     ) throws -> SettlementState {
         while true {
-            // `Task.isCancelled` is not checked here: this runs on a plain GCD
-            // worker with no surrounding Task, so it was always false — dead code
+            // Cancellation only, deliberately: the deadline is checked *after*
+            // the settled state below, so a script that fulfilled a hair past it
+            // still returns its result instead of a spurious timeout.
+            //
+            // `Task.isCancelled` is not checked at all — this runs on a plain GCD
+            // worker with no surrounding Task, so it was always false, dead code
             // that read as a second layer of cancellation support. The
             // controller, which `JavaScriptExecutionCall.cancel()` sets, is the
             // real signal.
-            if cancellationController.isCancelled {
-                throw toolError(code: "CANCELLED", message: cancelMessage, transcript: invocationContext)
+            if settlement.cancellationController.isCancelled {
+                throw settlement.error(code: "CANCELLED", message: settlement.cancelMessage)
             }
 
             let state = context.evaluateScript("globalThis.__codemode.state")?.toString() ?? "unknown"
@@ -596,17 +595,7 @@ final class BridgeRuntime: @unchecked Sendable {
             case "rejected":
                 return .rejected
             default:
-                if let termination = watchdog.termination {
-                    switch termination {
-                    case .cancelled:
-                        throw toolError(code: "CANCELLED", message: cancelMessage, transcript: invocationContext)
-                    case .timedOut:
-                        throw toolError(code: timeoutCode, message: timeoutMessage, transcript: invocationContext)
-                    }
-                }
-                if watchdog.hasPassedDeadline {
-                    throw toolError(code: timeoutCode, message: timeoutMessage, transcript: invocationContext)
-                }
+                try checkInterrupted(settlement)
 
                 let nextTimerDelay = context
                     .evaluateScript("globalThis.__codemode.nextTimerDelay()")?
@@ -614,10 +603,9 @@ final class BridgeRuntime: @unchecked Sendable {
                     .doubleValue ?? -1
 
                 guard nextTimerDelay >= 0 else {
-                    throw toolError(
+                    throw settlement.error(
                         code: "JS_RUNTIME_ERROR",
                         message: "Script finished with a promise that can never settle: nothing is left to resolve it. This runtime has no I/O event loop, so only a pending setTimeout can advance a program after the synchronous work is done.",
-                        transcript: invocationContext,
                         suggestions: [
                             "Await every promise the script creates, and make sure each one has a resolve path.",
                             "A `new Promise(...)` whose executor never calls resolve or reject will hang forever here.",
@@ -625,17 +613,42 @@ final class BridgeRuntime: @unchecked Sendable {
                     )
                 }
 
-                try runDueTimers(
-                    delayMs: nextTimerDelay,
-                    context: context,
-                    watchdog: watchdog,
-                    cancellationController: cancellationController,
-                    invocationContext: invocationContext,
-                    timeoutCode: timeoutCode,
-                    timeoutMessage: timeoutMessage,
-                    cancelMessage: cancelMessage
-                )
+                try runDueTimers(delayMs: nextTimerDelay, context: context, settlement: settlement)
             }
+        }
+    }
+
+    /// Everything the settlement loop needs to report a cancellation or timeout.
+    /// The execution and search paths differ only in these message strings.
+    private struct SettlementParameters {
+        var watchdog: ExecutionWatchdog
+        var cancellationController: ExecutionCancellationController
+        var invocationContext: BridgeInvocationContext
+        var timeoutCode: String
+        var timeoutMessage: String
+        var cancelMessage: String
+
+        func error(code: String, message: String, suggestions: [String] = []) -> CodeModeToolError {
+            invocationContext.toolError(code: code, message: message, suggestions: suggestions)
+        }
+    }
+
+    /// Throws if the run was cancelled or has run out of time — the check every
+    /// waiting loop in this file has to make before sleeping again.
+    private func checkInterrupted(_ settlement: SettlementParameters) throws {
+        if settlement.cancellationController.isCancelled {
+            throw settlement.error(code: "CANCELLED", message: settlement.cancelMessage)
+        }
+        switch settlement.watchdog.termination {
+        case .cancelled:
+            throw settlement.error(code: "CANCELLED", message: settlement.cancelMessage)
+        case .timedOut:
+            throw settlement.error(code: settlement.timeoutCode, message: settlement.timeoutMessage)
+        case nil:
+            break
+        }
+        if settlement.watchdog.hasPassedDeadline {
+            throw settlement.error(code: settlement.timeoutCode, message: settlement.timeoutMessage)
         }
     }
 
@@ -644,49 +657,30 @@ final class BridgeRuntime: @unchecked Sendable {
     private func runDueTimers(
         delayMs: Double,
         context: JSContext,
-        watchdog: ExecutionWatchdog,
-        cancellationController: ExecutionCancellationController,
-        invocationContext: BridgeInvocationContext,
-        timeoutCode: String,
-        timeoutMessage: String,
-        cancelMessage: String
+        settlement: SettlementParameters
     ) throws {
         let start = ContinuousClock.now
         let target = start.advanced(by: .milliseconds(Int(delayMs.rounded(.up))))
 
         while ContinuousClock.now < target {
-            if cancellationController.isCancelled {
-                throw toolError(code: "CANCELLED", message: cancelMessage, transcript: invocationContext)
-            }
-            if watchdog.hasPassedDeadline {
-                throw toolError(code: timeoutCode, message: timeoutMessage, transcript: invocationContext)
-            }
+            try checkInterrupted(settlement)
             // Short slices so cancellation and the deadline stay responsive
             // during a long backoff.
             Thread.sleep(forTimeInterval: 0.005)
         }
 
-        let elapsed = Double((ContinuousClock.now - start).components.attoseconds) / 1e15
-            + Double((ContinuousClock.now - start).components.seconds) * 1_000
-        _ = context.evaluateScript("globalThis.__codemode.advanceTimers(\(max(elapsed, delayMs)))")
+        // Advance by the time that actually passed, so timers that came due while
+        // we slept fire together. The call returns the callbacks' uncaught errors,
+        // which cannot propagate to whoever called `setTimeout` and so surface as
+        // diagnostics the way an uncaught task error does in a real event loop.
+        let elapsed = (ContinuousClock.now - start).milliseconds
+        let errors = Self.stringArray(
+            from: context,
+            evaluating: "globalThis.__codemode.advanceTimers(\(elapsed))"
+        )
 
-        recordTimerErrors(from: context, invocationContext: invocationContext)
-    }
-
-    /// An error thrown by a timer callback cannot propagate to whoever called
-    /// `setTimeout`, so it surfaces as a diagnostic the way an uncaught task
-    /// error does in a real event loop.
-    private func recordTimerErrors(from context: JSContext, invocationContext: BridgeInvocationContext) {
-        guard let json = context.evaluateScript("JSON.stringify(globalThis.__codemode.takeTimerErrors())")?.toString(),
-              let data = json.data(using: .utf8),
-              let messages = try? JSONDecoder.codeModeBridge.decode([String].self, from: data),
-              messages.isEmpty == false
-        else {
-            return
-        }
-
-        for message in messages {
-            invocationContext.recordDiagnostic(
+        for message in errors {
+            settlement.invocationContext.recordDiagnostic(
                 ToolDiagnostic(
                     severity: .warning,
                     code: "TIMER_CALLBACK_ERROR",
@@ -807,16 +801,14 @@ final class BridgeRuntime: @unchecked Sendable {
 
         switch watchdog.termination {
         case .timedOut:
-            throw toolError(
+            throw invocationContext.toolError(
                 code: "SEARCH_TIMEOUT",
-                message: "Search timed out after \(timeoutMs)ms",
-                transcript: invocationContext
+                message: "Search timed out after \(timeoutMs)ms"
             )
         case .cancelled:
-            throw toolError(
+            throw invocationContext.toolError(
                 code: "CANCELLED",
-                message: "Search cancelled",
-                transcript: invocationContext
+                message: "Search cancelled"
             )
         case nil:
             break
@@ -829,12 +821,14 @@ final class BridgeRuntime: @unchecked Sendable {
 
         let settlement = try waitForSettlement(
             context: context,
-            watchdog: watchdog,
-            cancellationController: cancellationController,
-            invocationContext: invocationContext,
-            timeoutCode: "SEARCH_TIMEOUT",
-            timeoutMessage: "Search timed out after \(timeoutMs)ms",
-            cancelMessage: "Search cancelled"
+            settlement: SettlementParameters(
+                watchdog: watchdog,
+                cancellationController: cancellationController,
+                invocationContext: invocationContext,
+                timeoutCode: "SEARCH_TIMEOUT",
+                timeoutMessage: "Search timed out after \(timeoutMs)ms",
+                cancelMessage: "Search cancelled"
+            )
         )
 
         watchdog.rearm(timeoutMs: min(timeoutMs, Self.serializationBudgetMs))
@@ -871,15 +865,12 @@ final class BridgeRuntime: @unchecked Sendable {
         // already spent the memory the cap exists to protect. The replacement is
         // still valid JSON, so the model gets a parseable value plus a
         // diagnostic rather than a truncated fragment it cannot read.
-        guard let serialization = context.evaluateScript(
+        let serialization = context.evaluateScript(
             """
             (function(){
                 try {
                     var json = JSON.stringify(globalThis.__codemode.result);
-                    if (typeof json !== 'string') {
-                        return { ok: true, json: json };
-                    }
-                    if (json.length > \(limits.maxResultCharacters)) {
+                    if (typeof json === 'string' && json.length > \(limits.maxResultCharacters)) {
                         return {
                             ok: true,
                             truncated: true,
@@ -898,19 +889,17 @@ final class BridgeRuntime: @unchecked Sendable {
                 }
             })()
             """
-        ) else {
-            // A nil evaluation here after the watchdog fired is a termination,
-            // not a serialization problem. Reporting `INVALID_RESULT: must be
-            // JSON-serializable` for a runaway getter steered the model to fix
-            // the wrong thing.
-            if let termination = watchdog?.termination {
-                throw terminationError(termination, invocationContext: invocationContext, during: "result serialization")
-            }
-            throw CodeModeToolError(code: errorCode, message: errorMessagePrefix)
-        }
+        )
 
+        // Checked before anything else: a watchdog termination during
+        // serialization is a timeout, not a serialization problem, and reporting
+        // `INVALID_RESULT: must be JSON-serializable` for a runaway getter
+        // steered the model to fix the wrong thing.
         if let termination = watchdog?.termination {
             throw terminationError(termination, invocationContext: invocationContext, during: "result serialization")
+        }
+        guard let serialization else {
+            throw CodeModeToolError(code: errorCode, message: errorMessagePrefix)
         }
 
         if serialization.forProperty("ok")?.toBool() == false {
@@ -962,10 +951,8 @@ final class BridgeRuntime: @unchecked Sendable {
             ("CANCELLED", "Execution cancelled during \(phase)")
         }
 
-        guard let invocationContext else {
-            return CodeModeToolError(code: code, message: message)
-        }
-        return toolError(code: code, message: message, transcript: invocationContext)
+        return invocationContext?.toolError(code: code, message: message)
+            ?? CodeModeToolError(code: code, message: message)
     }
 
     private func bridgeFailurePayload(
@@ -1101,13 +1088,19 @@ final class BridgeRuntime: @unchecked Sendable {
     }
 
     private func rejectedSuggestions(from context: JSContext) -> [String] {
-        guard let json = context.evaluateScript("JSON.stringify(globalThis.__codemode.error?.suggestions ?? [])")?.toString(),
+        Self.stringArray(from: context, evaluating: "globalThis.__codemode.error?.suggestions ?? []")
+    }
+
+    /// Reads a JavaScript array of strings across the bridge. Returns an empty
+    /// array if the expression is missing or not string-shaped.
+    private static func stringArray(from context: JSContext, evaluating expression: String) -> [String] {
+        guard let json = context.evaluateScript("JSON.stringify(\(expression))")?.toString(),
               let data = json.data(using: .utf8),
-              let suggestions = try? JSONDecoder.codeModeBridge.decode([String].self, from: data)
+              let values = try? JSONDecoder.codeModeBridge.decode([String].self, from: data)
         else {
             return []
         }
-        return suggestions
+        return values
     }
 
     private func event(for error: CodeModeToolError) -> JavaScriptExecutionEvent {
@@ -1121,28 +1114,6 @@ final class BridgeRuntime: @unchecked Sendable {
         default:
             return .toolError(error)
         }
-    }
-
-    private func toolError(
-        code: String,
-        message: String,
-        transcript: BridgeInvocationContext,
-        functionName: String? = nil,
-        capability: CapabilityID? = nil,
-        capabilityKey: CodeModeCapabilityKey? = nil,
-        suggestions: [String] = []
-    ) -> CodeModeToolError {
-        CodeModeToolError(
-            code: code,
-            message: message,
-            functionName: functionName,
-            capability: capability,
-            capabilityKey: capabilityKey,
-            suggestions: suggestions,
-            diagnostics: transcript.allDiagnostics(),
-            logs: transcript.allLogs(),
-            permissionEvents: transcript.allPermissionEvents()
-        )
     }
 
     private func bridgeSuggestions(for capability: CapabilityID?) -> [String] {
@@ -1179,26 +1150,37 @@ final class BridgeRuntime: @unchecked Sendable {
         capabilityKey: CodeModeCapabilityKey?,
         invocationContext: BridgeInvocationContext? = nil
     ) -> (String, [String]) {
+        // A host-withheld denial reads the same whichever allowlist it came from,
+        // and is the one denial the model cannot repair — so it short-circuits
+        // both cases below.
+        let deniedIdentifier: String? = switch error {
+        case let .capabilityDenied(capability): capability.rawValue
+        case let .capabilityKeyDenied(capabilityKey): capabilityKey.rawValue
+        default: nil
+        }
+        if let deniedIdentifier, invocationContext?.isWithheldByHost(deniedIdentifier) == true {
+            return (
+                error.localizedDescription,
+                [
+                    "The host app's capability grant does not include \"\(deniedIdentifier)\".",
+                    "This is not repaired by adding it to allowedCapabilities or allowedCapabilityKeys; the host owns this decision.",
+                    "Continue with the capabilities you do have, or report the missing access to the user.",
+                ]
+            )
+        }
+
         let suggestions: [String]
         switch error {
         case let .capabilityDenied(capability):
-            if invocationContext?.isWithheldByHost(capability.rawValue) == true {
-                suggestions = hostWithheldSuggestions(for: capability.rawValue)
-            } else {
-                suggestions = [
-                    "Add \"\(capability.rawValue)\" to allowedCapabilities and retry.",
-                    "Built-in capabilities are granted only by allowedCapabilities; listing one in allowedCapabilityKeys has no effect.",
-                ] + bridgeSuggestions(for: capability, capabilityKey: capability.codeModeKey)
-            }
+            suggestions = [
+                "Add \"\(capability.rawValue)\" to allowedCapabilities and retry.",
+                "Built-in capabilities are granted only by allowedCapabilities; listing one in allowedCapabilityKeys has no effect.",
+            ] + bridgeSuggestions(for: capability, capabilityKey: capability.codeModeKey)
         case let .capabilityKeyDenied(capabilityKey):
-            if invocationContext?.isWithheldByHost(capabilityKey.rawValue) == true {
-                suggestions = hostWithheldSuggestions(for: capabilityKey.rawValue)
-            } else {
-                suggestions = [
-                    "Add \"\(capabilityKey.rawValue)\" to allowedCapabilityKeys and retry.",
-                    "Custom provider capabilities are not enabled by allowedCapabilities.",
-                ] + bridgeSuggestions(for: nil, capabilityKey: capabilityKey)
-            }
+            suggestions = [
+                "Add \"\(capabilityKey.rawValue)\" to allowedCapabilityKeys and retry.",
+                "Custom provider capabilities are not enabled by allowedCapabilities.",
+            ] + bridgeSuggestions(for: nil, capabilityKey: capabilityKey)
         case let .permissionDenied(permission):
             suggestions = permissionDeniedSuggestions(for: permission)
         case .customPermissionDenied:
@@ -1222,14 +1204,6 @@ final class BridgeRuntime: @unchecked Sendable {
         }
 
         return (error.localizedDescription, suggestions)
-    }
-
-    private func hostWithheldSuggestions(for identifier: String) -> [String] {
-        [
-            "The host app's capability grant does not include \"\(identifier)\".",
-            "This is not repaired by adding it to allowedCapabilities or allowedCapabilityKeys; the host owns this decision.",
-            "Continue with the capabilities you do have, or report the missing access to the user.",
-        ]
     }
 
     private func permissionDeniedSuggestions(for permission: PermissionKind) -> [String] {
@@ -1386,5 +1360,14 @@ final class BridgeRuntime: @unchecked Sendable {
             return nil
         }
         return trimmed
+    }
+}
+
+private extension Duration {
+    /// Whole and fractional milliseconds. `components` splits into seconds plus
+    /// attoseconds, which is otherwise an awkward two-term conversion.
+    var milliseconds: Double {
+        let parts = components
+        return Double(parts.seconds) * 1_000 + Double(parts.attoseconds) / 1e15
     }
 }

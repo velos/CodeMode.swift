@@ -55,8 +55,4 @@ enum CodeModeDate {
         }
         return try require(text, argument: argument, capability: capability)
     }
-
-    static func string(from date: Date) -> String {
-        ISO8601DateFormatter().string(from: date)
-    }
 }

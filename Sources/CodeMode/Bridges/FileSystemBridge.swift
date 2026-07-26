@@ -63,20 +63,12 @@ public final class FileSystemBridge: @unchecked Sendable {
         let encoding = arguments.string("encoding") ?? "utf8"
         let url = try context.pathPolicy.resolve(path: path)
 
-        // Check the size before reading: reading first and then rejecting has
-        // already spent the memory the cap exists to protect.
-        if let size = try? fileSystem.attributesOfItem(at: url).size, size > limits.maxReadBytes {
-            throw BridgeError.invalidArguments(
-                "fs.read refused \(url.lastPathComponent): \(size) bytes exceeds the \(limits.maxReadBytes)-byte read limit. Read a smaller file, or have the host raise CodeModeConfiguration.fileSystemLimits."
-            )
-        }
-
+        // Checked against stat first: reading and then rejecting has already spent
+        // the memory the cap exists to protect. Re-checked after, because a
+        // custom CodeModeFileSystem's stat may be absent or stale.
+        try enforceReadLimit(try? fileSystem.attributesOfItem(at: url).size, at: url)
         let data = try fileSystem.readData(at: url)
-        guard data.count <= limits.maxReadBytes else {
-            throw BridgeError.invalidArguments(
-                "fs.read refused \(url.lastPathComponent): \(data.count) bytes exceeds the \(limits.maxReadBytes)-byte read limit."
-            )
-        }
+        try enforceReadLimit(data.count, at: url)
 
         switch encoding.lowercased() {
         case "utf8", "utf-8":
@@ -124,9 +116,7 @@ public final class FileSystemBridge: @unchecked Sendable {
         }
 
         guard data.count <= limits.maxWriteBytes else {
-            throw BridgeError.invalidArguments(
-                "fs.write refused \(url.lastPathComponent): \(data.count) bytes exceeds the \(limits.maxWriteBytes)-byte write limit."
-            )
+            throw Self.overLimit("fs.write", url: url, bytes: data.count, limit: limits.maxWriteBytes)
         }
 
         // Only after the payload is known good, so a rejected write leaves no
@@ -169,6 +159,19 @@ public final class FileSystemBridge: @unchecked Sendable {
             "from": .string(fromURL.path),
             "to": .string(toURL.path),
         ])
+    }
+
+    private func enforceReadLimit(_ bytes: Int?, at url: URL) throws {
+        guard let bytes, bytes > limits.maxReadBytes else {
+            return
+        }
+        throw Self.overLimit("fs.read", url: url, bytes: bytes, limit: limits.maxReadBytes)
+    }
+
+    private static func overLimit(_ operation: String, url: URL, bytes: Int, limit: Int) -> BridgeError {
+        .invalidArguments(
+            "\(operation) refused \(url.lastPathComponent): \(bytes) bytes exceeds the \(limit)-byte limit. Use a smaller payload, or have the host raise CodeModeConfiguration.fileSystemLimits."
+        )
     }
 
     /// Clears the way for a move/copy, refusing anything destructive the caller

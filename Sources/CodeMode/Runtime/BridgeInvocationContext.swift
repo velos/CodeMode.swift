@@ -115,6 +115,32 @@ public final class BridgeInvocationContext: @unchecked Sendable {
         hostWithheldCapabilityIdentifiers.contains(identifier)
     }
 
+    /// Builds a `CodeModeToolError` carrying this execution's transcript.
+    ///
+    /// Lives here rather than on the runtime because the transcript fields are
+    /// this type's; three separate call sites were otherwise assembling the same
+    /// three accessors by hand.
+    func toolError(
+        code: String,
+        message: String,
+        functionName: String? = nil,
+        capability: CapabilityID? = nil,
+        capabilityKey: CodeModeCapabilityKey? = nil,
+        suggestions: [String] = []
+    ) -> CodeModeToolError {
+        CodeModeToolError(
+            code: code,
+            message: message,
+            functionName: functionName,
+            capability: capability,
+            capabilityKey: capabilityKey,
+            suggestions: suggestions,
+            diagnostics: allDiagnostics(),
+            logs: allLogs(),
+            permissionEvents: allPermissionEvents()
+        )
+    }
+
     func recordDiagnostic(_ diagnostic: ToolDiagnostic) {
         transcript.record(diagnostic: diagnostic)
     }
