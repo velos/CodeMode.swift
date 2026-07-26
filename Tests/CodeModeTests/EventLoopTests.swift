@@ -222,3 +222,84 @@ import Testing
 
     #expect(observed.result?.diagnostics.contains { $0.code == "BRIDGE_FAILURES_NOT_SURFACED" } == false)
 }
+
+// MARK: - Bounded concurrency
+
+@Test func concurrentExecutionsAllCompleteAndStayIsolated() async throws {
+    let (tools, sandbox) = try makeTools(
+        executionLimits: ExecutionLimits(maxConcurrentExecutions: 3)
+    )
+    defer { cleanup(sandbox) }
+
+    // The concurrent execution queue is a core design point but had no test, and
+    // no width limit: each execution blocks its thread for the whole run, so N
+    // parallel calls meant N blocked GCD threads and N live JavaScriptCore VMs.
+    // More executions than slots must still all complete, each with its own
+    // context and its own result.
+    let results = try await withThrowingTaskGroup(of: (Int, JSONValue?).self) { group in
+        for index in 0..<12 {
+            group.addTask {
+                let observed = try await execute(
+                    tools,
+                    request: JavaScriptExecutionRequest(
+                        code: """
+                        await apple.fs.write({ path: 'tmp:worker-\(index).txt', data: 'value-\(index)' });
+                        const read = await apple.fs.read({ path: 'tmp:worker-\(index).txt' });
+                        return { index: \(index), text: read.text, leaked: typeof globalThis.__leaked };
+                        """,
+                        allowedCapabilities: [.fsRead, .fsWrite],
+                        timeoutMs: 20_000
+                    )
+                )
+                return (index, observed.result?.output)
+            }
+        }
+
+        var collected: [Int: JSONValue?] = [:]
+        for try await (index, output) in group {
+            collected[index] = output
+        }
+        return collected
+    }
+
+    #expect(results.count == 12)
+    for index in 0..<12 {
+        let output = try #require(results[index]??.objectValue)
+        #expect(output.int("index") == index)
+        #expect(output.string("text") == "value-\(index)")
+        // A fresh JSContext per execution: no state carries between them.
+        #expect(output.string("leaked") == "undefined")
+    }
+}
+
+@Test func executionsBeyondTheSlotLimitQueueRatherThanFail() async throws {
+    let (tools, sandbox) = try makeTools(
+        executionLimits: ExecutionLimits(maxConcurrentExecutions: 1)
+    )
+    defer { cleanup(sandbox) }
+
+    // With one slot these serialize; the point is that the extras wait for a slot
+    // instead of erroring, and that waiting for a slot does not count against the
+    // per-execution timeout.
+    let outputs = try await withThrowingTaskGroup(of: JSONValue?.self) { group in
+        for index in 0..<4 {
+            group.addTask {
+                try await execute(
+                    tools,
+                    request: JavaScriptExecutionRequest(
+                        code: "await new Promise(r => setTimeout(r, 60)); return \(index);",
+                        allowedCapabilities: [],
+                        timeoutMs: 500
+                    )
+                ).result?.output
+            }
+        }
+        var collected: [JSONValue?] = []
+        for try await output in group {
+            collected.append(output)
+        }
+        return collected
+    }
+
+    #expect(outputs.compactMap { $0?.intValue }.sorted() == [0, 1, 2, 3])
+}

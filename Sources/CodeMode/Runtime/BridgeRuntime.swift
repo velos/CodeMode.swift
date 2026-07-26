@@ -32,6 +32,14 @@ final class BridgeRuntime: @unchecked Sendable {
         qos: .userInitiated,
         attributes: .concurrent
     )
+    /// Caps how many executions hold a thread and a live `JSContext` at once.
+    ///
+    /// The queue is concurrent and each execution blocks its thread for the whole
+    /// run, so thirty parallel `executeJavaScript` calls meant thirty blocked GCD
+    /// threads and thirty JavaScriptCore VMs. Excess executions now queue instead
+    /// of exhausting the thread pool; `timeoutMs` still measures the run itself,
+    /// not the wait for a slot.
+    private let executionSlots: DispatchSemaphore
 
     init(
         registry: CapabilityRegistry,
@@ -43,6 +51,7 @@ final class BridgeRuntime: @unchecked Sendable {
         self.catalog = catalog
         self.config = config
         self.unsupportedBuiltInJavaScriptNames = unsupportedBuiltInJavaScriptNames
+        self.executionSlots = DispatchSemaphore(value: max(1, config.executionLimits.maxConcurrentExecutions))
     }
 
     func search(_ request: JavaScriptAPISearchRequest) throws -> JavaScriptAPISearchResponse {
@@ -179,6 +188,10 @@ final class BridgeRuntime: @unchecked Sendable {
     ) async throws -> Output {
         try await withCheckedThrowingContinuation { continuation in
             executionQueue.async {
+                // Wait for a slot on the worker, not before dispatching, so the
+                // caller's async context is never blocked.
+                self.executionSlots.wait()
+                defer { self.executionSlots.signal() }
                 do {
                     continuation.resume(returning: try operation())
                 } catch {

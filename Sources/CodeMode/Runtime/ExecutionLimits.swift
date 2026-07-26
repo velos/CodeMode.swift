@@ -33,6 +33,11 @@ public struct ExecutionLimits: Sendable, Equatable {
     /// Maximum retained permission events.
     public var maxPermissionEvents: Int
 
+    /// How many executions may hold a thread and a live JavaScriptCore context
+    /// at once. Excess executions queue rather than exhausting the GCD thread
+    /// pool; the per-execution `timeoutMs` measures the run, not the wait.
+    public var maxConcurrentExecutions: Int
+
     /// Depth of the events `AsyncStream` buffer. A host that stops draining
     /// drops the oldest events rather than growing without bound.
     public var maxBufferedEvents: Int
@@ -44,7 +49,8 @@ public struct ExecutionLimits: Sendable, Equatable {
         maxLogMessageCharacters: Int = 8_000,
         maxDiagnostics: Int = 200,
         maxPermissionEvents: Int = 200,
-        maxBufferedEvents: Int = 1_000
+        maxBufferedEvents: Int = 1_000,
+        maxConcurrentExecutions: Int = 8
     ) {
         self.maxResultCharacters = maxResultCharacters
         self.truncatedResultPreviewCharacters = truncatedResultPreviewCharacters
@@ -53,6 +59,7 @@ public struct ExecutionLimits: Sendable, Equatable {
         self.maxDiagnostics = maxDiagnostics
         self.maxPermissionEvents = maxPermissionEvents
         self.maxBufferedEvents = maxBufferedEvents
+        self.maxConcurrentExecutions = maxConcurrentExecutions
     }
 
     public static let standard = ExecutionLimits()

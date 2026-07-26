@@ -37,9 +37,11 @@ just the watchdog:
   serialization, cancellation, catch-proof termination, context recovery).
 - [ ] **JS heap / memory cap** — nothing bounds `JSContext`/`JSContextGroup`
   heap; `new Array(1e9)` can still exhaust host memory. NOT addressed.
-- [ ] **Bound on concurrent executions** — `executionQueue` is `.concurrent`
-  with spin-waiting workers (`BridgeRuntime.swift:25-29`), so N long-running
-  scripts occupy N threads. No concurrency cap. NOT addressed.
+- [x] **Bound on concurrent executions** — `ExecutionLimits.maxConcurrentExecutions`
+  (default 8) gates `runOnExecutionQueue` with a semaphore acquired *on* the
+  worker, so excess executions queue instead of exhausting the GCD thread pool.
+  Covered by `concurrentExecutionsAllCompleteAndStayIsolated` and
+  `executionsBeyondTheSlotLimitQueueRatherThanFail`.
 - [ ] `runOnExecutionQueue` still has no task-cancellation handler wired into the
   dispatched block (best-effort only). NOT addressed.
 
