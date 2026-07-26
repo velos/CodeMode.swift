@@ -3,6 +3,7 @@ import Foundation
 public enum DefaultCapabilityLoader {
     public static func loadAllRegistrations(
         fileSystem: any CodeModeFileSystem = LocalCodeModeFileSystem(),
+        fileSystemLimits: FileSystemLimits = .standard,
         networkAccessPolicy: NetworkAccessPolicy = .standard,
         eventInbox: any CodeModeEventInbox = UnavailableCodeModeEventInbox(),
         cloudKitClient: any CloudKitClient = UnavailableCloudKitClient(),
@@ -18,6 +19,7 @@ public enum DefaultCapabilityLoader {
     ) -> [CapabilityRegistration] {
         DefaultCapabilityRegistrationBuilder(
             fileSystem: fileSystem,
+            fileSystemLimits: fileSystemLimits,
             networkAccessPolicy: networkAccessPolicy,
             eventInbox: eventInbox,
             cloudKitClient: cloudKitClient,
@@ -64,6 +66,7 @@ struct DefaultCapabilityRegistrationBuilder {
 
     init(
         fileSystem: any CodeModeFileSystem,
+        fileSystemLimits: FileSystemLimits,
         networkAccessPolicy: NetworkAccessPolicy,
         eventInbox: any CodeModeEventInbox,
         cloudKitClient: any CloudKitClient,
@@ -77,7 +80,7 @@ struct DefaultCapabilityRegistrationBuilder {
         passKitClient: any PassKitClient,
         storeKitClient: any StoreKitClient
     ) {
-        self.fs = FileSystemBridge(fileSystem: fileSystem)
+        self.fs = FileSystemBridge(fileSystem: fileSystem, limits: fileSystemLimits)
         self.network = NetworkBridge(policy: networkAccessPolicy)
         self.keychain = KeychainBridge()
         self.location = LocationBridge()

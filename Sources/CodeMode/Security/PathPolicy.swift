@@ -23,6 +23,26 @@ public struct PathPolicyConfig: Sendable {
 
 public protocol PathPolicy: Sendable {
     func resolve(path: String) throws -> URL
+
+    /// The roots this policy admits.
+    ///
+    /// `resolve` accepts a root itself — `documents:` resolves to the documents
+    /// root — so destructive operations need to be able to recognize one and
+    /// refuse. Custom policies that do not implement this get an empty list and
+    /// simply lose that specific check.
+    var allowedRoots: [URL] { get }
+}
+
+public extension PathPolicy {
+    var allowedRoots: [URL] { [] }
+
+    /// True when `url` *is* one of the allowed roots rather than something inside one.
+    func isAllowedRoot(_ url: URL) -> Bool {
+        let candidate = url.standardizedFileURL.resolvingSymlinksInPath().standardizedFileURL.path
+        return allowedRoots.contains { root in
+            root.standardizedFileURL.resolvingSymlinksInPath().standardizedFileURL.path == candidate
+        }
+    }
 }
 
 public struct DefaultPathPolicy: PathPolicy {
@@ -30,6 +50,10 @@ public struct DefaultPathPolicy: PathPolicy {
 
     public init(config: PathPolicyConfig = .init()) {
         self.config = config
+    }
+
+    public var allowedRoots: [URL] {
+        [config.tmpRoot, config.cachesRoot, config.documentsRoot, config.appGroupRoot].compactMap { $0 }
     }
 
     public func resolve(path: String) throws -> URL {

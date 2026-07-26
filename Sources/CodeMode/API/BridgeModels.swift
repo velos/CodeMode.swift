@@ -7,6 +7,8 @@ public struct CodeModeConfiguration: Sendable {
     /// `allowedCapabilityKeys`. Defaults to `.unrestricted`; see `CapabilityGrant`.
     public var capabilityGrant: CapabilityGrant
     public var fileSystem: any CodeModeFileSystem
+    /// Byte ceilings applied by the filesystem bridge to `fs.read` / `fs.write`.
+    public var fileSystemLimits: FileSystemLimits
     public var artifactStore: any ArtifactStore
     public var permissionBroker: any PermissionBroker
     public var auditLogger: any AuditLogger
@@ -30,6 +32,7 @@ public struct CodeModeConfiguration: Sendable {
         networkAccessPolicy: NetworkAccessPolicy = .standard,
         capabilityGrant: CapabilityGrant = .unrestricted,
         fileSystem: any CodeModeFileSystem = LocalCodeModeFileSystem(),
+        fileSystemLimits: FileSystemLimits = .standard,
         artifactStore: any ArtifactStore = InMemoryArtifactStore(),
         permissionBroker: any PermissionBroker = SystemPermissionBroker(),
         auditLogger: any AuditLogger = SyncAuditLogger(),
@@ -52,6 +55,7 @@ public struct CodeModeConfiguration: Sendable {
         self.networkAccessPolicy = networkAccessPolicy
         self.capabilityGrant = capabilityGrant
         self.fileSystem = fileSystem
+        self.fileSystemLimits = fileSystemLimits
         self.artifactStore = artifactStore
         self.permissionBroker = permissionBroker
         self.auditLogger = auditLogger
