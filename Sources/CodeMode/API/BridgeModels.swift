@@ -137,6 +137,13 @@ public struct JavaScriptAPISearchResponse: Sendable, Codable, Equatable {
 }
 
 public struct JavaScriptExecutionRequest: Sendable, Codable, Equatable {
+    /// Bounds advertised in `executeJavaScriptParameterSchema`. Values outside
+    /// them are clamped rather than rejected: a model that asks for a 10-minute
+    /// budget should get the ceiling and a running script, not a hard failure.
+    public static let minimumTimeoutMs = 1
+    public static let maximumTimeoutMs = 60_000
+    public static let defaultTimeoutMs = 10_000
+
     public var code: String
     public var allowedCapabilities: [CapabilityID]
     public var allowedCapabilityKeys: [CodeModeCapabilityKey]
@@ -147,14 +154,18 @@ public struct JavaScriptExecutionRequest: Sendable, Codable, Equatable {
         code: String,
         allowedCapabilities: [CapabilityID],
         allowedCapabilityKeys: [CodeModeCapabilityKey] = [],
-        timeoutMs: Int = 10_000,
+        timeoutMs: Int = JavaScriptExecutionRequest.defaultTimeoutMs,
         context: ExecutionContext = .init()
     ) {
         self.code = code
         self.allowedCapabilities = allowedCapabilities
         self.allowedCapabilityKeys = allowedCapabilityKeys
-        self.timeoutMs = timeoutMs
+        self.timeoutMs = Self.clampTimeoutMs(timeoutMs)
         self.context = context
+    }
+
+    static func clampTimeoutMs(_ value: Int) -> Int {
+        min(max(value, minimumTimeoutMs), maximumTimeoutMs)
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -199,10 +210,13 @@ public struct JavaScriptExecutionRequest: Sendable, Codable, Equatable {
         self.allowedCapabilities = capabilities
 
         self.allowedCapabilityKeys = try container.decodeIfPresent([CodeModeCapabilityKey].self, forKey: .allowedCapabilityKeys) ?? []
-        self.timeoutMs = try Self.decodeTimeoutMs(from: container) ?? 10_000
+        self.timeoutMs = Self.clampTimeoutMs(try Self.decodeTimeoutMs(from: container) ?? Self.defaultTimeoutMs)
         self.context = try container.decodeIfPresent(ExecutionContext.self, forKey: .context) ?? .init()
     }
 
+    // Every conversion here is total. `Int.init(_: Double)` traps on non-finite
+    // and out-of-range input, and this runs on model-authored JSON before any
+    // script does — `{"timeoutMs": 1e300}` would kill the host process in-process.
     private static func decodeTimeoutMs(from container: KeyedDecodingContainer<CodingKeys>) throws -> Int? {
         guard container.contains(.timeoutMs), try !container.decodeNil(forKey: .timeoutMs) else {
             return nil
@@ -211,17 +225,31 @@ public struct JavaScriptExecutionRequest: Sendable, Codable, Equatable {
             return value
         }
         if let value = try? container.decode(Double.self, forKey: .timeoutMs) {
-            return Int(value)
+            return try requireRepresentable(value, in: container)
         }
         if let string = try? container.decode(String.self, forKey: .timeoutMs),
            let value = Double(string.trimmingCharacters(in: .whitespaces)) {
-            return Int(value)
+            return try requireRepresentable(value, in: container)
         }
         throw DecodingError.dataCorruptedError(
             forKey: .timeoutMs,
             in: container,
             debugDescription: "timeoutMs must be an integer or a numeric string."
         )
+    }
+
+    private static func requireRepresentable(
+        _ value: Double,
+        in container: KeyedDecodingContainer<CodingKeys>
+    ) throws -> Int {
+        guard let converted = JSONValue.exactInt(from: value) else {
+            throw DecodingError.dataCorruptedError(
+                forKey: .timeoutMs,
+                in: container,
+                debugDescription: "timeoutMs must be a finite number representable as an integer; received \(value)."
+            )
+        }
+        return converted
     }
 }
 

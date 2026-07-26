@@ -16,7 +16,10 @@ public enum CapabilityArgumentType: String, Sendable, Codable, Equatable {
             if case .string = value { return true }
             return false
         case .number:
-            if case .number = value { return true }
+            // Non-finite is not a usable number for any bridge: it cannot be
+            // converted to an Int, cannot round-trip through JSON, and reaches
+            // here from `"inf"`/`"nan"` coercion or a JS `Infinity`.
+            if case let .number(number) = value { return number.isFinite }
             return false
         case .bool:
             if case .bool = value { return true }
@@ -604,7 +607,10 @@ public final class CapabilityRegistry: @unchecked Sendable {
         let trimmed = raw.trimmingCharacters(in: .whitespaces)
         switch type {
         case .number:
-            guard let number = Double(trimmed) else { return nil }
+            // `Double.init(String)` accepts "inf", "-infinity", and "nan", so a
+            // declared-number argument sent as a string is a way to smuggle a
+            // non-finite value past the type check.
+            guard let number = Double(trimmed), number.isFinite else { return nil }
             return .number(number)
         case .bool:
             switch trimmed.lowercased() {
