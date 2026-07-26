@@ -52,6 +52,12 @@ struct BridgeCatalog: Sendable {
         searchCatalog
     }
 
+    /// TypeScript declarations for the whole platform-filtered surface, for a
+    /// host to drop into its system prompt.
+    func typeDeclarations() -> String {
+        TypeScriptDeclarations.surface(for: references)
+    }
+
     func closestFunctionNames(to candidate: String, limit: Int = 3) -> [String] {
         let normalizedCandidate = candidate
             .lowercased()
@@ -99,7 +105,7 @@ struct BridgeCatalog: Sendable {
     }
 
     private static func reference(from function: RegisteredCodeModeFunction) -> JavaScriptAPIReference {
-        return JavaScriptAPIReference(
+        let reference = JavaScriptAPIReference(
             capability: function.catalogCapability,
             capabilityKey: function.capabilityKey,
             builtInCapability: function.builtInCapability,
@@ -114,6 +120,9 @@ struct BridgeCatalog: Sendable {
             argumentConstraints: function.argumentConstraints,
             resultSummary: function.resultSummary
         )
+        var withTypes = reference
+        withTypes.dts = TypeScriptDeclarations.declaration(for: reference)
+        return withTypes
     }
 
     private static func levenshtein(_ lhs: String, _ rhs: String) -> Int {

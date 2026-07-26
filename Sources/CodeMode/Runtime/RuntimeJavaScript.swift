@@ -258,16 +258,32 @@ enum RuntimeJavaScript {
     };
 
     globalThis.apple = globalThis.apple || {};
+    // These accept either the object form the catalog advertises —
+    // apple.keychain.get({ key }) — or the positional form the examples have
+    // always shown. The catalog described object arguments while the wrapper took
+    // a positional string, so code written from the metadata sent "[object
+    // Object]" as the key.
+    function __keychainArgs(first, value) {
+        if (first && typeof first === 'object') {
+            const args = { key: String(first.key) };
+            if (first.value !== undefined) args.value = String(first.value);
+            return args;
+        }
+        const args = { key: String(first) };
+        if (value !== undefined) args.value = String(value);
+        return args;
+    }
+
     globalThis.apple.keychain = {
-        get: function(key) { return __invokeAsync('keychain.read', { key: String(key) }); },
-        set: function(key, value) { return __invokeAsync('keychain.write', { key: String(key), value: String(value) }); },
-        delete: function(key) { return __invokeAsync('keychain.delete', { key: String(key) }); }
+        get: function(key) { return __invokeAsync('keychain.read', __keychainArgs(key)); },
+        set: function(key, value) { return __invokeAsync('keychain.write', __keychainArgs(key, value)); },
+        delete: function(key) { return __invokeAsync('keychain.delete', __keychainArgs(key)); }
     };
 
     globalThis.apple.location = {
-        getPermissionStatus: function() { return __invokeAsync('location.read', { mode: 'permissionStatus' }); },
+        getPermissionStatus: function(args) { return __invokeAsync('location.read', Object.assign({ mode: 'permissionStatus' }, args || {})); },
         requestPermission: function() { return __invokeAsync('location.permission.request', {}); },
-        getCurrentPosition: function() { return __invokeAsync('location.read', { mode: 'current' }); }
+        getCurrentPosition: function(args) { return __invokeAsync('location.read', Object.assign({ mode: 'current' }, args || {})); }
     };
 
     globalThis.apple.calendar = {
@@ -353,6 +369,17 @@ enum RuntimeJavaScript {
         open: function(args) { return __invokeAsync('settings.ui.open', args || {}); }
     };
 
+    // fs.move / fs.copy refuse an existing destination without an explicit
+    // overwrite, so the Node-style aliases need a way to pass one through.
+    function __fsDestinationArgs(from, to, options) {
+        const args = { from: String(from), to: String(to) };
+        if (options && typeof options === 'object') {
+            if (options.overwrite !== undefined) args.overwrite = !!options.overwrite;
+            if (options.recursive !== undefined) args.recursive = !!options.recursive;
+        }
+        return args;
+    }
+
     globalThis.fs = {
         promises: {
             readFile: function(path, options) {
@@ -378,8 +405,12 @@ enum RuntimeJavaScript {
             rm: function(path, options) {
                 return __invokeAsync('fs.delete', { path: String(path), recursive: !!(options && options.recursive) });
             },
-            rename: function(from, to) { return __invokeAsync('fs.move', { from: String(from), to: String(to) }); },
-            copyFile: function(from, to) { return __invokeAsync('fs.copy', { from: String(from), to: String(to) }); }
+            rename: function(from, to, options) {
+                return __invokeAsync('fs.move', __fsDestinationArgs(from, to, options));
+            },
+            copyFile: function(from, to, options) {
+                return __invokeAsync('fs.copy', __fsDestinationArgs(from, to, options));
+            }
         }
     };
 

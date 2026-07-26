@@ -158,6 +158,40 @@ let tools = CodeModeAgentTools(
 )
 ```
 
+## TypeScript Declarations
+
+The registry already knows argument names, types, optionality, enum constraints,
+and hints. That metadata is emitted as TypeScript so the model writes code
+against real declarations instead of a coarse type map plus prose:
+
+```swift
+let tools = CodeModeAgentTools()
+print(tools.typeDeclarations())      // whole platform-filtered surface
+print(tools.capabilities())          // every reference, each carrying `dts`
+```
+
+Every `JavaScriptAPIReference` carries a per-capability `dts`, so code-driven
+search stays the filter and TypeScript becomes the payload:
+
+```javascript
+async () => {
+  return api.references
+    .filter(ref => ref.tags.includes("calendar"))
+    .map(ref => ref.dts)
+    .join("\n\n");
+}
+```
+
+Constrained arguments become string-literal unions, dotted argument paths
+(`options.timeoutMs`) become nested object types, and argument hints become doc
+comments. Results are typed `CodeModeValue` — built-in bridges return untyped
+JSON dictionaries, so a narrower result type would be a fiction; the prose result
+summary is in the doc comment until per-capability result schemas exist.
+
+The Node-compatibility globals (`fetch`, `fs.promises.*`, `path`, `console`) are
+declared in a hand-authored preamble, because their positional calling convention
+is not something the catalog can express.
+
 ## Search
 
 `searchJavaScriptAPI` accepts `JavaScriptAPISearchRequest`:

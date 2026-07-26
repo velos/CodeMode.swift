@@ -102,6 +102,10 @@ public struct JavaScriptAPIReference: Sendable, Codable, Equatable {
     public var argumentHints: [String: String]
     public var argumentConstraints: CapabilityArgumentConstraints
     public var resultSummary: String
+    /// TypeScript declaration for this helper, generated from the fields above.
+    /// Return it from `searchJavaScriptAPI` to give the model real types rather
+    /// than a coarse `argumentTypes` map plus prose.
+    public var dts: String
 
     public init(
         capability: String,
@@ -116,7 +120,8 @@ public struct JavaScriptAPIReference: Sendable, Codable, Equatable {
         argumentTypes: [String: CapabilityArgumentType],
         argumentHints: [String: String],
         argumentConstraints: CapabilityArgumentConstraints = .none,
-        resultSummary: String
+        resultSummary: String,
+        dts: String = ""
     ) {
         self.capability = capability
         self.capabilityKey = capabilityKey ?? CodeModeCapabilityKey(rawValue: capability)
@@ -131,6 +136,7 @@ public struct JavaScriptAPIReference: Sendable, Codable, Equatable {
         self.argumentHints = argumentHints
         self.argumentConstraints = argumentConstraints
         self.resultSummary = resultSummary
+        self.dts = dts
     }
 }
 

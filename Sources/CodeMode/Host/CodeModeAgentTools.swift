@@ -46,7 +46,26 @@ public final class CodeModeAgentTools: @unchecked Sendable {
         try await runtime.searchAsync(request)
     }
 
+    /// Declared `async throws` for a body that is currently synchronous and
+    /// non-throwing. That is deliberate: making the bridge ABI asynchronous is
+    /// planned, and this signature is the one that will not have to change.
     public func executeJavaScript(_ request: JavaScriptExecutionRequest) async throws -> JavaScriptExecutionCall {
         runtime.makeExecutionCall(request)
+    }
+
+    /// TypeScript declarations for the whole platform-filtered API surface.
+    ///
+    /// Models write markedly better code against real types than against prose,
+    /// so a host can drop this into its system prompt when the surface is small
+    /// enough to afford, and rely on `searchJavaScriptAPI` (whose results carry a
+    /// per-capability `dts`) when it is not.
+    public func typeDeclarations() -> String {
+        catalog.typeDeclarations()
+    }
+
+    /// Every capability available on this host, for consent UI and for hosts
+    /// building their own `CapabilityGrant`.
+    public func capabilities() -> [JavaScriptAPIReference] {
+        catalog.allReferences()
     }
 }

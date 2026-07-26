@@ -75,6 +75,7 @@ public enum CodeModeAgentToolDescriptions {
           argumentHints: Record<string, string>;
           argumentConstraints: { allowedStringValues: Record<string, string[]> };
           resultSummary: string;
+          dts: string;
         }
 
         declare const api: {
@@ -85,6 +86,8 @@ public enum CodeModeAgentToolDescriptions {
 
         Your code must evaluate to an async function and return JSON-serializable output.
         Search has a 2s budget, so slice broad result sets before returning them.
+
+        Prefer returning ref.dts: it is the TypeScript declaration for the helper, with argument names, types, string-literal unions for constrained values, optionality, and the result summary. It is more precise and usually shorter than assembling argumentTypes, argumentHints, and argumentConstraints yourself.
 
         Examples:
         async () => {
@@ -106,7 +109,14 @@ public enum CodeModeAgentToolDescriptions {
         }
 
         async () => {
-          return api.byJSName["apple.fs.read"];
+          return api.byJSName["apple.fs.read"].dts;
+        }
+
+        async () => {
+          return api.references
+            .filter(ref => ref.tags.includes("calendar"))
+            .map(ref => ref.dts)
+            .join("\n\n");
         }
         """
     )
@@ -116,7 +126,7 @@ public enum CodeModeAgentToolDescriptions {
         description: """
         Execute JavaScript against the CodeMode runtime. Prefer searchJavaScriptAPI first when choosing helpers or arguments. Cross-platform helpers live under apple.* and platform-specific helpers live under platform namespaces such as ios.alarm.*; custom host providers may expose additional namespaces. System UI helpers such as apple.ui.presentAlert, apple.calendar.presentNewEvent, apple.photos.pick, apple.contacts.pick, apple.documents.pick, apple.share.present, apple.quicklook.preview, apple.web.present, and apple.auth.webAuthenticate require a host-provided SystemUIPresenter; camera, document scan, mail, and message compose helpers are iOS-only. Only helpers supported on the current host platform are installed.
 
-        Calling conventions: apple.* helpers take one object argument, for example apple.fs.read({ path: "tmp:file.txt" }) and often return structured objects such as { text, base64 }. Node-style filesystem aliases use positional arguments, for example fs.promises.readFile("tmp:file.txt", "utf8"), and return Node-like values such as a string for readFile. fetch(url, options) is a global helper and returns a Response-like object with text(), json(), headers.get(), status, and ok.
+        Calling conventions: apple.* and other namespaced helpers take one object argument, for example apple.fs.read({ path: "tmp:file.txt" }) and often return structured objects such as { text, base64 }. Node-style filesystem aliases under fs.promises.* use positional arguments, for example fs.promises.readFile("tmp:file.txt", "utf8"), and return Node-like values such as a string for readFile. When in doubt, use the ref.dts from searchJavaScriptAPI — it states the exact signature. fetch(url, options) is a global helper and returns a Response-like object with text(), json(), headers.get(), status, and ok.
 
         Return semantics: the runtime wraps your code in an async function. For multi-statement code, return the final graded value with an explicit top-level return statement. A script that is only a bare final top-level await expression, such as await apple.fs.read({ path: "tmp:file.txt" }), returns that awaited value. Do not use an unreturned async IIFE as the final expression. setTimeout callbacks fire synchronously in this runtime.
 

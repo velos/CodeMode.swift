@@ -2398,7 +2398,7 @@
     "argumentTypes" : {
       "key" : "string"
     },
-    "example" : "await apple.keychain.delete('auth_token')",
+    "example" : "await apple.keychain.delete({ key: 'auth_token' })",
     "id" : "keychain.delete",
     "jsNames" : [
       "apple.keychain.delete"
@@ -2431,7 +2431,7 @@
     "argumentTypes" : {
       "key" : "string"
     },
-    "example" : "await apple.keychain.get('auth_token')",
+    "example" : "await apple.keychain.get({ key: 'auth_token' })",
     "id" : "keychain.read",
     "jsNames" : [
       "apple.keychain.get"
@@ -2466,7 +2466,7 @@
       "key" : "string",
       "value" : "string"
     },
-    "example" : "await apple.keychain.set('auth_token', token)",
+    "example" : "await apple.keychain.set({ key: 'auth_token', value: token })",
     "id" : "keychain.write",
     "jsNames" : [
       "apple.keychain.set"
