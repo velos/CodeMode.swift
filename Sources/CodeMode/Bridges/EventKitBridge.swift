@@ -491,6 +491,17 @@ public final class EventKitBridge: @unchecked Sendable {
         return span.ekSpan
     }
 
+    /// Test seam: these serializers are the only EventKit logic reachable
+    /// without a live, permission-granted store, and they are where the
+    /// implicitly-unwrapped `calendar`/`title` crashes lived.
+    static func eventJSONForTesting(_ event: EKEvent) -> JSONValue {
+        eventJSON(event)
+    }
+
+    static func reminderJSONForTesting(_ reminder: EKReminder) -> JSONValue {
+        reminderJSON(reminder)
+    }
+
     private static func eventJSON(_ event: EKEvent) -> JSONValue {
         .object([
             "identifier": .string(event.eventIdentifier ?? ""),
