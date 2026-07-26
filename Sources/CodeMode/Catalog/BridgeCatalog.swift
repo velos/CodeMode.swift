@@ -1,24 +1,53 @@
 import Foundation
 
-struct BridgeCatalog: Sendable {
+/// The model-facing view of the registry.
+///
+/// Tracks the registry rather than snapshotting it once at init. The snapshot
+/// used to be frozen in `CodeModeAgentTools.init`, which made
+/// `CapabilityRegistry`'s public post-init `register(...)` methods either
+/// unreachable in the supported flow or — if reached — a way to desync what
+/// search advertises from what execution can actually invoke.
+final class BridgeCatalog: @unchecked Sendable {
     private struct SearchCatalogPayload: Sendable, Codable {
         var references: [JavaScriptAPIReference]
         var byCapability: [String: JavaScriptAPIReference]
         var byJSName: [String: JavaScriptAPIReference]
     }
 
-    private let references: [JavaScriptAPIReference]
-    private let referencesByCapability: [CodeModeCapabilityKey: JavaScriptAPIReference]
-    private let searchCatalog: JSONValue
-    private let allJavaScriptNames: [String]
+    private struct Snapshot {
+        var generation: Int
+        var references: [JavaScriptAPIReference]
+        var referencesByCapability: [CodeModeCapabilityKey: JavaScriptAPIReference]
+        var searchCatalog: JSONValue
+        var allJavaScriptNames: [String]
+    }
+
+    private let registry: CapabilityRegistry
+    private let lock = NSLock()
+    private var snapshot: Snapshot
 
     init(registry: CapabilityRegistry) {
+        self.registry = registry
+        self.snapshot = Self.makeSnapshot(registry: registry)
+    }
+
+    /// Rebuilds if the registry has changed since the last read. Rebuilding is
+    /// the whole catalog, but it only happens when a provider is actually
+    /// registered — not on every search.
+    private func current() -> Snapshot {
+        lock.lock()
+        defer { lock.unlock() }
+        let generation = registry.generation
+        if snapshot.generation != generation {
+            snapshot = Self.makeSnapshot(registry: registry)
+        }
+        return snapshot
+    }
+
+    private static func makeSnapshot(registry: CapabilityRegistry) -> Snapshot {
+        let generation = registry.generation
         let functions = registry.allRegisteredFunctions().sorted { $0.catalogCapability < $1.catalogCapability }
         let references = functions.map(Self.reference(from:))
-
-        self.references = references
-        self.referencesByCapability = Dictionary(uniqueKeysWithValues: references.map { ($0.capabilityKey, $0) })
-        self.allJavaScriptNames = Array(Set(references.flatMap(\.jsNames))).sorted()
 
         var byJSName: [String: JavaScriptAPIReference] = [:]
         for reference in references {
@@ -27,35 +56,41 @@ struct BridgeCatalog: Sendable {
             }
         }
 
-        self.searchCatalog = Self.jsonValue(
-            from: SearchCatalogPayload(
-                references: references,
-                byCapability: Dictionary(uniqueKeysWithValues: references.map { ($0.capability, $0) }),
-                byJSName: byJSName
-            )
+        return Snapshot(
+            generation: generation,
+            references: references,
+            referencesByCapability: Dictionary(references.map { ($0.capabilityKey, $0) }, uniquingKeysWith: { first, _ in first }),
+            searchCatalog: Self.jsonValue(
+                from: SearchCatalogPayload(
+                    references: references,
+                    byCapability: Dictionary(references.map { ($0.capability, $0) }, uniquingKeysWith: { first, _ in first }),
+                    byJSName: byJSName
+                )
+            ),
+            allJavaScriptNames: Array(Set(references.flatMap(\.jsNames))).sorted()
         )
     }
 
     func reference(for capability: CapabilityID) -> JavaScriptAPIReference? {
-        referencesByCapability[capability.codeModeKey]
+        current().referencesByCapability[capability.codeModeKey]
     }
 
     func reference(for capabilityKey: CodeModeCapabilityKey) -> JavaScriptAPIReference? {
-        referencesByCapability[capabilityKey]
+        current().referencesByCapability[capabilityKey]
     }
 
     func allReferences() -> [JavaScriptAPIReference] {
-        references
+        current().references
     }
 
     func searchCatalogValue() -> JSONValue {
-        searchCatalog
+        current().searchCatalog
     }
 
     /// TypeScript declarations for the whole platform-filtered surface, for a
     /// host to drop into its system prompt.
     func typeDeclarations() -> String {
-        TypeScriptDeclarations.surface(for: references)
+        TypeScriptDeclarations.surface(for: current().references)
     }
 
     func closestFunctionNames(to candidate: String, limit: Int = 3) -> [String] {
@@ -68,7 +103,7 @@ struct BridgeCatalog: Sendable {
 
         let distanceThreshold = max(2, min(8, normalizedCandidate.count / 3 + 1))
 
-        let ranked = allJavaScriptNames.map { name in
+        let ranked = current().allJavaScriptNames.map { name in
             let normalizedName = name.lowercased()
             let distance = Self.levenshtein(normalizedCandidate, normalizedName)
             let prefixBonus = normalizedName.hasPrefix(normalizedCandidate) || normalizedCandidate.hasPrefix(normalizedName) ? -2 : 0

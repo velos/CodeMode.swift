@@ -435,6 +435,11 @@ public final class CapabilityRegistry: @unchecked Sendable {
     private let lock = NSLock()
     private var registrations: [CapabilityID: CapabilityRegistration] = [:]
     private var codeModeRegistrations: [CodeModeCapabilityKey: CodeModeRegistration] = [:]
+    /// Bumped on every mutation so `BridgeCatalog` can tell whether its snapshot
+    /// is still current. Without it the catalog was frozen at init, which made
+    /// the public `register(...)` methods below either unreachable or a way to
+    /// desync what search advertises from what execution can actually invoke.
+    private var generationValue = 0
 
     public init(registrations: [CapabilityRegistration] = [], codeModeRegistrations: [CodeModeRegistration] = []) {
         for registration in registrations {
@@ -445,9 +450,17 @@ public final class CapabilityRegistry: @unchecked Sendable {
         }
     }
 
+    /// Monotonic version of the registry's contents.
+    public var generation: Int {
+        lock.lock()
+        defer { lock.unlock() }
+        return generationValue
+    }
+
     public func register(_ registration: CapabilityRegistration) {
         lock.lock()
         registrations[registration.descriptor.id] = registration
+        generationValue += 1
         lock.unlock()
     }
 
@@ -456,12 +469,14 @@ public final class CapabilityRegistry: @unchecked Sendable {
         for registration in registrations {
             self.registrations[registration.descriptor.id] = registration
         }
+        generationValue += 1
         lock.unlock()
     }
 
     public func register(_ registration: CodeModeRegistration) {
         lock.lock()
         codeModeRegistrations[registration.capabilityKey] = registration
+        generationValue += 1
         lock.unlock()
     }
 
@@ -470,6 +485,7 @@ public final class CapabilityRegistry: @unchecked Sendable {
         for registration in registrations {
             self.codeModeRegistrations[registration.capabilityKey] = registration
         }
+        generationValue += 1
         lock.unlock()
     }
 

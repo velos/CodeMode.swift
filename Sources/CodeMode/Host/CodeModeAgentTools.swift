@@ -68,4 +68,21 @@ public final class CodeModeAgentTools: @unchecked Sendable {
     public func capabilities() -> [JavaScriptAPIReference] {
         catalog.allReferences()
     }
+
+    /// Adds host providers after construction.
+    ///
+    /// Providers no longer have to be known at init: the catalog tracks the
+    /// registry, so search starts advertising these immediately and the JS
+    /// bindings are installed for the next execution. A host whose domain APIs
+    /// depend on runtime state — a signed-in account, a loaded document — can
+    /// register them when that state arrives.
+    ///
+    /// Registering a key that already exists replaces it.
+    public func register(providers: [any CodeModeProvider]) {
+        registry.register(providers.flatMap { $0.codeModeRegistrations() })
+    }
+
+    public func register(provider: any CodeModeProvider) {
+        register(providers: [provider])
+    }
 }

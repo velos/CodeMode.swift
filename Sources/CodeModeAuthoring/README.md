@@ -77,4 +77,25 @@ the host-owned ceiling that actually enforces access.
 
 Macro v1 maps one type to one JavaScript function. `Arguments` must be a nested struct, and no-arg tools use an empty `Arguments` struct. `call(arguments:)` must be `throws` or `async throws`, and it can return `Void` or a nested `Result` struct.
 
-Supported `Arguments` and `Result` property shapes are JSON primitives, `JSONValue`, arrays/dictionaries of JSON-shaped values, and optional forms. Throw `CodeModeFunctionError` for structured failures that should surface as CodeMode bridge errors.
+Supported `Arguments` and `Result` property shapes are JSON primitives, `JSONValue`, arrays/dictionaries of JSON-shaped values, optional forms, and `CodeModeStringEnum` types. Throw `CodeModeFunctionError` for structured failures that should surface as CodeMode bridge errors.
+
+An enum-typed argument advertises its accepted values, so the catalog, the
+generated TypeScript declaration, and argument validation all agree:
+
+```swift
+enum Priority: String, CodeModeStringEnum {
+    case low, normal, high
+}
+
+struct Arguments {
+    @CodeModeParam("Task identifier")
+    var id: String
+    @CodeModeParam("low, normal (default), or high")
+    var priority: Priority?
+}
+```
+
+Providers do not have to be known at construction. `CodeModeAgentTools.register(provider:)`
+adds them later — search advertises them immediately and the JavaScript bindings
+are installed for the next execution — which is what a host needs when its domain
+APIs depend on runtime state such as a signed-in account.
