@@ -238,6 +238,24 @@ tool model).
    → "resource- and network-bounded runtime."
 3. Metadata-consolidation refactor + macro decision, protected by new drift tests.
 
+## DECLINED REVIEW FINDINGS
+- **"Stop imposing swift-syntax on every consumer" (REVIEW.md P1 #12)** —
+  considered 2026-07-25 and declined. The proposal is to check in the expanded
+  `@BuiltInCodeMode` members so the `CodeMode` target can drop its
+  `CodeModeMacros` dependency. Declined because:
+  - The cost it cites is already measured and mitigated: prebuilt swift-syntax is
+    default-on for macros on the supported toolchains (`PLAN-registration-macros.md`
+    §"The swift-syntax cost, measured today"), so consumers pay ~0 incremental
+    build time, and the version range is already widened to `602.0.0..<604.0.0`
+    for `mlx-swift-lm` co-resolution — the one concrete conflict named.
+  - The migration is effectively one-way across 117 tool definitions and strips
+    the `@ToolParam("hint")` annotations off the property declarations, leaving
+    the hints readable only inside the generated argument arrays.
+  - It works against REVIEW #11 and #13, which both ask for *more* generation
+    from this metadata, not less.
+  Revisit if a consumer hits a swift-syntax version conflict the range cannot
+  absorb, or if prebuilts stop being default-on.
+
 ## OPEN QUESTIONS FOR THE USER
 - [ ] Decision on the private-but-exported JSC symbol (App Store risk)?
 - [ ] After CI is green: tag `0.1.0` and restore the versioned install snippet?
