@@ -47,9 +47,11 @@ import Testing
     let elapsed = Date().timeIntervalSince(started)
 
     #expect(observed.result?.output == .string("done"))
-    // The delay was previously ignored entirely, so a backoff loop spun.
+    // The assertion is the lower bound: the delay was previously ignored
+    // entirely, so a backoff loop spun. There is deliberately no tight upper
+    // bound — a shared CI runner can stretch a 150ms wait by seconds, and the
+    // script's own 5s timeoutMs already fails the test if the wait runs away.
     #expect(elapsed >= 0.14)
-    #expect(elapsed < 3)
 }
 
 @Test func clearTimeoutCancelsAPendingCallback() async throws {
@@ -135,7 +137,9 @@ import Testing
 
     #expect(observed.error?.code == "JS_RUNTIME_ERROR")
     #expect(observed.error?.message.contains("can never settle") == true)
-    #expect(Date().timeIntervalSince(started) < 5)
+    // Proves the 30s budget was not waited out. Loose against runner load; the
+    // margin against 30s is what makes it meaningful.
+    #expect(Date().timeIntervalSince(started) < 20)
 }
 
 @Test func aTimerStillPendingAtTheDeadlineTimesOut() async throws {
@@ -154,7 +158,10 @@ import Testing
     )
 
     #expect(observed.error?.code == "EXECUTION_TIMEOUT")
-    #expect(Date().timeIntervalSince(started) < 5)
+    // The claim is that the 30s timer was not waited out, not that the run was
+    // fast. Loose enough to survive a loaded runner, tight enough to still catch
+    // the regression it exists for.
+    #expect(Date().timeIntervalSince(started) < 20)
 }
 
 @Test func aLongBackoffStaysCancellable() async throws {
@@ -177,7 +184,8 @@ import Testing
     let started = Date()
     let observed = await observe(call)
     #expect(observed.error?.code == "CANCELLED")
-    #expect(Date().timeIntervalSince(started) < 10)
+    // Proves cancel interrupted the 20s timer rather than waiting it out.
+    #expect(Date().timeIntervalSince(started) < 15)
 }
 
 // MARK: - Swallowed bridge failures

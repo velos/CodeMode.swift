@@ -98,7 +98,7 @@ public enum TypeScriptDeclarations {
     /// The whole surface: the preamble plus every capability, grouped into
     /// namespaces by its canonical dotted JavaScript name.
     public static func surface(for references: [JavaScriptAPIReference]) -> String {
-        var root = Namespace(name: "")
+        let root = Namespace(name: "")
         for reference in references.sorted(by: { $0.capability < $1.capability }) {
             guard let canonical = canonicalName(for: reference) else {
                 continue

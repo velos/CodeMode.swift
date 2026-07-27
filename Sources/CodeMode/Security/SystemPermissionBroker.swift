@@ -711,7 +711,12 @@ public final class SystemPermissionBroker: PermissionBroker, @unchecked Sendable
 }
 
 #if canImport(CoreLocation) && os(iOS)
-private final class LocationPermissionDelegate: NSObject, CLLocationManagerDelegate {
+/// `@unchecked Sendable` because it is genuinely thread-safe and has to cross an
+/// isolation boundary: the manager is created inside a `DispatchQueue.main.async`
+/// block — main-actor-isolated on iOS — while `wait`/`observedStatus` are called
+/// from the requesting thread. All mutable state is lock-guarded and the handoff
+/// is a semaphore.
+private final class LocationPermissionDelegate: NSObject, CLLocationManagerDelegate, @unchecked Sendable {
     private let semaphore = DispatchSemaphore(value: 0)
     private let lock = NSLock()
     private var status: CLAuthorizationStatus?

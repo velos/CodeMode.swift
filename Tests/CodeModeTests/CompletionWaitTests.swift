@@ -40,7 +40,10 @@ import Testing
         #expect(requireBridgeErrorCode(error) == "EXECUTION_TIMEOUT")
     }
 
-    #expect(lateCallbackFinished.wait(timeout: .now() + 5) == .success)
+    // Generous on purpose: the suite runs in parallel and this runtime's timer
+    // waits block GCD workers, so a 0.2s dispatch can be starved for seconds on a
+    // loaded runner. The assertion is that the late callback lands at all.
+    #expect(lateCallbackFinished.wait(timeout: .now() + 60) == .success)
 }
 
 @Test func completionWaitReportsWhetherTheCallbackArrived() {
