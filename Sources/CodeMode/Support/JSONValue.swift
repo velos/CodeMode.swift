@@ -131,11 +131,32 @@ public extension JSONValue {
         return nil
     }
 
+    /// Integer view of a JSON number, or `nil` when the value cannot be
+    /// represented.
+    ///
+    /// `Int.init(_: Double)` *traps* on NaN, infinity, and anything outside
+    /// `Int`'s range, and every value here came from adversarial JSON — a model
+    /// tool call or a script's `fetch(url, { timeoutMs: 1e300 })`. The conversion
+    /// has to be total or a single number kills the host process.
     var intValue: Int? {
         if case let .number(value) = self {
-            return Int(value)
+            return JSONValue.exactInt(from: value)
         }
         return nil
+    }
+
+    /// Total `Double` → `Int` conversion. Rejects non-finite values and anything
+    /// the conversion cannot represent; truncates toward zero otherwise, matching
+    /// the previous behavior for in-range input.
+    static func exactInt(from value: Double) -> Int? {
+        guard value.isFinite else { return nil }
+        let truncated = value.rounded(.towardZero)
+        guard truncated >= -9_223_372_036_854_775_808.0,
+              truncated < 9_223_372_036_854_775_808.0
+        else {
+            return nil
+        }
+        return Int(truncated)
     }
 
     var doubleValue: Double? {

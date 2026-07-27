@@ -58,6 +58,11 @@ public final class CodeModeEvalRunner: Sendable {
                 searchDiagnostics = response.diagnostics
             }
 
+            // Logs and diagnostics accumulate across steps and an intermediate
+            // error stops the run. Overwriting each field per step meant
+            // validation only ever saw the last step: a scenario could pass while
+            // step 1 failed in a way step 2 masked, and step 1's logs — the
+            // evidence for why — were discarded.
             for executeStep in executeSteps(for: scenario) {
                 toolCalls.append(
                     CodeModeEvalToolCall(
@@ -74,15 +79,25 @@ public final class CodeModeEvalRunner: Sendable {
                     )
                 )
                 let observed = await observe(call)
+                // The graded value is the last step's output, and the graded error
+                // is the last step's error — so a successful repair step clears the
+                // deliberate failure that preceded it.
                 executionOutput = observed.output
-                executionLogs = observed.logs
-                executionDiagnostics = observed.diagnostics
                 observedError = observed.error
+                executionLogs.append(contentsOf: observed.logs)
+                executionDiagnostics.append(contentsOf: observed.diagnostics)
+
+                // A repair scenario's first step is meant to fail and the next step
+                // fixes it. Anything else stops here rather than letting a later
+                // step mask the failure.
+                if observed.error != nil, executeStep.expectsFailure == false {
+                    break
+                }
             }
         } catch let error as CodeModeToolError {
             observedError = error
-            executionLogs = error.logs
-            executionDiagnostics = error.diagnostics
+            executionLogs.append(contentsOf: error.logs)
+            executionDiagnostics.append(contentsOf: error.diagnostics)
         } catch {
             failures.append("Unexpected runner failure: \(error.localizedDescription)")
         }

@@ -14,7 +14,7 @@ extension DefaultCapabilityRegistrationBuilder {
                 descriptor: .init(
                     id: .networkFetch,
                     title: "Fetch HTTP resource",
-                    summary: "Perform HTTP(S) requests through URLSession via a fetch-compatible API.",
+                    summary: "Perform HTTP(S) requests through an isolated URLSession via a fetch-compatible API. Requests carry no app cookies or stored credentials, and credential headers (Cookie, Authorization, Proxy-*) are refused unless the host app permits them.",
                     tags: ["network", "http", "fetch"],
                     example: "await fetch('https://api.example.com/data').then(r => r.json())",
                     requiredArguments: ["url"],
@@ -29,7 +29,7 @@ extension DefaultCapabilityRegistrationBuilder {
                     argumentHints: [
                         "url": "Absolute HTTP(S) URL string.",
                         "options.method": "HTTP method; defaults to GET.",
-                        "options.headers": "Object of header key/value string pairs.",
+                        "options.headers": "Object of header key/value string pairs. Cookie, Authorization, and Proxy-* are refused unless the host app permits credential headers.",
                         "options.body": "UTF-8 request body string.",
                         "options.bodyBase64": "Base64-encoded request body. Mutually exclusive with options.body.",
                         "options.timeoutMs": "Request and bridge wait timeout in milliseconds; defaults to 30000.",

@@ -819,8 +819,14 @@ enum SystemMapsMapping {
 private func openSystemURL(_ url: URL) -> Bool {
     #if canImport(UIKit)
     if Thread.isMainThread {
-        UIApplication.shared.open(url, options: [:], completionHandler: nil)
-        return true
+        // `UIApplication.shared` and `open` are main-actor-isolated. We have
+        // already established we are on the main thread, so state that to the
+        // compiler rather than hopping — a hop here would return before the open
+        // has been requested.
+        return MainActor.assumeIsolated {
+            UIApplication.shared.open(url, options: [:], completionHandler: nil)
+            return true
+        }
     }
     let semaphore = DispatchSemaphore(value: 0)
     let opened = LockedBox(false)

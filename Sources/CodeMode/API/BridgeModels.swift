@@ -3,7 +3,14 @@ import Foundation
 public struct CodeModeConfiguration: Sendable {
     public var pathPolicy: any PathPolicy
     public var networkAccessPolicy: NetworkAccessPolicy
+    /// Host-owned ceiling on the model-authored `allowedCapabilities` /
+    /// `allowedCapabilityKeys`. Defaults to `.unrestricted`; see `CapabilityGrant`.
+    public var capabilityGrant: CapabilityGrant
     public var fileSystem: any CodeModeFileSystem
+    /// Byte ceilings applied by the filesystem bridge to `fs.read` / `fs.write`.
+    public var fileSystemLimits: FileSystemLimits
+    /// Bounds on retained result/log/event volume for a single execution.
+    public var executionLimits: ExecutionLimits
     public var artifactStore: any ArtifactStore
     public var permissionBroker: any PermissionBroker
     public var auditLogger: any AuditLogger
@@ -25,7 +32,10 @@ public struct CodeModeConfiguration: Sendable {
     public init(
         pathPolicy: any PathPolicy = DefaultPathPolicy(),
         networkAccessPolicy: NetworkAccessPolicy = .standard,
+        capabilityGrant: CapabilityGrant = .unrestricted,
         fileSystem: any CodeModeFileSystem = LocalCodeModeFileSystem(),
+        fileSystemLimits: FileSystemLimits = .standard,
+        executionLimits: ExecutionLimits = .standard,
         artifactStore: any ArtifactStore = InMemoryArtifactStore(),
         permissionBroker: any PermissionBroker = SystemPermissionBroker(),
         auditLogger: any AuditLogger = SyncAuditLogger(),
@@ -46,7 +56,10 @@ public struct CodeModeConfiguration: Sendable {
     ) {
         self.pathPolicy = pathPolicy
         self.networkAccessPolicy = networkAccessPolicy
+        self.capabilityGrant = capabilityGrant
         self.fileSystem = fileSystem
+        self.fileSystemLimits = fileSystemLimits
+        self.executionLimits = executionLimits
         self.artifactStore = artifactStore
         self.permissionBroker = permissionBroker
         self.auditLogger = auditLogger
@@ -89,6 +102,10 @@ public struct JavaScriptAPIReference: Sendable, Codable, Equatable {
     public var argumentHints: [String: String]
     public var argumentConstraints: CapabilityArgumentConstraints
     public var resultSummary: String
+    /// TypeScript declaration for this helper, generated from the fields above.
+    /// Return it from `searchJavaScriptAPI` to give the model real types rather
+    /// than a coarse `argumentTypes` map plus prose.
+    public var dts: String
 
     public init(
         capability: String,
@@ -103,7 +120,8 @@ public struct JavaScriptAPIReference: Sendable, Codable, Equatable {
         argumentTypes: [String: CapabilityArgumentType],
         argumentHints: [String: String],
         argumentConstraints: CapabilityArgumentConstraints = .none,
-        resultSummary: String
+        resultSummary: String,
+        dts: String = ""
     ) {
         self.capability = capability
         self.capabilityKey = capabilityKey ?? CodeModeCapabilityKey(rawValue: capability)
@@ -118,6 +136,7 @@ public struct JavaScriptAPIReference: Sendable, Codable, Equatable {
         self.argumentHints = argumentHints
         self.argumentConstraints = argumentConstraints
         self.resultSummary = resultSummary
+        self.dts = dts
     }
 }
 
@@ -132,6 +151,13 @@ public struct JavaScriptAPISearchResponse: Sendable, Codable, Equatable {
 }
 
 public struct JavaScriptExecutionRequest: Sendable, Codable, Equatable {
+    /// Bounds advertised in `executeJavaScriptParameterSchema`. Values outside
+    /// them are clamped rather than rejected: a model that asks for a 10-minute
+    /// budget should get the ceiling and a running script, not a hard failure.
+    public static let minimumTimeoutMs = 1
+    public static let maximumTimeoutMs = 60_000
+    public static let defaultTimeoutMs = 10_000
+
     public var code: String
     public var allowedCapabilities: [CapabilityID]
     public var allowedCapabilityKeys: [CodeModeCapabilityKey]
@@ -142,14 +168,18 @@ public struct JavaScriptExecutionRequest: Sendable, Codable, Equatable {
         code: String,
         allowedCapabilities: [CapabilityID],
         allowedCapabilityKeys: [CodeModeCapabilityKey] = [],
-        timeoutMs: Int = 10_000,
+        timeoutMs: Int = JavaScriptExecutionRequest.defaultTimeoutMs,
         context: ExecutionContext = .init()
     ) {
         self.code = code
         self.allowedCapabilities = allowedCapabilities
         self.allowedCapabilityKeys = allowedCapabilityKeys
-        self.timeoutMs = timeoutMs
+        self.timeoutMs = Self.clampTimeoutMs(timeoutMs)
         self.context = context
+    }
+
+    static func clampTimeoutMs(_ value: Int) -> Int {
+        min(max(value, minimumTimeoutMs), maximumTimeoutMs)
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -194,10 +224,13 @@ public struct JavaScriptExecutionRequest: Sendable, Codable, Equatable {
         self.allowedCapabilities = capabilities
 
         self.allowedCapabilityKeys = try container.decodeIfPresent([CodeModeCapabilityKey].self, forKey: .allowedCapabilityKeys) ?? []
-        self.timeoutMs = try Self.decodeTimeoutMs(from: container) ?? 10_000
+        self.timeoutMs = Self.clampTimeoutMs(try Self.decodeTimeoutMs(from: container) ?? Self.defaultTimeoutMs)
         self.context = try container.decodeIfPresent(ExecutionContext.self, forKey: .context) ?? .init()
     }
 
+    // Every conversion here is total. `Int.init(_: Double)` traps on non-finite
+    // and out-of-range input, and this runs on model-authored JSON before any
+    // script does — `{"timeoutMs": 1e300}` would kill the host process in-process.
     private static func decodeTimeoutMs(from container: KeyedDecodingContainer<CodingKeys>) throws -> Int? {
         guard container.contains(.timeoutMs), try !container.decodeNil(forKey: .timeoutMs) else {
             return nil
@@ -206,17 +239,31 @@ public struct JavaScriptExecutionRequest: Sendable, Codable, Equatable {
             return value
         }
         if let value = try? container.decode(Double.self, forKey: .timeoutMs) {
-            return Int(value)
+            return try requireRepresentable(value, in: container)
         }
         if let string = try? container.decode(String.self, forKey: .timeoutMs),
            let value = Double(string.trimmingCharacters(in: .whitespaces)) {
-            return Int(value)
+            return try requireRepresentable(value, in: container)
         }
         throw DecodingError.dataCorruptedError(
             forKey: .timeoutMs,
             in: container,
             debugDescription: "timeoutMs must be an integer or a numeric string."
         )
+    }
+
+    private static func requireRepresentable(
+        _ value: Double,
+        in container: KeyedDecodingContainer<CodingKeys>
+    ) throws -> Int {
+        guard let converted = JSONValue.exactInt(from: value) else {
+            throw DecodingError.dataCorruptedError(
+                forKey: .timeoutMs,
+                in: container,
+                debugDescription: "timeoutMs must be a finite number representable as an integer; received \(value)."
+            )
+        }
+        return converted
     }
 }
 
@@ -314,7 +361,10 @@ public final class JavaScriptExecutionCall: @unchecked Sendable {
     public var result: JavaScriptExecutionResult {
         get async throws {
             let outcome = await withTaskCancellationHandler {
-                await waitForResultOutcome()
+                // `resultTask.result` already detaches the await from the calling
+                // task's cancellation, so the previous `Task.detached` per access
+                // bought nothing but an extra task.
+                await resultTask.result
             } onCancel: {
                 self.cancel()
             }
@@ -324,8 +374,7 @@ public final class JavaScriptExecutionCall: @unchecked Sendable {
                 return result
             case let .failure(error as CodeModeToolError):
                 throw error
-            case let .failure(error as CancellationError):
-                _ = error
+            case .failure(is CancellationError):
                 throw CodeModeToolError(code: "CANCELLED", message: "Execution cancelled")
             case let .failure(error):
                 throw error
@@ -338,16 +387,12 @@ public final class JavaScriptExecutionCall: @unchecked Sendable {
         resultTask.cancel()
     }
 
-    private func waitForResultOutcome() async -> Result<JavaScriptExecutionResult, Error> {
-        await withCheckedContinuation { continuation in
-            Task.detached {
-                do {
-                    continuation.resume(returning: .success(try await self.resultTask.value))
-                } catch {
-                    continuation.resume(returning: .failure(error))
-                }
-            }
-        }
+    /// A dropped call must not keep running: without this, an execution whose
+    /// handle nobody holds continues to completion in the background, still
+    /// touching the filesystem, the network, and system UI on the user's behalf.
+    deinit {
+        cancelImpl()
+        resultTask.cancel()
     }
 }
 

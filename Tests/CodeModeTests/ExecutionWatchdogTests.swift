@@ -18,7 +18,10 @@ import Testing
 
     #expect(observed.result == nil)
     #expect(observed.error?.code == "EXECUTION_TIMEOUT")
-    #expect(Date().timeIntervalSince(started) < 5)
+    // A hang-guard, not a performance assertion: `while (true) {}` must be
+    // terminated at all. The error code above is the real check, and the bound is
+    // loose because a shared CI runner is not an idle machine.
+    #expect(Date().timeIntervalSince(started) < 20)
 }
 
 @Test func executeTerminatesCPUBoundLoopInsidePromiseChain() async throws {
@@ -151,8 +154,34 @@ import Testing
     )
 
     #expect(observed.result?.output == nil)
-    #expect(observed.error != nil)
-    #expect(Date().timeIntervalSince(started) < 5)
+    // The watchdog fired, so this is a timeout — not the INVALID_RESULT
+    // "must be JSON-serializable" it used to report, which pointed the model at
+    // the wrong repair entirely.
+    #expect(observed.error?.code == "EXECUTION_TIMEOUT")
+    // Same hang-guard reasoning: the runaway getter must be terminated at all.
+    #expect(Date().timeIntervalSince(started) < 20)
+}
+
+@Test func serializationBudgetDoesNotScaleWithTheExecutionTimeout() async throws {
+    let (tools, sandbox) = try makeTools()
+    defer { cleanup(sandbox) }
+
+    // A long execution budget used to buy an equally long serialization budget
+    // (`max`, not `min`), so a runaway getter after a 30s-budget script got
+    // another 30s. The serialization phase is bounded independently.
+    let started = Date()
+    let observed = try await execute(
+        tools,
+        request: JavaScriptExecutionRequest(
+            code: "return { get trap() { while (true) {} } };",
+            allowedCapabilities: [],
+            timeoutMs: 30_000
+        )
+    )
+
+    #expect(observed.error?.code == "EXECUTION_TIMEOUT")
+    // Proves serialization did not inherit the script's 30s budget.
+    #expect(Date().timeIntervalSince(started) < 20)
 }
 
 @Test func searchTerminatesCPUBoundInfiniteLoop() async throws {

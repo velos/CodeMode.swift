@@ -532,7 +532,7 @@
     },
     "argumentHints" : {
       "callbackURLScheme" : "Optional custom URL scheme that completes the session.",
-      "prefersEphemeralSession" : "Whether to prefer a private browser session; default false.",
+      "prefersEphemeralSession" : "Whether to use a private browser session; default true. Set false only when the flow must reuse the user's existing browser session.",
       "timeoutMs" : "Optional timeout for waiting on callback\/cancellation.",
       "url" : "Absolute HTTP(S) authentication URL."
     },
@@ -559,7 +559,7 @@
 
     ],
     "resultSummary" : "Object with action callback\/cancelled and callbackURL when available.",
-    "summary" : "Start an ASWebAuthenticationSession for OAuth-style browser authentication.",
+    "summary" : "Start an ASWebAuthenticationSession for OAuth-style browser authentication. Runs in a private browser session by default and the URL must satisfy the host's network access policy.",
     "tags" : [
       "auth",
       "oauth",
@@ -1852,10 +1852,14 @@
     },
     "argumentHints" : {
       "from" : "Source sandbox path.",
-      "to" : "Destination sandbox path."
+      "overwrite" : "Required as true to replace an existing destination; default false.",
+      "recursive" : "Required as true alongside overwrite when the existing destination is a directory.",
+      "to" : "Destination sandbox path. Must name a path inside a root, not the root itself."
     },
     "argumentTypes" : {
       "from" : "string",
+      "overwrite" : "bool",
+      "recursive" : "bool",
       "to" : "string"
     },
     "example" : "await apple.fs.copy({ from: 'tmp:a.txt', to: 'tmp:b.txt' })",
@@ -1865,7 +1869,8 @@
       "fs.promises.copyFile"
     ],
     "optionalArguments" : [
-
+      "overwrite",
+      "recursive"
     ],
     "requiredArguments" : [
       "from",
@@ -1875,7 +1880,7 @@
 
     ],
     "resultSummary" : "Object with from\/to resolved paths.",
-    "summary" : "Copy file\/directory within allowed sandbox roots.",
+    "summary" : "Copy file\/directory within allowed sandbox roots. Fails rather than clobbering an existing destination unless overwrite is set, and never accepts a sandbox root as the destination.",
     "tags" : [
       "filesystem",
       "io",
@@ -2028,10 +2033,14 @@
     },
     "argumentHints" : {
       "from" : "Source sandbox path.",
-      "to" : "Destination sandbox path."
+      "overwrite" : "Required as true to replace an existing destination; default false.",
+      "recursive" : "Required as true alongside overwrite when the existing destination is a directory.",
+      "to" : "Destination sandbox path. Must name a path inside a root, not the root itself."
     },
     "argumentTypes" : {
       "from" : "string",
+      "overwrite" : "bool",
+      "recursive" : "bool",
       "to" : "string"
     },
     "example" : "await apple.fs.move({ from: 'tmp:a.txt', to: 'tmp:b.txt' })",
@@ -2041,7 +2050,8 @@
       "fs.promises.rename"
     ],
     "optionalArguments" : [
-
+      "overwrite",
+      "recursive"
     ],
     "requiredArguments" : [
       "from",
@@ -2051,7 +2061,7 @@
 
     ],
     "resultSummary" : "Object with from\/to resolved paths.",
-    "summary" : "Move file\/directory within allowed sandbox roots.",
+    "summary" : "Move file\/directory within allowed sandbox roots. Fails rather than clobbering an existing destination unless overwrite is set, and never accepts a sandbox root as the destination.",
     "tags" : [
       "filesystem",
       "io",
@@ -2061,10 +2071,14 @@
   },
   {
     "allowedStringValues" : {
-
+      "encoding" : [
+        "utf8",
+        "base64",
+        "utf-8"
+      ]
     },
     "argumentHints" : {
-      "encoding" : "utf8 (default) or base64.",
+      "encoding" : "utf8 (default) or base64. Binary files must use base64; a utf8 read of undecodable bytes fails rather than returning empty text.",
       "path" : "File path using allowed root prefix."
     },
     "argumentTypes" : {
@@ -2131,7 +2145,11 @@
   },
   {
     "allowedStringValues" : {
-
+      "encoding" : [
+        "utf8",
+        "base64",
+        "utf-8"
+      ]
     },
     "argumentHints" : {
       "data" : "UTF-8 text or base64 string depending on encoding.",
@@ -2380,7 +2398,7 @@
     "argumentTypes" : {
       "key" : "string"
     },
-    "example" : "await apple.keychain.delete('auth_token')",
+    "example" : "await apple.keychain.delete({ key: 'auth_token' })",
     "id" : "keychain.delete",
     "jsNames" : [
       "apple.keychain.delete"
@@ -2413,7 +2431,7 @@
     "argumentTypes" : {
       "key" : "string"
     },
-    "example" : "await apple.keychain.get('auth_token')",
+    "example" : "await apple.keychain.get({ key: 'auth_token' })",
     "id" : "keychain.read",
     "jsNames" : [
       "apple.keychain.get"
@@ -2448,7 +2466,7 @@
       "key" : "string",
       "value" : "string"
     },
-    "example" : "await apple.keychain.set('auth_token', token)",
+    "example" : "await apple.keychain.set({ key: 'auth_token', value: token })",
     "id" : "keychain.write",
     "jsNames" : [
       "apple.keychain.set"
@@ -3265,7 +3283,7 @@
     "argumentHints" : {
       "options.body" : "UTF-8 request body string.",
       "options.bodyBase64" : "Base64-encoded request body. Mutually exclusive with options.body.",
-      "options.headers" : "Object of header key\/value string pairs.",
+      "options.headers" : "Object of header key\/value string pairs. Cookie, Authorization, and Proxy-* are refused unless the host app permits credential headers.",
       "options.method" : "HTTP method; defaults to GET.",
       "options.responseEncoding" : "text (default) or base64.",
       "options.timeoutMs" : "Request and bridge wait timeout in milliseconds; defaults to 30000.",
@@ -3300,7 +3318,7 @@
 
     ],
     "resultSummary" : "Object with ok\/status\/statusText\/headers\/bodyText or bodyBase64.",
-    "summary" : "Perform HTTP(S) requests through URLSession via a fetch-compatible API.",
+    "summary" : "Perform HTTP(S) requests through an isolated URLSession via a fetch-compatible API. Requests carry no app cookies or stored credentials, and credential headers (Cookie, Authorization, Proxy-*) are refused unless the host app permits them.",
     "tags" : [
       "network",
       "http",

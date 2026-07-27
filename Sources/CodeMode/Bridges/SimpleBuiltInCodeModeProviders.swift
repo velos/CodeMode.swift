@@ -39,7 +39,7 @@ private struct KeychainReadTool: BuiltInCodeModeTool {
     static let codeModeTitle = "Read Keychain value"
     static let codeModeSummary = "Read a string value from app-scoped Keychain storage."
     static let codeModeTags = ["security", "token", "keychain"]
-    static let codeModeExample = "await apple.keychain.get('auth_token')"
+    static let codeModeExample = "await apple.keychain.get({ key: 'auth_token' })"
     static let codeModeArguments = [
         BuiltInToolArgument("key", .string, hint: "Logical key for this secret value."),
     ]
@@ -67,7 +67,7 @@ private struct KeychainWriteTool: BuiltInCodeModeTool {
     static let codeModeTitle = "Write Keychain value"
     static let codeModeSummary = "Store or update a string value in app-scoped Keychain storage."
     static let codeModeTags = ["security", "token", "keychain"]
-    static let codeModeExample = "await apple.keychain.set('auth_token', token)"
+    static let codeModeExample = "await apple.keychain.set({ key: 'auth_token', value: token })"
     static let codeModeArguments = [
         BuiltInToolArgument("key", .string, hint: "Logical key for this secret value."),
         BuiltInToolArgument("value", .string, optional: true, hint: "Secret string value. Defaults to empty string when omitted."),
@@ -102,7 +102,7 @@ private struct KeychainDeleteTool: BuiltInCodeModeTool {
     static let codeModeTitle = "Delete Keychain value"
     static let codeModeSummary = "Delete an app-scoped Keychain value."
     static let codeModeTags = ["security", "token", "keychain"]
-    static let codeModeExample = "await apple.keychain.delete('auth_token')"
+    static let codeModeExample = "await apple.keychain.delete({ key: 'auth_token' })"
     static let codeModeArguments = [
         BuiltInToolArgument("key", .string, hint: "Logical key for value removal."),
     ]

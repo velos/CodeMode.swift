@@ -141,6 +141,12 @@ let tools = CodeModeAgentTools(
 - `allowedHosts` restricts fetch to an explicit list (entries match the host and its subdomains, and deliberately allowlisted private hosts such as `localhost` are honored); `blockedHosts` refuses specific hosts; `NetworkAccessPolicy.permissive` restores unrestricted behavior.
 - Matching is by URL host only; DNS resolution is not performed, so a public hostname that resolves to a private address is not detected. Hosts that need stricter guarantees should set `allowedHosts`.
 
+Script traffic also carries no ambient authority:
+
+- `network.fetch` runs on an isolated ephemeral `URLSession` with no cookie storage, no credential storage, and no shared cache — not `URLSession.shared`, which would let a script ride whatever the host app is already logged in to and let a `Set-Cookie` poison the app's cookie jar.
+- Script-supplied `Cookie`, `Authorization`, and `Proxy-*` request headers are refused. Set `allowsCredentialHeaders: true` when scripts legitimately call an authenticated API.
+- A host that passes its own `session` to `NetworkBridge` takes responsibility for this; requests still disable per-request cookie handling.
+
 ```swift
 let tools = CodeModeAgentTools(
     config: CodeModeConfiguration(
@@ -151,6 +157,79 @@ let tools = CodeModeAgentTools(
     )
 )
 ```
+
+## Agent Guidance
+
+The tool descriptions and the generated TypeScript tell a model *what the helpers
+are called*. Neither tells it *what shape its work should take* — so an agent can
+end up using `executeJavaScript` as a thin RPC, one call per operation, which is
+the pattern this package exists to replace.
+
+`CodeModeAgentGuidance` is the missing half. Pair it with `typeDeclarations()`:
+
+```swift
+let systemPrompt = CodeModeAgentGuidance.systemPrompt(.standard)
+    + "\n\n"
+    + tools.typeDeclarations()
+```
+
+Three tiers, each self-contained and additive — dropping to a smaller one loses
+examples, never a rule:
+
+| Tier | ~Tokens | Contents |
+| --- | --- | --- |
+| `.brief` | ~160 | The core idea: one call runs the whole task; request only the capabilities you use. |
+| `.standard` | ~580 | Adds the search → write → repair workflow and a worked multi-step example. |
+| `.full` | ~1000 | Adds partial-failure handling, the sequential-native-call reality, and the anti-pattern list. |
+
+Or let a budget choose:
+
+```swift
+CodeModeAgentGuidance.systemPrompt(approximateTokenBudget: 400)   // -> .standard
+```
+
+Token counts are estimated at four characters per token — a planning bound, not a
+real tokenization. A budget too small for any tier still returns `.brief`, on the
+grounds that some guidance is the difference between an agent that batches its
+work and one that does not.
+
+The `execution.*` and `fs.whole-job-one-script` eval scenarios grade this: a
+transcript that splits one obvious job across several executions, or that asks
+for capabilities it never calls, fails.
+
+## TypeScript Declarations
+
+The registry already knows argument names, types, optionality, enum constraints,
+and hints. That metadata is emitted as TypeScript so the model writes code
+against real declarations instead of a coarse type map plus prose:
+
+```swift
+let tools = CodeModeAgentTools()
+print(tools.typeDeclarations())      // whole platform-filtered surface
+print(tools.capabilities())          // every reference, each carrying `dts`
+```
+
+Every `JavaScriptAPIReference` carries a per-capability `dts`, so code-driven
+search stays the filter and TypeScript becomes the payload:
+
+```javascript
+async () => {
+  return api.references
+    .filter(ref => ref.tags.includes("calendar"))
+    .map(ref => ref.dts)
+    .join("\n\n");
+}
+```
+
+Constrained arguments become string-literal unions, dotted argument paths
+(`options.timeoutMs`) become nested object types, and argument hints become doc
+comments. Results are typed `CodeModeValue` — built-in bridges return untyped
+JSON dictionaries, so a narrower result type would be a fiction; the prose result
+summary is in the doc comment until per-capability result schemas exist.
+
+The Node-compatibility globals (`fetch`, `fs.promises.*`, `path`, `console`) are
+declared in a hand-authored preamble, because their positional calling convention
+is not something the catalog can express.
 
 ## Search
 
@@ -215,10 +294,43 @@ async () => {
 
 - `code`
 - `allowedCapabilities`
+- `allowedCapabilityKeys`
 - `timeoutMs`
 - `context`
 
 It returns a `JavaScriptExecutionCall` immediately.
+
+### Capability allowlists are model-authored; the grant is not
+
+`allowedCapabilities` and `allowedCapabilityKeys` travel in the advertised tool
+schema, so the *model* fills them in. They are a least-privilege declaration and
+a useful audit signal, but on their own they are not a sandbox: a host that pipes
+tool JSON straight into `executeJavaScript` gives the script whatever the script
+asked for.
+
+`CodeModeConfiguration.capabilityGrant` is the host-owned ceiling. The effective
+set is always `requested ∩ granted`:
+
+```swift
+let tools = CodeModeAgentTools(
+    config: CodeModeConfiguration(
+        capabilityGrant: .only(
+            [.fsRead, .fsWrite, .networkFetch],
+            capabilityKeys: ["myapp.tasks.complete"]
+        )
+    )
+)
+```
+
+It defaults to `.unrestricted` for source compatibility. Anything the request
+declares and the grant withholds fails with `CAPABILITY_DENIED`, is reported to
+the model as not repairable by retrying, and is recorded as a
+`CAPABILITY_WITHHELD_BY_HOST` diagnostic.
+
+The two allowlists are strictly disjoint. Built-in `CapabilityID`s are granted
+only by `allowedCapabilities`; `allowedCapabilityKeys` accepts arbitrary strings
+and reaches custom providers only, so it cannot be used to spell a built-in past
+a host that vets the typed field.
 
 Cross-platform privileged helpers are installed under `apple.*`. Platform-specific helpers are installed only where supported, for example `ios.alarm.*` on iOS hosts that support AlarmKit.
 
@@ -241,6 +353,25 @@ System UI helpers are installed only on supported UI platforms. Shared iOS/visio
 - on success it returns `JavaScriptExecutionResult`
 - on failure it throws `CodeModeToolError`
 - `call.cancel()` interrupts in-flight JavaScript
+
+### Timers and the event loop
+
+`setTimeout`/`clearTimeout` are real: callbacks are deferred, delays are honoured,
+`clearTimeout` cancels, and an error thrown inside a callback becomes a
+`TIMER_CALLBACK_ERROR` diagnostic rather than propagating to whoever called
+`setTimeout`. So `await new Promise(r => setTimeout(r, 1000))` — the standard
+backoff — actually waits instead of spinning. A long wait remains cancellable and
+is still bounded by `timeoutMs`.
+
+There is no I/O event loop yet: the bridge ABI is synchronous, so native calls run
+one at a time and `Promise.all` over several helpers completes them sequentially.
+Because a timer is the only thing that can advance a pending program, a promise
+with no resolve path and no queued timer is provably unsettleable and fails
+immediately with `JS_RUNTIME_ERROR` instead of running out the clock.
+
+Bridge calls that fail while the script still returns successfully — typically a
+forgotten `await`, which silently discards the rejection — produce a
+`BRIDGE_FAILURES_NOT_SURFACED` warning diagnostic.
 
 ### Timeout and cancellation
 

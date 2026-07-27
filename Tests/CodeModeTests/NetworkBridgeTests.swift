@@ -227,3 +227,74 @@ private final class StubHTTPURLProtocol: URLProtocol {
     #expect(result.string("stringValue") == "https://example.com/path?q=1")
     #expect(result.string("methodValue") == "https://example.com/path?q=1")
 }
+
+// MARK: - Ambient authority
+
+@Test func networkBridgeDefaultSessionCarriesNoAmbientCredentials() {
+    // The shipping default used to be `URLSession.shared`, which reads
+    // HTTPCookieStorage.shared and URLCredentialStorage.shared — so a script got
+    // authenticated session-riding against every origin the app is logged in to,
+    // and a Set-Cookie in a script-fetched response poisoned the app's jar.
+    let configuration = NetworkBridge.isolatedSession.configuration
+    #expect(configuration.httpCookieStorage == nil)
+    #expect(configuration.urlCredentialStorage == nil)
+    #expect(configuration.urlCache == nil)
+    #expect(configuration.httpShouldSetCookies == false)
+    #expect(configuration.httpCookieAcceptPolicy == .never)
+    #expect(NetworkBridge.isolatedSession !== URLSession.shared)
+}
+
+@Test func networkFetchRefusesCredentialHeadersByDefault() throws {
+    let configuration = URLSessionConfiguration.ephemeral
+    configuration.protocolClasses = [StubHTTPURLProtocol.self]
+    let session = URLSession(configuration: configuration)
+
+    let bridge = NetworkBridge(session: session)
+    let (context, sandbox) = try makeInvocationContext()
+    defer {
+        cleanup(sandbox)
+        session.invalidateAndCancel()
+    }
+
+    for header in ["Cookie", "cookie", "Authorization", "Proxy-Authorization", "proxy-authenticate"] {
+        do {
+            _ = try bridge.fetch(arguments: [
+                "url": .string("https://unit.test/endpoint"),
+                "options": .object(["headers": .object([header: .string("secret")])]),
+            ], context: context)
+            Issue.record("Expected \(header) to be refused")
+        } catch {
+            #expect(requireBridgeErrorCode(error) == "NETWORK_POLICY_VIOLATION")
+        }
+    }
+
+    // Ordinary headers are unaffected.
+    let ok = try bridge.fetch(arguments: [
+        "url": .string("https://unit.test/endpoint"),
+        "options": .object(["headers": .object(["X-Unit": .string("plain")])]),
+    ], context: context)
+    #expect(try requireObject(ok).bool("ok") == true)
+}
+
+@Test func networkFetchAllowsCredentialHeadersWhenHostOptsIn() throws {
+    let configuration = URLSessionConfiguration.ephemeral
+    configuration.protocolClasses = [StubHTTPURLProtocol.self]
+    let session = URLSession(configuration: configuration)
+
+    let bridge = NetworkBridge(
+        session: session,
+        policy: NetworkAccessPolicy(allowsCredentialHeaders: true)
+    )
+    let (context, sandbox) = try makeInvocationContext()
+    defer {
+        cleanup(sandbox)
+        session.invalidateAndCancel()
+    }
+
+    let result = try bridge.fetch(arguments: [
+        "url": .string("https://unit.test/endpoint"),
+        "options": .object(["headers": .object(["Authorization": .string("Bearer t")])]),
+    ], context: context)
+    #expect(try requireObject(result).bool("ok") == true)
+    #expect(NetworkAccessPolicy.permissive.allowsCredentialHeaders)
+}

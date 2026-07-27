@@ -16,7 +16,10 @@ public enum CapabilityArgumentType: String, Sendable, Codable, Equatable {
             if case .string = value { return true }
             return false
         case .number:
-            if case .number = value { return true }
+            // Non-finite is not a usable number for any bridge: it cannot be
+            // converted to an Int, cannot round-trip through JSON, and reaches
+            // here from `"inf"`/`"nan"` coercion or a JS `Infinity`.
+            if case let .number(number) = value { return number.isFinite }
             return false
         case .bool:
             if case .bool = value { return true }
@@ -432,6 +435,11 @@ public final class CapabilityRegistry: @unchecked Sendable {
     private let lock = NSLock()
     private var registrations: [CapabilityID: CapabilityRegistration] = [:]
     private var codeModeRegistrations: [CodeModeCapabilityKey: CodeModeRegistration] = [:]
+    /// Bumped on every mutation so `BridgeCatalog` can tell whether its snapshot
+    /// is still current. Without it the catalog was frozen at init, which made
+    /// the public `register(...)` methods below either unreachable or a way to
+    /// desync what search advertises from what execution can actually invoke.
+    private var generationValue = 0
 
     public init(registrations: [CapabilityRegistration] = [], codeModeRegistrations: [CodeModeRegistration] = []) {
         for registration in registrations {
@@ -442,9 +450,17 @@ public final class CapabilityRegistry: @unchecked Sendable {
         }
     }
 
+    /// Monotonic version of the registry's contents.
+    public var generation: Int {
+        lock.lock()
+        defer { lock.unlock() }
+        return generationValue
+    }
+
     public func register(_ registration: CapabilityRegistration) {
         lock.lock()
         registrations[registration.descriptor.id] = registration
+        generationValue += 1
         lock.unlock()
     }
 
@@ -453,12 +469,14 @@ public final class CapabilityRegistry: @unchecked Sendable {
         for registration in registrations {
             self.registrations[registration.descriptor.id] = registration
         }
+        generationValue += 1
         lock.unlock()
     }
 
     public func register(_ registration: CodeModeRegistration) {
         lock.lock()
         codeModeRegistrations[registration.capabilityKey] = registration
+        generationValue += 1
         lock.unlock()
     }
 
@@ -467,6 +485,7 @@ public final class CapabilityRegistry: @unchecked Sendable {
         for registration in registrations {
             self.codeModeRegistrations[registration.capabilityKey] = registration
         }
+        generationValue += 1
         lock.unlock()
     }
 
@@ -506,14 +525,13 @@ public final class CapabilityRegistry: @unchecked Sendable {
         return registrations[capability].map(RegisteredCodeModeFunction.init)
     }
 
+    /// Resolves a *custom provider* key only. Built-ins are deliberately not
+    /// reachable here: they are dispatched by `CapabilityID` and gated by
+    /// `allowedCapabilities`, so resolving them through the loosely-typed key
+    /// namespace would let `allowedCapabilityKeys` alias a built-in.
     func registeredFunction(for capabilityKey: CodeModeCapabilityKey) -> RegisteredCodeModeFunction? {
         lock.lock()
         defer { lock.unlock() }
-        if let builtIn = CapabilityID(rawValue: capabilityKey.rawValue),
-           let registration = registrations[builtIn]
-        {
-            return RegisteredCodeModeFunction(registration)
-        }
         return codeModeRegistrations[capabilityKey].map(RegisteredCodeModeFunction.init)
     }
 
@@ -535,7 +553,11 @@ public final class CapabilityRegistry: @unchecked Sendable {
     }
 
     private func invokeBuiltIn(_ capability: CapabilityID, arguments: [String: JSONValue], context: BridgeInvocationContext) throws -> JSONValue {
-        guard context.allowedCapabilities.contains(capability) || context.allowedCapabilityKeys.contains(capability.codeModeKey) else {
+        // Built-ins are gated by `allowedCapabilities` alone. `allowedCapabilityKeys`
+        // accepts arbitrary strings and is not validated against `CapabilityID` at
+        // decode time, so honouring it here would bypass any host that vets only
+        // the strictly-typed field.
+        guard context.allowedCapabilities.contains(capability) else {
             throw BridgeError.capabilityDenied(capability)
         }
 
@@ -547,6 +569,13 @@ public final class CapabilityRegistry: @unchecked Sendable {
     }
 
     private func invokeCodeMode(_ capabilityKey: CodeModeCapabilityKey, arguments: [String: JSONValue], context: BridgeInvocationContext) throws -> JSONValue {
+        // Defense in depth: `invoke` already routes anything that parses as a
+        // built-in to `invokeBuiltIn`, but a key that spells a built-in must never
+        // reach a handler through the provider path.
+        if let builtIn = CapabilityID(rawValue: capabilityKey.rawValue) {
+            throw BridgeError.capabilityDenied(builtIn)
+        }
+
         guard context.allowedCapabilityKeys.contains(capabilityKey) else {
             throw BridgeError.capabilityKeyDenied(capabilityKey)
         }
@@ -594,7 +623,10 @@ public final class CapabilityRegistry: @unchecked Sendable {
         let trimmed = raw.trimmingCharacters(in: .whitespaces)
         switch type {
         case .number:
-            guard let number = Double(trimmed) else { return nil }
+            // `Double.init(String)` accepts "inf", "-infinity", and "nan", so a
+            // declared-number argument sent as a string is a way to smuggle a
+            // non-finite value past the type check.
+            guard let number = Double(trimmed), number.isFinite else { return nil }
             return .number(number)
         case .bool:
             switch trimmed.lowercased() {
