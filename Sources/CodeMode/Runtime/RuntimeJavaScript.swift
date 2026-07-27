@@ -53,8 +53,15 @@ enum RuntimeJavaScript {
             if (entry.dueIn <= 0) { due.push(entry); } else { remaining.push(entry); }
         });
         timers.entries = remaining;
-        // Registration order breaks ties, matching a real event loop.
-        due.sort(function(a, b){ return a.id - b.id; });
+        // Due time first, registration order only to break ties — the order a
+        // real event loop fires in. Sorting by id alone was wrong whenever the
+        // host's sleep overshot far enough for two timers with *different*
+        // delays to come due in the same tick: the later one fired first purely
+        // because it was registered first. `dueIn` is now negative for anything
+        // overdue, so ascending puts the most overdue first.
+        due.sort(function(a, b){
+            return a.dueIn === b.dueIn ? a.id - b.id : a.dueIn - b.dueIn;
+        });
         const errors = [];
         due.forEach(function(entry){
             try {

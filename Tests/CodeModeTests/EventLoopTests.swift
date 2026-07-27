@@ -75,10 +75,13 @@ import Testing
     #expect(observed.result?.output?.objectValue?.array("fired") == [])
 }
 
-@Test func timersFireInRegistrationOrderWhenDueTogether() async throws {
+@Test func timersFireInDueOrderNotRegistrationOrder() async throws {
     let (tools, sandbox) = try makeTools()
     defer { cleanup(sandbox) }
 
+    // Registered late-first, so registration order and due order disagree. This
+    // must hold however far the host's sleep overshoots — if enough time passes
+    // for both to come due in one tick, they still fire shortest-delay first.
     let observed = try await execute(
         tools,
         request: JavaScriptExecutionRequest(
@@ -94,6 +97,58 @@ import Testing
     )
 
     #expect(observed.result?.output?.objectValue?.array("order") == [.string("a"), .string("b")])
+}
+
+@Test func timersComingDueInOneTickStillFireInDueOrder() async throws {
+    let (tools, sandbox) = try makeTools()
+    defer { cleanup(sandbox) }
+
+    // Delays below the host's sleep granularity, so both timers reliably come due
+    // inside a *single* advanceTimers call — the case that sorting by
+    // registration id alone got wrong. Registered late-first so the two orderings
+    // disagree; this fails deterministically against the old implementation
+    // rather than only on a loaded runner.
+    let observed = try await execute(
+        tools,
+        request: JavaScriptExecutionRequest(
+            code: """
+            const order = [];
+            setTimeout(() => order.push('later'), 2);
+            setTimeout(() => order.push('sooner'), 1);
+            await new Promise(resolve => setTimeout(resolve, 40));
+            return { order };
+            """,
+            allowedCapabilities: []
+        )
+    )
+
+    #expect(observed.result?.output?.objectValue?.array("order") == [.string("sooner"), .string("later")])
+}
+
+@Test func timersDueAtTheSameInstantFireInRegistrationOrder() async throws {
+    let (tools, sandbox) = try makeTools()
+    defer { cleanup(sandbox) }
+
+    // Equal delays, so only registration order can break the tie.
+    let observed = try await execute(
+        tools,
+        request: JavaScriptExecutionRequest(
+            code: """
+            const order = [];
+            setTimeout(() => order.push('first'), 5);
+            setTimeout(() => order.push('second'), 5);
+            setTimeout(() => order.push('third'), 5);
+            await new Promise(resolve => setTimeout(resolve, 30));
+            return { order };
+            """,
+            allowedCapabilities: []
+        )
+    )
+
+    #expect(
+        observed.result?.output?.objectValue?.array("order")
+            == [.string("first"), .string("second"), .string("third")]
+    )
 }
 
 @Test func anErrorInATimerCallbackBecomesADiagnosticNotACallerThrow() async throws {

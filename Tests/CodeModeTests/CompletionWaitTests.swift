@@ -8,7 +8,12 @@ import Testing
 // "the API returned nothing".
 
 @Test func completionWaitReturnsTheDeliveredValue() throws {
-    let value = try CompletionWait.value(timeout: 5, operationName: "test") { complete in
+    // 60s, not 5: the suite runs in parallel and this runtime's timer waits block
+    // GCD workers with `Thread.sleep`, so even an immediate `global().async` can
+    // wait seconds for a thread on a loaded runner. The assertion is that the
+    // delivered value comes back, not how fast — and the thread pressure itself is
+    // a property of the synchronous bridge model that the async ABI (#9) removes.
+    let value = try CompletionWait.value(timeout: 60, operationName: "test") { complete in
         DispatchQueue.global().async { complete([1, 2, 3]) }
     }
     #expect(value == [1, 2, 3])
