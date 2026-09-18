@@ -46,9 +46,11 @@ final class ExecutionWatchdog: @unchecked Sendable {
     private var deadlineValue: ContinuousClock.Instant
     private var terminationValue: Termination?
     private let cancellationController: ExecutionCancellationController
+    let clock: any RuntimeClock
 
-    init(timeoutMs: Int, cancellationController: ExecutionCancellationController) {
-        self.deadlineValue = ContinuousClock.now.advanced(by: .milliseconds(timeoutMs))
+    init(timeoutMs: Int, cancellationController: ExecutionCancellationController, clock: any RuntimeClock = RealClock()) {
+        self.clock = clock
+        self.deadlineValue = clock.now.advanced(by: .milliseconds(timeoutMs))
         self.cancellationController = cancellationController
     }
 
@@ -59,7 +61,7 @@ final class ExecutionWatchdog: @unchecked Sendable {
     }
 
     var hasPassedDeadline: Bool {
-        ContinuousClock.now >= deadline
+        clock.now >= deadline
     }
 
     var termination: Termination? {
@@ -74,7 +76,7 @@ final class ExecutionWatchdog: @unchecked Sendable {
     /// user-defined getters/`toJSON`), while a runaway getter is still terminated.
     func rearm(timeoutMs: Int) {
         lock.lock()
-        deadlineValue = ContinuousClock.now.advanced(by: .milliseconds(timeoutMs))
+        deadlineValue = clock.now.advanced(by: .milliseconds(timeoutMs))
         lock.unlock()
     }
 
@@ -107,7 +109,7 @@ final class ExecutionWatchdog: @unchecked Sendable {
             terminationValue = .cancelled
             return true
         }
-        if ContinuousClock.now >= deadlineValue {
+        if clock.now >= deadlineValue {
             terminationValue = .timedOut
             return true
         }

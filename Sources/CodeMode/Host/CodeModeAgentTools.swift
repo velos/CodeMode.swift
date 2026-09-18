@@ -5,7 +5,13 @@ public final class CodeModeAgentTools: @unchecked Sendable {
     private let catalog: BridgeCatalog
     private let runtime: BridgeRuntime
 
-    public init(config: CodeModeConfiguration = .init()) {
+    public convenience init(config: CodeModeConfiguration = .init()) {
+        self.init(config: config, clock: RealClock())
+    }
+
+    /// Test seam: a virtual clock makes timer-driven executions instant and
+    /// exact. Not public — production time is not a host decision.
+    init(config: CodeModeConfiguration, clock: any RuntimeClock) {
         let allDefaultRegistrations = DefaultCapabilityLoader.loadAllRegistrations(
             fileSystem: config.fileSystem,
             fileSystemLimits: config.fileSystemLimits,
@@ -38,7 +44,8 @@ public final class CodeModeAgentTools: @unchecked Sendable {
             registry: registry,
             catalog: self.catalog,
             config: config,
-            unsupportedBuiltInJavaScriptNames: unsupportedBuiltInJavaScriptNames
+            unsupportedBuiltInJavaScriptNames: unsupportedBuiltInJavaScriptNames,
+            clock: clock
         )
     }
 

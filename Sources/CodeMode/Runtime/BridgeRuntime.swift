@@ -40,17 +40,22 @@ final class BridgeRuntime: @unchecked Sendable {
     /// tasks — not blocked threads — until a slot frees; `timeoutMs` still
     /// measures the run itself, not the wait.
     private let executionSlots: ExecutionSlots
+    /// Real in production; virtual under test so timer-driven tests are exact
+    /// and instant. See RuntimeClock.
+    private let clock: any RuntimeClock
 
     init(
         registry: CapabilityRegistry,
         catalog: BridgeCatalog,
         config: CodeModeConfiguration,
-        unsupportedBuiltInJavaScriptNames: [String] = []
+        unsupportedBuiltInJavaScriptNames: [String] = [],
+        clock: any RuntimeClock = RealClock()
     ) {
         self.registry = registry
         self.catalog = catalog
         self.config = config
         self.unsupportedBuiltInJavaScriptNames = unsupportedBuiltInJavaScriptNames
+        self.clock = clock
         self.executionSlots = ExecutionSlots(count: config.executionLimits.maxConcurrentExecutions)
     }
 
@@ -504,7 +509,7 @@ final class BridgeRuntime: @unchecked Sendable {
         });
         """
 
-        let watchdog = ExecutionWatchdog(timeoutMs: timeoutMs, cancellationController: cancellationController)
+        let watchdog = ExecutionWatchdog(timeoutMs: timeoutMs, cancellationController: cancellationController, clock: clock)
         watchdog.install(on: context)
         defer { watchdog.uninstall(from: context) }
 
@@ -676,24 +681,22 @@ final class BridgeRuntime: @unchecked Sendable {
         context: JSContext,
         settlement: SettlementParameters
     ) throws {
-        let start = ContinuousClock.now
+        let start = clock.now
         let target = start.advanced(by: .milliseconds(Int(delayMs.rounded(.up))))
 
-        while ContinuousClock.now < target {
+        while clock.now < target {
             try checkInterrupted(settlement)
             // One interruptible wait until the timer is due or the deadline
-            // passes — a cancel wakes it immediately. The wall-clock `Date` is
-            // only the wake-up hint; the loop re-checks against ContinuousClock,
-            // so an NTP adjustment cannot move either the timer or the deadline.
-            let wakeAfter = min(target, settlement.watchdog.deadline) - ContinuousClock.now
-            settlement.cancellationController.sleep(until: Date(timeIntervalSinceNow: max(0, wakeAfter.milliseconds / 1_000)))
+            // passes — a cancel wakes it immediately, and the loop re-checks
+            // both against the clock on waking.
+            clock.sleep(until: min(target, settlement.watchdog.deadline), cancellation: settlement.cancellationController)
         }
 
         // Advance by the time that actually passed, so timers that came due while
         // we slept fire together. The call returns the callbacks' uncaught errors,
         // which cannot propagate to whoever called `setTimeout` and so surface as
         // diagnostics the way an uncaught task error does in a real event loop.
-        let elapsed = (ContinuousClock.now - start).milliseconds
+        let elapsed = (clock.now - start).milliseconds
         let errors = Self.stringArray(
             from: context,
             evaluating: "globalThis.__codemode.advanceTimers(\(elapsed))"
@@ -812,7 +815,7 @@ final class BridgeRuntime: @unchecked Sendable {
         });
         """
 
-        let watchdog = ExecutionWatchdog(timeoutMs: timeoutMs, cancellationController: cancellationController)
+        let watchdog = ExecutionWatchdog(timeoutMs: timeoutMs, cancellationController: cancellationController, clock: clock)
         watchdog.install(on: context)
         defer { watchdog.uninstall(from: context) }
 
@@ -1380,14 +1383,5 @@ final class BridgeRuntime: @unchecked Sendable {
             return nil
         }
         return trimmed
-    }
-}
-
-private extension Duration {
-    /// Whole and fractional milliseconds. `components` splits into seconds plus
-    /// attoseconds, which is otherwise an awkward two-term conversion.
-    var milliseconds: Double {
-        let parts = components
-        return Double(parts.seconds) * 1_000 + Double(parts.attoseconds) / 1e15
     }
 }

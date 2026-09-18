@@ -14,7 +14,7 @@ import Testing
     // hot loop that hammered remote APIs through fetch.
 
     @Test func setTimeoutDefersItsCallbackInsteadOfRunningItInline() async throws {
-        let (tools, sandbox) = try makeTools()
+        let (tools, sandbox) = try makeTools(clock: VirtualClock())
         defer { cleanup(sandbox) }
 
         let observed = try await execute(
@@ -37,10 +37,10 @@ import Testing
     }
 
     @Test func setTimeoutActuallyWaitsTheRequestedDelay() async throws {
-        let (tools, sandbox) = try makeTools()
+        let clock = VirtualClock()
+        let (tools, sandbox) = try makeTools(clock: clock)
         defer { cleanup(sandbox) }
 
-        let started = Date()
         let observed = try await execute(
             tools,
             request: JavaScriptExecutionRequest(
@@ -49,18 +49,17 @@ import Testing
                 timeoutMs: 5_000
             )
         )
-        let elapsed = Date().timeIntervalSince(started)
 
         #expect(observed.result?.output == .string("done"))
-        // The assertion is the lower bound: the delay was previously ignored
-        // entirely, so a backoff loop spun. There is deliberately no tight upper
-        // bound — a shared CI runner can stretch a 150ms wait by seconds, and the
-        // script's own 5s timeoutMs already fails the test if the wait runs away.
-        #expect(elapsed >= 0.14)
+        // The delay was previously ignored entirely, so a backoff loop spun. Under
+        // a virtual clock the assertion is exact: the runtime slept for precisely
+        // the delay it was asked for — not "at least" it, and not a wall-clock
+        // bound that a loaded runner could stretch.
+        #expect(clock.elapsed == .milliseconds(150))
     }
 
     @Test func clearTimeoutCancelsAPendingCallback() async throws {
-        let (tools, sandbox) = try makeTools()
+        let (tools, sandbox) = try makeTools(clock: VirtualClock())
         defer { cleanup(sandbox) }
 
         let observed = try await execute(
@@ -81,7 +80,7 @@ import Testing
     }
 
     @Test func timersFireInDueOrderNotRegistrationOrder() async throws {
-        let (tools, sandbox) = try makeTools()
+        let (tools, sandbox) = try makeTools(clock: VirtualClock())
         defer { cleanup(sandbox) }
 
         // Registered late-first, so registration order and due order disagree. This
@@ -105,21 +104,23 @@ import Testing
     }
 
     @Test func timersComingDueInOneTickStillFireInDueOrder() async throws {
-        let (tools, sandbox) = try makeTools()
+        // A slow machine wakes late. Modelled exactly: every sleep overshoots by
+        // 10ms, so the first wake (aimed at 5ms) lands at 15ms with *both* timers
+        // due in a single advanceTimers call — the case that sorting by
+        // registration id alone got wrong. Registered late-first so the two
+        // orderings disagree. Before the clock seam this condition could only be
+        // reproduced by a loaded CI runner.
+        let clock = VirtualClock(overshoot: .milliseconds(10))
+        let (tools, sandbox) = try makeTools(clock: clock)
         defer { cleanup(sandbox) }
 
-        // Delays below the host's sleep granularity, so both timers reliably come due
-        // inside a *single* advanceTimers call — the case that sorting by
-        // registration id alone got wrong. Registered late-first so the two orderings
-        // disagree; this fails deterministically against the old implementation
-        // rather than only on a loaded runner.
         let observed = try await execute(
             tools,
             request: JavaScriptExecutionRequest(
                 code: """
                 const order = [];
-                setTimeout(() => order.push('later'), 2);
-                setTimeout(() => order.push('sooner'), 1);
+                setTimeout(() => order.push('later'), 10);
+                setTimeout(() => order.push('sooner'), 5);
                 await new Promise(resolve => setTimeout(resolve, 40));
                 return { order };
                 """,
@@ -131,7 +132,7 @@ import Testing
     }
 
     @Test func timersDueAtTheSameInstantFireInRegistrationOrder() async throws {
-        let (tools, sandbox) = try makeTools()
+        let (tools, sandbox) = try makeTools(clock: VirtualClock())
         defer { cleanup(sandbox) }
 
         // Equal delays, so only registration order can break the tie.
@@ -157,7 +158,7 @@ import Testing
     }
 
     @Test func anErrorInATimerCallbackBecomesADiagnosticNotACallerThrow() async throws {
-        let (tools, sandbox) = try makeTools()
+        let (tools, sandbox) = try makeTools(clock: VirtualClock())
         defer { cleanup(sandbox) }
 
         let observed = try await execute(
@@ -180,12 +181,12 @@ import Testing
     }
 
     @Test func anUnsettleablePromiseIsReportedImmediately() async throws {
-        let (tools, sandbox) = try makeTools()
+        let clock = VirtualClock()
+        let (tools, sandbox) = try makeTools(clock: clock)
         defer { cleanup(sandbox) }
 
         // No resolve path and no queued timer: nothing in this runtime can advance
-        // it, so sleeping a thread to the deadline buys nothing.
-        let started = Date()
+        // it, so sleeping to the deadline buys nothing.
         let observed = try await execute(
             tools,
             request: JavaScriptExecutionRequest(
@@ -197,16 +198,16 @@ import Testing
 
         #expect(observed.error?.code == "JS_RUNTIME_ERROR")
         #expect(observed.error?.message.contains("can never settle") == true)
-        // No wall-clock bound: JS_RUNTIME_ERROR rather than EXECUTION_TIMEOUT
-        // already proves the 30s budget was not run out.
+        // "Immediately" means the runtime never slept at all.
+        #expect(clock.elapsed == .zero)
     }
 
     @Test func aTimerStillPendingAtTheDeadlineTimesOut() async throws {
-        let (tools, sandbox) = try makeTools()
+        let clock = VirtualClock()
+        let (tools, sandbox) = try makeTools(clock: clock)
         defer { cleanup(sandbox) }
 
         // A timer due long after the deadline must not be waited out.
-        let started = Date()
         let observed = try await execute(
             tools,
             request: JavaScriptExecutionRequest(
@@ -217,8 +218,8 @@ import Testing
         )
 
         #expect(observed.error?.code == "EXECUTION_TIMEOUT")
-        // No wall-clock bound: had the 30s timer been waited out the script would
-        // have returned 1, not timed out. The error code is the proof.
+        // Stopped exactly at the 100ms deadline, never anywhere near the 30s timer.
+        #expect(clock.elapsed == .milliseconds(100))
     }
 
     @Test func aLongBackoffStaysCancellable() async throws {
@@ -339,7 +340,8 @@ import Testing
 
     @Test func executionsBeyondTheSlotLimitQueueRatherThanFail() async throws {
         let (tools, sandbox) = try makeTools(
-            executionLimits: ExecutionLimits(maxConcurrentExecutions: 1)
+            executionLimits: ExecutionLimits(maxConcurrentExecutions: 1),
+            clock: VirtualClock()
         )
         defer { cleanup(sandbox) }
 
@@ -370,29 +372,26 @@ import Testing
     }
 
     @Test func aResultThatSettlesRightAtTheDeadlineIsNotDiscarded() async throws {
-        let (tools, sandbox) = try makeTools()
+        let clock = VirtualClock()
+        let (tools, sandbox) = try makeTools(clock: clock)
         defer { cleanup(sandbox) }
 
-        // The settled state must be read before the deadline is enforced. Checking
-        // the deadline first turns a script that fulfilled a hair late into a
-        // spurious timeout, discarding a result that already exists.
-        for _ in 0..<12 {
-            let observed = try await execute(
-                tools,
-                request: JavaScriptExecutionRequest(
-                    code: "await new Promise(resolve => setTimeout(resolve, 40)); return 'settled';",
-                    allowedCapabilities: [],
-                    timeoutMs: 40
-                )
+        // Timer and deadline at the same instant. The settled state must be read
+        // before the deadline is enforced: checking the deadline first turns a
+        // script that fulfilled exactly on time into a spurious timeout, discarding
+        // a result that already exists. Under a real clock this was a 12-iteration
+        // race; under a virtual one it is a single exact case.
+        let observed = try await execute(
+            tools,
+            request: JavaScriptExecutionRequest(
+                code: "await new Promise(resolve => setTimeout(resolve, 40)); return 'settled';",
+                allowedCapabilities: [],
+                timeoutMs: 40
             )
-            // Either outcome is legitimate under the race, but a fulfilled script
-            // must never come back empty *and* successful.
-            if observed.error == nil {
-                #expect(observed.result?.output == .string("settled"))
-            } else {
-                #expect(observed.error?.code == "EXECUTION_TIMEOUT")
-            }
-        }
+        )
+
+        #expect(observed.error == nil)
+        #expect(observed.result?.output == .string("settled"))
     }
 
     // MARK: - Lifetime and slot semantics

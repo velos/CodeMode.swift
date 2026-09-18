@@ -51,7 +51,8 @@ func makeTools(
     passKitClient: any PassKitClient = UnavailablePassKitClient(),
     storeKitClient: any StoreKitClient = UnavailableStoreKitClient(),
     codeModeProviders: [any CodeModeProvider] = [],
-    hostPlatform: HostPlatform = .current
+    hostPlatform: HostPlatform = .current,
+    clock: any RuntimeClock = RealClock()
 ) throws -> (CodeModeAgentTools, TestSandbox) {
     let sandbox = try makeTestSandbox()
 
@@ -83,7 +84,7 @@ func makeTools(
         hostPlatform: hostPlatform
     )
 
-    let tools = CodeModeAgentTools(config: configuration)
+    let tools = CodeModeAgentTools(config: configuration, clock: clock)
     return (tools, sandbox)
 }
 
