@@ -1,6 +1,6 @@
 import Foundation
 
-/// Bounds on how much an execution may accumulate.
+/// Bounds on how much an execution may accumulate, plus how many may run at once.
 ///
 /// Nothing about a script's *output* was previously capped: the whole result was
 /// stringified, copied into a Swift `String`, and re-decoded into a `JSONValue`;

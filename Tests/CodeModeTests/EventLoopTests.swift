@@ -392,3 +392,136 @@ import Testing
         }
     }
 }
+
+// MARK: - Lifetime and slot semantics
+
+@Test func iteratingEventsAfterDroppingTheCallDoesNotCancelTheExecution() async throws {
+    let (tools, sandbox) = try makeTools()
+    defer { cleanup(sandbox) }
+
+    // Swift does not keep a local alive to the end of its scope, so a host that
+    // reads `call.events` and never touches `call` again may have it released
+    // mid-iteration in an optimized build. Cancelling in the call's deinit cut
+    // that host off. Force the release explicitly here rather than hoping the
+    // optimizer does it.
+    var call: JavaScriptExecutionCall? = try await tools.executeJavaScript(
+        JavaScriptExecutionRequest(
+            code: """
+            console.log('start');
+            await new Promise(resolve => setTimeout(resolve, 200));
+            console.log('end');
+            return 'finished';
+            """,
+            allowedCapabilities: []
+        )
+    )
+    let events = call!.events
+    call = nil
+
+    var sawFinished = false
+    var sawEnd = false
+    for await event in events {
+        if case .finished = event { sawFinished = true }
+        if case let .log(entry) = event, entry.message == "end" { sawEnd = true }
+    }
+
+    #expect(sawEnd)
+    #expect(sawFinished)
+}
+
+@Test func droppingBothTheCallAndItsStreamCancelsTheExecution() async throws {
+    // One slot: if the dropped execution were still running, the second call
+    // could not start until its 20s timer elapsed.
+    let (tools, sandbox) = try makeTools(
+        executionLimits: ExecutionLimits(maxConcurrentExecutions: 1)
+    )
+    defer { cleanup(sandbox) }
+
+    func startAndDrop() async throws {
+        let dropped = try await tools.executeJavaScript(
+            JavaScriptExecutionRequest(
+                code: "await new Promise(resolve => setTimeout(resolve, 20000)); return 1;",
+                allowedCapabilities: [],
+                timeoutMs: 60_000
+            )
+        )
+        _ = dropped.events
+        // Give it a moment to actually occupy the slot before we drop it.
+        try await Task.sleep(nanoseconds: 100_000_000)
+    }
+    try await startAndDrop()
+
+    let started = Date()
+    let observed = try await execute(
+        tools,
+        request: JavaScriptExecutionRequest(code: "return 'got the slot';", allowedCapabilities: [], timeoutMs: 5_000)
+    )
+
+    #expect(observed.result?.output == .string("got the slot"))
+    #expect(Date().timeIntervalSince(started) < 15, "the dropped execution must have released its slot")
+}
+
+@Test func cancellingWhileWaitingForASlotNeverRunsTheScript() async throws {
+    let (tools, sandbox) = try makeTools(
+        executionLimits: ExecutionLimits(maxConcurrentExecutions: 1)
+    )
+    defer { cleanup(sandbox) }
+
+    // Occupy the only slot.
+    let occupant = try await tools.executeJavaScript(
+        JavaScriptExecutionRequest(
+            code: "await new Promise(resolve => setTimeout(resolve, 3000)); return 'occupant';",
+            allowedCapabilities: [],
+            timeoutMs: 30_000
+        )
+    )
+    try await Task.sleep(nanoseconds: 100_000_000)
+
+    // This one parks waiting for the slot. Cancel it there: it must report
+    // CANCELLED and must never have executed — the file it would write is the
+    // evidence.
+    let parked = try await tools.executeJavaScript(
+        JavaScriptExecutionRequest(
+            code: "await apple.fs.write({ path: 'tmp:ran.txt', data: 'x' }); return 'ran';",
+            allowedCapabilities: [.fsWrite],
+            timeoutMs: 30_000
+        )
+    )
+    try await Task.sleep(nanoseconds: 100_000_000)
+    parked.cancel()
+
+    let parkedOutcome = await observe(parked)
+    #expect(parkedOutcome.error?.code == "CANCELLED")
+    #expect(FileManager.default.fileExists(atPath: sandbox.tmp.appendingPathComponent("ran.txt").path) == false)
+
+    // The occupant is unaffected and the slot still hands over cleanly afterwards.
+    let occupantOutcome = await observe(occupant)
+    #expect(occupantOutcome.result?.output == .string("occupant"))
+}
+
+@Test func cancellationInterruptsASleepImmediately() throws {
+    let controller = ExecutionCancellationController()
+    let woke = DispatchSemaphore(value: 0)
+
+    // A polling sleep would not notice the cancel until its next slice; an
+    // interruptible one returns as soon as the cancel lands. Synchronous test on
+    // purpose: the sleeper is a real blocked thread, as it is in the runtime.
+    DispatchQueue.global().async {
+        controller.sleep(until: Date(timeIntervalSinceNow: 30))
+        woke.signal()
+    }
+    Thread.sleep(forTimeInterval: 0.05)
+    let cancelledAt = Date()
+    controller.cancel()
+
+    #expect(woke.wait(timeout: .now() + 10) == .success)
+    #expect(Date().timeIntervalSince(cancelledAt) < 5)
+}
+
+@Test func sleepReturnsAtTheDeadlineWhenNotCancelled() {
+    let controller = ExecutionCancellationController()
+    let started = Date()
+    controller.sleep(until: Date(timeIntervalSinceNow: 0.1))
+    #expect(Date().timeIntervalSince(started) >= 0.09)
+    #expect(controller.isCancelled == false)
+}

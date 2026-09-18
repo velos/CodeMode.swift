@@ -12,7 +12,7 @@ public final class BridgeInvocationContext: @unchecked Sendable {
     public let allowedCapabilityKeys: Set<CodeModeCapabilityKey>
     /// Identifiers the request asked for and the host's grant withheld. Used to
     /// tell the model a denial is not repairable by widening `allowedCapabilities`.
-    public let hostWithheldCapabilityIdentifiers: Set<String>
+    let hostWithheldCapabilityIdentifiers: Set<String>
     public let pathPolicy: any PathPolicy
     public let artifactStore: any ArtifactStore
     public let permissionBroker: any PermissionBroker

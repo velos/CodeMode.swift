@@ -87,17 +87,38 @@ public enum TypeScriptDeclarations {
     """
 
     /// The declaration for one capability, suitable for a search result payload.
+    ///
+    /// Declared at its real call path — `declare namespace apple { namespace fs {
+    /// function read(...) } }` — so what the model reads is exactly what it can
+    /// call. An earlier version flattened this to `apple_fs_read`, a name that
+    /// does not exist in the runtime.
     public static func declaration(for reference: JavaScriptAPIReference) -> String {
         guard let canonical = canonicalName(for: reference) else {
             return ""
         }
-        let name = canonical.replacingOccurrences(of: ".", with: "_")
-        return "\(documentation(for: reference, canonicalName: canonical))\ndeclare function \(name)\(functionSignature(for: reference));"
+        // A bare global such as `fetch` has no namespace to sit in. The whole
+        // surface covers it from the hand-authored preamble; a per-reference
+        // declaration has to say it directly.
+        guard canonical.contains(".") else {
+            return "\(documentation(for: reference, canonicalName: canonical))\ndeclare function \(canonical)\(functionSignature(for: reference));"
+        }
+        return renderNamespaces(for: [reference])
     }
 
     /// The whole surface: the preamble plus every capability, grouped into
     /// namespaces by its canonical dotted JavaScript name.
     public static func surface(for references: [JavaScriptAPIReference]) -> String {
+        """
+        // CodeMode JavaScript API — generated from the capability registry.
+        // Only helpers supported on the current host platform appear here.
+
+        \(preamble)
+
+        \(renderNamespaces(for: references))
+        """
+    }
+
+    private static func renderNamespaces(for references: [JavaScriptAPIReference]) -> String {
         let root = Namespace(name: "")
         for reference in references.sorted(by: { $0.capability < $1.capability }) {
             guard let canonical = canonicalName(for: reference) else {
@@ -119,19 +140,10 @@ public enum TypeScriptDeclarations {
             )
         }
 
-        let body = root.children
+        return root.children
             .sorted { $0.key < $1.key }
             .map { render(namespace: $0.value, indent: "", isTopLevel: true) }
             .joined(separator: "\n\n")
-
-        return """
-        // CodeMode JavaScript API — generated from the capability registry.
-        // Only helpers supported on the current host platform appear here.
-
-        \(preamble)
-
-        \(body)
-        """
     }
 
     // MARK: - Declaration pieces

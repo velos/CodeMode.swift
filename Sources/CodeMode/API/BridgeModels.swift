@@ -9,7 +9,8 @@ public struct CodeModeConfiguration: Sendable {
     public var fileSystem: any CodeModeFileSystem
     /// Byte ceilings applied by the filesystem bridge to `fs.read` / `fs.write`.
     public var fileSystemLimits: FileSystemLimits
-    /// Bounds on retained result/log/event volume for a single execution.
+    /// Bounds on retained result/log/event volume per execution, and on how
+    /// many executions run concurrently.
     public var executionLimits: ExecutionLimits
     public var artifactStore: any ArtifactStore
     public var permissionBroker: any PermissionBroker
@@ -346,15 +347,22 @@ public final class JavaScriptExecutionCall: @unchecked Sendable {
     public let events: AsyncStream<JavaScriptExecutionEvent>
 
     private let resultTask: Task<JavaScriptExecutionResult, Error>
+    /// Keeps the execution alive while this handle is; the events stream holds
+    /// the same token. When both are gone the execution is cancelled, so a call
+    /// nobody can observe does not keep touching the filesystem, the network,
+    /// and system UI on the user's behalf.
+    private let observation: ExecutionObservationToken
     private let cancelImpl: @Sendable () -> Void
 
     init(
         events: AsyncStream<JavaScriptExecutionEvent>,
         resultTask: Task<JavaScriptExecutionResult, Error>,
+        observation: ExecutionObservationToken,
         cancelImpl: @escaping @Sendable () -> Void
     ) {
         self.events = events
         self.resultTask = resultTask
+        self.observation = observation
         self.cancelImpl = cancelImpl
     }
 
@@ -383,14 +391,6 @@ public final class JavaScriptExecutionCall: @unchecked Sendable {
     }
 
     public func cancel() {
-        cancelImpl()
-        resultTask.cancel()
-    }
-
-    /// A dropped call must not keep running: without this, an execution whose
-    /// handle nobody holds continues to completion in the background, still
-    /// touching the filesystem, the network, and system UI on the user's behalf.
-    deinit {
         cancelImpl()
         resultTask.cancel()
     }

@@ -67,7 +67,13 @@ Then add the product to your target:
 ```swift
 import CodeMode
 
-let tools = CodeModeAgentTools()
+// The grant is the host's ceiling. Without it the model's own allowlist is the
+// only one in force — fine for a trusted caller, not for tool JSON from a model.
+let tools = CodeModeAgentTools(
+    config: CodeModeConfiguration(
+        capabilityGrant: .only([.fsRead, .fsWrite])
+    )
+)
 
 let searchResponse = try await tools.searchJavaScriptAPI(
     JavaScriptAPISearchRequest(
@@ -455,8 +461,12 @@ let required: Set<CapabilityID> = [
     .contactsSearch,
     .weatherRead,
 ]
+let config = CodeModeConfiguration(capabilityGrant: .only(required))
 
+// Info.plist usage strings for what the host will request, plus a warning if
+// the configuration itself leaves the model as the only capability allowlist.
 let issues = HostConfigurationValidator.validate(requiredCapabilities: required)
+    + HostConfigurationValidator.validate(configuration: config)
 for issue in issues {
     print("[\(issue.severity.rawValue)] \(issue.key): \(issue.message)")
 }

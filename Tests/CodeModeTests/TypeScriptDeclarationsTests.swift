@@ -142,7 +142,8 @@ private func reference(
         )
     )
     let payload = try #require(response.result?.stringValue)
-    #expect(payload.contains("function apple_fs_read(args: {"))
+    #expect(payload.contains("declare namespace apple {"))
+    #expect(payload.contains("function read(args: {"))
     #expect(payload.contains("path: string;"))
 }
 

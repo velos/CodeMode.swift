@@ -23,7 +23,9 @@ public enum CodeModeAgentGuidance {
     /// Every tier is self-contained and states the core idea; the larger ones add
     /// worked examples and failure modes rather than qualifying what came before,
     /// so a host can drop down a tier without losing a rule.
-    public enum Length: String, Sendable, CaseIterable, Comparable {
+    public enum Length: String, Sendable, CaseIterable {
+        // Declared smallest to largest; `length(forApproximateTokenBudget:)`
+        // relies on that order.
         /// One paragraph: the core idea and nothing else.
         case brief
         /// The idea, the workflow, and one worked example. The default.
@@ -31,18 +33,6 @@ public enum CodeModeAgentGuidance {
         /// Adds fan-out and error-handling examples plus the anti-pattern list.
         /// Worth it when the agent will do open-ended multi-step work.
         case full
-
-        public static func < (lhs: Length, rhs: Length) -> Bool {
-            lhs.order < rhs.order
-        }
-
-        fileprivate var order: Int {
-            switch self {
-            case .brief: return 0
-            case .standard: return 1
-            case .full: return 2
-            }
-        }
 
         /// Rough size of this tier's text, for budgeting against a prompt.
         ///
@@ -78,7 +68,7 @@ public enum CodeModeAgentGuidance {
     /// The tier `systemPrompt(approximateTokenBudget:)` would choose.
     public static func length(forApproximateTokenBudget budget: Int) -> Length {
         Length.allCases
-            .sorted(by: >)
+            .reversed()
             .first { $0.approximateTokenCount <= budget }
             ?? .brief
     }

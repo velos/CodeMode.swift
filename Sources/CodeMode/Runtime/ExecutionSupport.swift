@@ -1,19 +1,112 @@
 import Foundation
 
 final class ExecutionCancellationController: @unchecked Sendable {
-    private let lock = NSLock()
+    private let condition = NSCondition()
     private var cancelled = false
 
     func cancel() {
-        lock.lock()
+        condition.lock()
         cancelled = true
-        lock.unlock()
+        // Wakes anything parked in `sleep(until:)`, so a cancel lands
+        // immediately instead of at the next poll.
+        condition.broadcast()
+        condition.unlock()
     }
 
     var isCancelled: Bool {
-        lock.lock()
-        defer { lock.unlock() }
+        condition.lock()
+        defer { condition.unlock() }
         return cancelled
+    }
+
+    /// Blocks until `date` or until cancelled, whichever is first. The timer
+    /// loop used to poll `Thread.sleep` in 5ms slices — 200 wakeups a second per
+    /// sleeping execution, and up to 5ms of cancellation latency — where one
+    /// interruptible wait does both jobs.
+    func sleep(until date: Date) {
+        condition.lock()
+        defer { condition.unlock() }
+        while cancelled == false, Date() < date {
+            condition.wait(until: date)
+        }
+    }
+}
+
+/// Bounds how many executions run at once, parking the excess as suspended
+/// tasks rather than blocked threads.
+///
+/// A `DispatchSemaphore` acquired on the GCD worker got this exactly backwards:
+/// every execution beyond the limit held a thread while waiting for a slot, which
+/// is the resource the limit exists to protect. Waiters here cost nothing until
+/// a slot frees, and a cancelled waiter leaves the queue without ever running.
+actor ExecutionSlots {
+    private var available: Int
+    private var waiters: [(id: UUID, continuation: CheckedContinuation<Void, Error>)] = []
+    private var cancelledBeforeParking: Set<UUID> = []
+
+    init(count: Int) {
+        available = max(1, count)
+    }
+
+    func acquire() async throws {
+        try Task.checkCancellation()
+        if available > 0 {
+            available -= 1
+            return
+        }
+
+        let id = UUID()
+        try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+                // The cancellation handler can run before this closure does; if it
+                // already did, do not park at all.
+                if cancelledBeforeParking.remove(id) != nil {
+                    continuation.resume(throwing: CancellationError())
+                } else {
+                    waiters.append((id, continuation))
+                }
+            }
+        } onCancel: {
+            Task { await self.withdraw(id) }
+        }
+    }
+
+    func release() {
+        // Hand the slot straight to the next waiter; `available` only grows when
+        // nobody is waiting for it.
+        if waiters.isEmpty == false {
+            waiters.removeFirst().continuation.resume()
+        } else {
+            available += 1
+        }
+    }
+
+    private func withdraw(_ id: UUID) {
+        if let index = waiters.firstIndex(where: { $0.id == id }) {
+            waiters.remove(at: index).continuation.resume(throwing: CancellationError())
+        } else {
+            cancelledBeforeParking.insert(id)
+        }
+    }
+}
+
+/// Cancels an execution once nothing can observe its outcome.
+///
+/// Held by both the `JavaScriptExecutionCall` and its events stream, so the
+/// execution keeps running while *either* is reachable — a host iterating
+/// `call.events` after its last use of `call` is still observing. Cancelling in
+/// the call's own `deinit` cut that host off mid-stream: Swift does not keep a
+/// local alive to the end of its scope, and an optimized build released `call` as
+/// soon as `.events` had been read.
+final class ExecutionObservationToken: @unchecked Sendable {
+    private let onDrop: @Sendable () -> Void
+
+    init(onDrop: @escaping @Sendable () -> Void) {
+        self.onDrop = onDrop
+    }
+
+    deinit {
+        onDrop()
     }
 }
 

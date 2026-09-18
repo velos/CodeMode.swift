@@ -36,10 +36,10 @@ final class BridgeRuntime: @unchecked Sendable {
     ///
     /// The queue is concurrent and each execution blocks its thread for the whole
     /// run, so thirty parallel `executeJavaScript` calls meant thirty blocked GCD
-    /// threads and thirty JavaScriptCore VMs. Excess executions now queue instead
-    /// of exhausting the thread pool; `timeoutMs` still measures the run itself,
-    /// not the wait for a slot.
-    private let executionSlots: DispatchSemaphore
+    /// threads and thirty JavaScriptCore VMs. Excess executions park as suspended
+    /// tasks — not blocked threads — until a slot frees; `timeoutMs` still
+    /// measures the run itself, not the wait.
+    private let executionSlots: ExecutionSlots
 
     init(
         registry: CapabilityRegistry,
@@ -51,7 +51,7 @@ final class BridgeRuntime: @unchecked Sendable {
         self.catalog = catalog
         self.config = config
         self.unsupportedBuiltInJavaScriptNames = unsupportedBuiltInJavaScriptNames
-        self.executionSlots = DispatchSemaphore(value: max(1, config.executionLimits.maxConcurrentExecutions))
+        self.executionSlots = ExecutionSlots(count: config.executionLimits.maxConcurrentExecutions)
     }
 
     func search(_ request: JavaScriptAPISearchRequest) throws -> JavaScriptAPISearchResponse {
@@ -118,6 +118,15 @@ final class BridgeRuntime: @unchecked Sendable {
     func makeExecutionCall(_ request: JavaScriptExecutionRequest) -> JavaScriptExecutionCall {
         let cancellationController = ExecutionCancellationController()
         let continuationBox = LockedBox<AsyncStream<JavaScriptExecutionEvent>.Continuation?>(nil)
+        let resultTaskBox = LockedBox<Task<JavaScriptExecutionResult, Error>?>(nil)
+
+        // Shared by the call and the stream; the execution is cancelled when
+        // the last of the two goes away. See ExecutionObservationToken.
+        let observation = ExecutionObservationToken {
+            cancellationController.cancel()
+            resultTaskBox.get()?.cancel()
+        }
+
         // Bounded: the default policy buffers without limit, so a chatty script
         // whose events the host is not draining grows the buffer until the app
         // dies. Dropping the oldest keeps the terminal events — which is what
@@ -126,6 +135,9 @@ final class BridgeRuntime: @unchecked Sendable {
             bufferingPolicy: .bufferingNewest(config.executionLimits.maxBufferedEvents)
         ) { continuation in
             continuationBox.set(continuation)
+            // The stream's storage retains this closure until termination, which
+            // is what keeps the token alive for as long as someone is iterating.
+            continuation.onTermination = { _ in withExtendedLifetime(observation) {} }
         }
         let transcript = ExecutionTranscript(limits: config.executionLimits) { event in
             continuationBox.get()?.yield(event)
@@ -174,9 +186,12 @@ final class BridgeRuntime: @unchecked Sendable {
             }
         }
 
+        resultTaskBox.set(resultTask)
+
         return JavaScriptExecutionCall(
             events: events,
             resultTask: resultTask,
+            observation: observation,
             cancelImpl: {
                 cancellationController.cancel()
             }
@@ -186,12 +201,14 @@ final class BridgeRuntime: @unchecked Sendable {
     private func runOnExecutionQueue<Output: Sendable>(
         _ operation: @escaping @Sendable () throws -> Output
     ) async throws -> Output {
-        try await withCheckedThrowingContinuation { continuation in
+        // The slot is taken *here*, in the async context, so an execution beyond
+        // the limit suspends without touching the thread pool. A cancel while
+        // parked throws before anything is dispatched.
+        try await executionSlots.acquire()
+        defer { Task { await self.executionSlots.release() } }
+
+        return try await withCheckedThrowingContinuation { continuation in
             executionQueue.async {
-                // Wait for a slot on the worker, not before dispatching, so the
-                // caller's async context is never blocked.
-                self.executionSlots.wait()
-                defer { self.executionSlots.signal() }
                 do {
                     continuation.resume(returning: try operation())
                 } catch {
@@ -664,9 +681,12 @@ final class BridgeRuntime: @unchecked Sendable {
 
         while ContinuousClock.now < target {
             try checkInterrupted(settlement)
-            // Short slices so cancellation and the deadline stay responsive
-            // during a long backoff.
-            Thread.sleep(forTimeInterval: 0.005)
+            // One interruptible wait until the timer is due or the deadline
+            // passes — a cancel wakes it immediately. The wall-clock `Date` is
+            // only the wake-up hint; the loop re-checks against ContinuousClock,
+            // so an NTP adjustment cannot move either the timer or the deadline.
+            let wakeAfter = min(target, settlement.watchdog.deadline) - ContinuousClock.now
+            settlement.cancellationController.sleep(until: Date(timeIntervalSinceNow: max(0, wakeAfter.milliseconds / 1_000)))
         }
 
         // Advance by the time that actually passed, so timers that came due while
