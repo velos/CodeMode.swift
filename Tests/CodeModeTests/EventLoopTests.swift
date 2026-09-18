@@ -501,16 +501,24 @@ import Testing
 
 @Test func cancellationInterruptsASleepImmediately() throws {
     let controller = ExecutionCancellationController()
+    let entered = DispatchSemaphore(value: 0)
     let woke = DispatchSemaphore(value: 0)
 
     // A polling sleep would not notice the cancel until its next slice; an
     // interruptible one returns as soon as the cancel lands. Synchronous test on
     // purpose: the sleeper is a real blocked thread, as it is in the runtime.
     DispatchQueue.global().async {
+        entered.signal()
         controller.sleep(until: Date(timeIntervalSinceNow: 30))
         woke.signal()
     }
-    Thread.sleep(forTimeInterval: 0.05)
+
+    // Wait for the sleeper to actually be scheduled before cancelling. On a
+    // starved runner the dispatch alone can take seconds, and cancelling before
+    // the sleep has begun measures scheduling, not the wake-up this test is
+    // about. The generous bound here is for scheduling; the tight one below is
+    // for the wake.
+    #expect(entered.wait(timeout: .now() + 60) == .success, "sleeper never got a thread")
     let cancelledAt = Date()
     controller.cancel()
 
