@@ -710,6 +710,7 @@ import Testing
     let call = try await tools.executeJavaScript(
         JavaScriptExecutionRequest(
             code: """
+            console.log('running');
             await new Promise(resolve => setTimeout(resolve, 20000));
             return { never: true };
             """,
@@ -717,6 +718,18 @@ import Testing
             timeoutMs: 60_000
         )
     )
+
+    // Cancel only once the script is observed to be running. A `Task.yield()`
+    // before cancelling is not a guarantee under load: on a stalled runner the
+    // test task can be descheduled long enough for the 20s timer to elapse, and
+    // then a cancel of an already-finished execution is a no-op that this test
+    // would misreport as a runtime bug.
+    var running = false
+    for await event in call.events {
+        if case let .log(entry) = event, entry.message == "running" { running = true; break }
+        if case .finished = event { break }
+    }
+    #expect(running, "the script never reported starting")
 
     let waiter = Task<Result<JavaScriptExecutionResult, CodeModeToolError>, Never> {
         do {
@@ -728,7 +741,6 @@ import Testing
         }
     }
 
-    await Task.yield()
     waiter.cancel()
     let waiterResult = await waiter.value
 
