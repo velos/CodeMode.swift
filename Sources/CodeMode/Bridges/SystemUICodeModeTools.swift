@@ -327,7 +327,7 @@ struct WebUIPresentTool: BuiltInCodeModeTool {
 @BuiltInCodeMode(.authUIWebAuthenticate, path: "apple.auth.webAuthenticate")
 struct AuthUIWebAuthenticateTool: BuiltInCodeModeTool {
     static let codeModeTitle = "Authenticate with system web UI"
-    static let codeModeSummary = "Start an ASWebAuthenticationSession for OAuth-style browser authentication."
+    static let codeModeSummary = "Start an ASWebAuthenticationSession for OAuth-style browser authentication. Runs in a private browser session by default and the URL must satisfy the host's network access policy."
     static let codeModeTags = ["auth", "oauth", "web", "browser", "system-ui"]
     static let codeModeExample = "await apple.auth.webAuthenticate({ url: 'https://example.com/oauth', callbackURLScheme: 'myapp' })"
     static let codeModeResultSummary = "Object with action callback/cancelled and callbackURL when available."
@@ -337,7 +337,7 @@ struct AuthUIWebAuthenticateTool: BuiltInCodeModeTool {
         var url: String
         @ToolParam("Optional custom URL scheme that completes the session.")
         var callbackURLScheme: String?
-        @ToolParam("Whether to prefer a private browser session; default false.")
+        @ToolParam("Whether to use a private browser session; default true. Set false only when the flow must reuse the user's existing browser session.")
         var prefersEphemeralSession: Bool?
         @ToolParam("Optional timeout for waiting on callback/cancellation.")
         var timeoutMs: Double?

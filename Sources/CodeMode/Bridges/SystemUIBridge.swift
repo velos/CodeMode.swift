@@ -1,7 +1,11 @@
 import Foundation
 
 public final class SystemUIBridge: @unchecked Sendable {
-    public init() {}
+    private let networkAccessPolicy: NetworkAccessPolicy
+
+    public init(networkAccessPolicy: NetworkAccessPolicy = .standard) {
+        self.networkAccessPolicy = networkAccessPolicy
+    }
 
     public func pickCalendar(arguments: [String: JSONValue], context: BridgeInvocationContext) throws -> JSONValue {
         try validateCalendarPickerArguments(arguments)
@@ -188,12 +192,11 @@ public final class SystemUIBridge: @unchecked Sendable {
     }
 
     private func validateCalendarEventArguments(_ arguments: [String: JSONValue]) throws {
-        let formatter = ISO8601DateFormatter()
         for key in ["start", "end"] {
             guard let value = arguments.string(key) else {
                 continue
             }
-            guard formatter.date(from: value) != nil else {
+            guard CodeModeDate.parse(value) != nil else {
                 throw BridgeError.invalidArguments("calendar.ui.presentNewEvent requires \(key) to be an ISO8601 timestamp when provided")
             }
         }
@@ -446,6 +449,13 @@ public final class SystemUIBridge: @unchecked Sendable {
               url.host?.isEmpty == false
         else {
             throw BridgeError.invalidArguments("\(capability) \(key) must be an absolute HTTP(S) URL")
+        }
+
+        // Destinations opened in a browser were exempt from the policy that
+        // governs fetch, so a script blocked from reaching an origin could still
+        // put it in front of the user — or start an OAuth flow against it.
+        if let reason = networkAccessPolicy.violationReason(for: url) {
+            throw BridgeError.networkPolicyViolation("\(capability) \(key): \(reason)")
         }
     }
 

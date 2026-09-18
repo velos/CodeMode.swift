@@ -23,6 +23,26 @@ public struct PathPolicyConfig: Sendable {
 
 public protocol PathPolicy: Sendable {
     func resolve(path: String) throws -> URL
+
+    /// The roots this policy admits.
+    ///
+    /// `resolve` accepts a root itself — `documents:` resolves to the documents
+    /// root — so destructive operations need to be able to recognize one and
+    /// refuse. Custom policies that do not implement this get an empty list and
+    /// simply lose that specific check.
+    var allowedRoots: [URL] { get }
+}
+
+public extension PathPolicy {
+    var allowedRoots: [URL] { [] }
+
+    /// True when `url` *is* one of the allowed roots rather than something inside one.
+    func isAllowedRoot(_ url: URL) -> Bool {
+        let candidate = url.standardizedFileURL.resolvingSymlinksInPath().standardizedFileURL.path
+        return allowedRoots.contains { root in
+            root.standardizedFileURL.resolvingSymlinksInPath().standardizedFileURL.path == candidate
+        }
+    }
 }
 
 public struct DefaultPathPolicy: PathPolicy {
@@ -30,6 +50,10 @@ public struct DefaultPathPolicy: PathPolicy {
 
     public init(config: PathPolicyConfig = .init()) {
         self.config = config
+    }
+
+    public var allowedRoots: [URL] {
+        [config.tmpRoot, config.cachesRoot, config.documentsRoot, config.appGroupRoot].compactMap { $0 }
     }
 
     public func resolve(path: String) throws -> URL {
@@ -98,15 +122,54 @@ public struct DefaultPathPolicy: PathPolicy {
         var missingComponents: [String] = []
         let fileManager = FileManager.default
 
-        while fileManager.fileExists(atPath: existingAncestor.path) == false,
+        // `fileExists` follows symlinks, so a symlink pointing at a *nonexistent*
+        // out-of-root target reported "missing" and was treated as a component to
+        // re-append rather than a link to resolve — admitting it. Checking for the
+        // link itself keeps a dangling symlink in the resolution path, where
+        // `resolvingSymlinksInPath` sends containment to the real target.
+        while Self.isMissingComponent(existingAncestor, fileManager: fileManager),
               existingAncestor.path != existingAncestor.deletingLastPathComponent().path {
             missingComponents.insert(existingAncestor.lastPathComponent, at: 0)
             existingAncestor.deleteLastPathComponent()
         }
 
-        let resolvedAncestor = existingAncestor.resolvingSymlinksInPath().standardizedFileURL
+        let resolvedAncestor = Self.followingDanglingSymlink(
+            existingAncestor.resolvingSymlinksInPath().standardizedFileURL,
+            fileManager: fileManager
+        )
         return missingComponents.reduce(resolvedAncestor) { partial, component in
             partial.appendingPathComponent(component)
         }.standardizedFileURL
+    }
+
+    /// True when nothing exists at this path — not even a broken symlink.
+    /// `FileManager.fileExists` follows links and so answers false for one.
+    private static func isMissingComponent(_ url: URL, fileManager: FileManager) -> Bool {
+        if fileManager.fileExists(atPath: url.path) {
+            return false
+        }
+        // `attributesOfItem` does not traverse the final symlink, so a dangling
+        // link still has attributes here.
+        return (try? fileManager.attributesOfItem(atPath: url.path)) == nil
+    }
+
+    /// Resolves a symlink whose target does not exist.
+    ///
+    /// `URL.resolvingSymlinksInPath()` only rewrites links it can follow, so a
+    /// link to a nonexistent out-of-root target came back unchanged and passed
+    /// containment. Containment must be judged on where the link *points*.
+    private static func followingDanglingSymlink(_ url: URL, fileManager: FileManager) -> URL {
+        var current = url
+        // Bounded: a symlink cycle would otherwise spin here.
+        for _ in 0..<16 {
+            guard let destination = try? fileManager.destinationOfSymbolicLink(atPath: current.path) else {
+                return current
+            }
+            let next = destination.hasPrefix("/")
+                ? URL(fileURLWithPath: destination)
+                : current.deletingLastPathComponent().appendingPathComponent(destination)
+            current = next.standardizedFileURL.resolvingSymlinksInPath().standardizedFileURL
+        }
+        return current
     }
 }

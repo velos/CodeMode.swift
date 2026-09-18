@@ -35,6 +35,8 @@ func cleanup(_ sandbox: TestSandbox) {
 
 func makeTools(
     permissionBroker: any PermissionBroker = NoopPermissionBroker(),
+    capabilityGrant: CapabilityGrant = .unrestricted,
+    executionLimits: ExecutionLimits = .standard,
     fileSystem: any CodeModeFileSystem = LocalCodeModeFileSystem(),
     systemUIPresenter: any SystemUIPresenter = UnavailableSystemUIPresenter(),
     eventInbox: any CodeModeEventInbox = UnavailableCodeModeEventInbox(),
@@ -49,7 +51,8 @@ func makeTools(
     passKitClient: any PassKitClient = UnavailablePassKitClient(),
     storeKitClient: any StoreKitClient = UnavailableStoreKitClient(),
     codeModeProviders: [any CodeModeProvider] = [],
-    hostPlatform: HostPlatform = .current
+    hostPlatform: HostPlatform = .current,
+    clock: any RuntimeClock = RealClock()
 ) throws -> (CodeModeAgentTools, TestSandbox) {
     let sandbox = try makeTestSandbox()
 
@@ -59,7 +62,9 @@ func makeTools(
 
     let configuration = CodeModeConfiguration(
         pathPolicy: pathPolicy,
+        capabilityGrant: capabilityGrant,
         fileSystem: fileSystem,
+        executionLimits: executionLimits,
         artifactStore: InMemoryArtifactStore(),
         permissionBroker: permissionBroker,
         auditLogger: SyncAuditLogger(),
@@ -79,7 +84,7 @@ func makeTools(
         hostPlatform: hostPlatform
     )
 
-    let tools = CodeModeAgentTools(config: configuration)
+    let tools = CodeModeAgentTools(config: configuration, clock: clock)
     return (tools, sandbox)
 }
 

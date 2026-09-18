@@ -111,7 +111,12 @@ public final class SpeechBridge: @unchecked Sendable {
         try ensurePermission(.speechRecognition, context: context)
         let path = try requireNonEmptyString("path", in: arguments, capability: "speech.file.transcribe")
         let resolved = try context.pathPolicy.resolve(path: path)
+        // The raw, script-supplied `path` is replaced rather than accompanied:
+        // leaving both in the dictionary made every host adapter one
+        // `arguments.string("path")` away from a path-policy bypass, with nothing
+        // in the code saying which key was the safe one.
         var clientArguments = arguments
+        clientArguments["path"] = .string(resolved.path)
         clientArguments["resolvedPath"] = .string(resolved.path)
         try validateOptionalPositiveNumber("timeoutMs", in: arguments, capability: "speech.file.transcribe")
         return try client.transcribeFile(arguments: clientArguments)
@@ -348,7 +353,9 @@ public final class PassKitBridge: @unchecked Sendable {
     public func addPass(arguments: [String: JSONValue], context: BridgeInvocationContext) throws -> JSONValue {
         let path = try requireNonEmptyString("path", in: arguments, capability: "passkit.pass.add")
         let resolved = try context.pathPolicy.resolve(path: path)
+        // As above: the raw path does not survive into the client dictionary.
         var clientArguments = arguments
+        clientArguments["path"] = .string(resolved.path)
         clientArguments["resolvedPath"] = .string(resolved.path)
         return try client.addPass(arguments: clientArguments)
     }

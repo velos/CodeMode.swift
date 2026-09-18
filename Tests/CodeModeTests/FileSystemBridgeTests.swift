@@ -239,3 +239,188 @@ private final class RecordingCodeModeFileSystem: CodeModeFileSystem, @unchecked 
     let payload = try requireJSONObject(from: try #require(observed.result))
     #expect(payload["text"] as? String == "fs-from-execute")
 }
+
+// MARK: - Destructive-destination guards
+
+@Test func fileSystemMoveRefusesASandboxRootAsDestination() throws {
+    let fs = FileSystemBridge()
+    let (context, sandbox) = try makeInvocationContext()
+    defer { cleanup(sandbox) }
+
+    _ = try fs.write(arguments: ["path": .string("tmp:junk.txt"), "data": .string("x")], context: context)
+    _ = try fs.write(arguments: ["path": .string("documents:keepme.txt"), "data": .string("precious")], context: context)
+
+    // `documents:` resolves to the documents root itself, and containment admits
+    // it. The old unconditional removeItem here deleted the user's Documents.
+    for destination in ["documents:", "documents:/", "tmp:", "caches:"] {
+        do {
+            _ = try fs.move(arguments: [
+                "from": .string("tmp:junk.txt"),
+                "to": .string(destination),
+                "overwrite": .bool(true),
+                "recursive": .bool(true),
+            ], context: context)
+            Issue.record("Expected fs.move to refuse the root destination \(destination)")
+        } catch {
+            #expect(requireBridgeErrorCode(error) == "PATH_POLICY_VIOLATION")
+        }
+    }
+
+    let survived = try fs.read(arguments: ["path": .string("documents:keepme.txt")], context: context)
+    #expect(try requireObject(survived).string("text") == "precious")
+}
+
+@Test func fileSystemCopyRefusesASandboxRootAsDestination() throws {
+    let fs = FileSystemBridge()
+    let (context, sandbox) = try makeInvocationContext()
+    defer { cleanup(sandbox) }
+
+    _ = try fs.write(arguments: ["path": .string("tmp:junk.txt"), "data": .string("x")], context: context)
+
+    #expect(throws: (any Error).self) {
+        _ = try fs.copy(arguments: [
+            "from": .string("tmp:junk.txt"),
+            "to": .string("documents:"),
+            "overwrite": .bool(true),
+        ], context: context)
+    }
+}
+
+@Test func fileSystemDeleteRefusesASandboxRoot() throws {
+    let fs = FileSystemBridge()
+    let (context, sandbox) = try makeInvocationContext()
+    defer { cleanup(sandbox) }
+
+    do {
+        _ = try fs.delete(arguments: ["path": .string("documents:"), "recursive": .bool(true)], context: context)
+        Issue.record("Expected fs.delete to refuse a sandbox root")
+    } catch {
+        #expect(requireBridgeErrorCode(error) == "PATH_POLICY_VIOLATION")
+    }
+    #expect(FileManager.default.fileExists(atPath: sandbox.documents.path))
+}
+
+@Test func fileSystemMoveAndCopyRequireExplicitOverwrite() throws {
+    let fs = FileSystemBridge()
+    let (context, sandbox) = try makeInvocationContext()
+    defer { cleanup(sandbox) }
+
+    _ = try fs.write(arguments: ["path": .string("tmp:a.txt"), "data": .string("source")], context: context)
+    _ = try fs.write(arguments: ["path": .string("tmp:b.txt"), "data": .string("destination")], context: context)
+
+    do {
+        _ = try fs.copy(arguments: ["from": .string("tmp:a.txt"), "to": .string("tmp:b.txt")], context: context)
+        Issue.record("Expected fs.copy to refuse an existing destination without overwrite")
+    } catch {
+        #expect(requireBridgeErrorCode(error) == "INVALID_ARGUMENTS")
+    }
+
+    // The destination is untouched by the refused call.
+    let intact = try fs.read(arguments: ["path": .string("tmp:b.txt")], context: context)
+    #expect(try requireObject(intact).string("text") == "destination")
+
+    _ = try fs.copy(arguments: [
+        "from": .string("tmp:a.txt"),
+        "to": .string("tmp:b.txt"),
+        "overwrite": .bool(true),
+    ], context: context)
+    let replaced = try fs.read(arguments: ["path": .string("tmp:b.txt")], context: context)
+    #expect(try requireObject(replaced).string("text") == "source")
+}
+
+@Test func fileSystemMoveOntoADirectoryAlsoRequiresRecursive() throws {
+    let fs = FileSystemBridge()
+    let (context, sandbox) = try makeInvocationContext()
+    defer { cleanup(sandbox) }
+
+    _ = try fs.write(arguments: ["path": .string("tmp:a.txt"), "data": .string("source")], context: context)
+    _ = try fs.mkdir(arguments: ["path": .string("tmp:dir")], context: context)
+    _ = try fs.write(arguments: ["path": .string("tmp:dir/kept.txt"), "data": .string("kept")], context: context)
+
+    do {
+        _ = try fs.move(arguments: [
+            "from": .string("tmp:a.txt"),
+            "to": .string("tmp:dir"),
+            "overwrite": .bool(true),
+        ], context: context)
+        Issue.record("Expected fs.move onto a directory to require recursive=true")
+    } catch {
+        #expect(requireBridgeErrorCode(error) == "INVALID_ARGUMENTS")
+    }
+    #expect(try fs.exists(arguments: ["path": .string("tmp:dir/kept.txt")], context: context).boolValue == true)
+
+    _ = try fs.move(arguments: [
+        "from": .string("tmp:a.txt"),
+        "to": .string("tmp:dir"),
+        "overwrite": .bool(true),
+        "recursive": .bool(true),
+    ], context: context)
+    #expect(try fs.exists(arguments: ["path": .string("tmp:dir/kept.txt")], context: context).boolValue == false)
+}
+
+// MARK: - Size and decoding limits
+
+@Test func fileSystemReadRefusesFilesOverTheLimit() throws {
+    let fs = FileSystemBridge(limits: FileSystemLimits(maxReadBytes: 64, maxWriteBytes: 1_024))
+    let (context, sandbox) = try makeInvocationContext()
+    defer { cleanup(sandbox) }
+
+    _ = try fs.write(arguments: [
+        "path": .string("tmp:big.txt"),
+        "data": .string(String(repeating: "x", count: 512)),
+    ], context: context)
+
+    do {
+        _ = try fs.read(arguments: ["path": .string("tmp:big.txt")], context: context)
+        Issue.record("Expected fs.read to refuse a file over the read limit")
+    } catch {
+        #expect(requireBridgeErrorCode(error) == "INVALID_ARGUMENTS")
+    }
+}
+
+@Test func fileSystemWriteRefusesPayloadsOverTheLimit() throws {
+    let fs = FileSystemBridge(limits: FileSystemLimits(maxReadBytes: 1_024, maxWriteBytes: 16))
+    let (context, sandbox) = try makeInvocationContext()
+    defer { cleanup(sandbox) }
+
+    do {
+        _ = try fs.write(arguments: [
+            "path": .string("tmp:nested/big.txt"),
+            "data": .string(String(repeating: "x", count: 512)),
+        ], context: context)
+        Issue.record("Expected fs.write to refuse a payload over the write limit")
+    } catch {
+        #expect(requireBridgeErrorCode(error) == "INVALID_ARGUMENTS")
+    }
+
+    // A refused write leaves no directory behind.
+    #expect(try fs.exists(arguments: ["path": .string("tmp:nested")], context: context).boolValue == false)
+}
+
+@Test func fileSystemReadReportsUndecodableUTF8InsteadOfEmptyText() throws {
+    let fs = FileSystemBridge()
+    let (context, sandbox) = try makeInvocationContext()
+    defer { cleanup(sandbox) }
+
+    // 0xFF is never valid UTF-8. Returning "" here told the script the file was
+    // empty; it must be an error the script can repair with base64.
+    let binary = Data([0xFF, 0xFE, 0x00, 0x01])
+    _ = try fs.write(arguments: [
+        "path": .string("tmp:binary.bin"),
+        "data": .string(binary.base64EncodedString()),
+        "encoding": .string("base64"),
+    ], context: context)
+
+    do {
+        _ = try fs.read(arguments: ["path": .string("tmp:binary.bin")], context: context)
+        Issue.record("Expected fs.read to fail on undecodable UTF-8")
+    } catch {
+        #expect(requireBridgeErrorCode(error) == "INVALID_ARGUMENTS")
+    }
+
+    let base64 = try fs.read(arguments: [
+        "path": .string("tmp:binary.bin"),
+        "encoding": .string("base64"),
+    ], context: context)
+    #expect(try requireObject(base64).string("base64") == binary.base64EncodedString())
+}

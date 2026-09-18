@@ -365,7 +365,12 @@ extension UIKitSystemUIPresenter {
 
     public func presentWeb(arguments: [String: JSONValue], context: BridgeInvocationContext) throws -> JSONValue {
         let timeoutMs = arguments.int("timeoutMs") ?? Self.defaultTimeoutMs
-        let url = URL(string: arguments.string("url") ?? "")!
+        // The bridge parses the URL first, but UIKitSystemUIPresenter is public
+        // API and a host may call it directly — a force unwrap here crashes the
+        // app on a malformed string.
+        guard let url = URL(string: arguments.string("url") ?? "") else {
+            throw BridgeError.invalidArguments("web.ui.present requires an absolute 'url'")
+        }
         let token = UUID()
 
         #if os(iOS)
@@ -402,7 +407,9 @@ extension UIKitSystemUIPresenter {
 
     public func authenticateWeb(arguments: [String: JSONValue], context: BridgeInvocationContext) throws -> JSONValue {
         let timeoutMs = arguments.int("timeoutMs") ?? Self.defaultTimeoutMs
-        let url = URL(string: arguments.string("url") ?? "")!
+        guard let url = URL(string: arguments.string("url") ?? "") else {
+            throw BridgeError.invalidArguments("auth.ui.webAuthenticate requires an absolute 'url'")
+        }
         let callbackURLScheme = arguments.string("callbackURLScheme")
         let token = UUID()
 
@@ -446,7 +453,11 @@ extension UIKitSystemUIPresenter {
                     }
                 }
                 session.presentationContextProvider = coordinator
-                session.prefersEphemeralWebBrowserSession = arguments.bool("prefersEphemeralSession") ?? false
+                // Ephemeral by default: a script-initiated OAuth flow inside the
+                // user's live Safari session starts out already signed in as the
+                // user and hands the callback URL — with its code or token — to
+                // the script. Opting out is a deliberate host/script choice.
+                session.prefersEphemeralWebBrowserSession = arguments.bool("prefersEphemeralSession") ?? true
                 coordinator.session = session
                 self.retainCoordinator(coordinator, token: token)
 

@@ -578,7 +578,11 @@ private func jsonLiteral(_ value: JSONValue) -> String {
     #expect(result.bool("done") == true)
 }
 
-@Test func builtInCapabilitiesCanBeAllowedByCapabilityKey() async throws {
+// `allowedCapabilityKeys` accepts arbitrary strings and is not validated against
+// `CapabilityID` at decode time, so it must never reach a built-in bridge — a host
+// that vets only the strictly-typed `allowedCapabilities` would otherwise be
+// bypassed by spelling the same ID in the loose field.
+@Test func builtInCapabilitiesAreNotGrantedByCapabilityKey() async throws {
     let (tools, sandbox) = try makeTools()
     defer { cleanup(sandbox) }
 
@@ -590,7 +594,76 @@ private func jsonLiteral(_ value: JSONValue) -> String {
         )
     )
     let observed = await observe(call)
+    let error = try #require(observed.error)
+    #expect(error.code == "CAPABILITY_DENIED")
+    #expect(error.capabilityKey == CapabilityID.keychainRead.codeModeKey)
+}
+
+@Test func builtInCapabilitiesRemainGrantedByCapabilityID() async throws {
+    let (tools, sandbox) = try makeTools()
+    defer { cleanup(sandbox) }
+
+    let call = try await tools.executeJavaScript(
+        JavaScriptExecutionRequest(
+            code: #"return await apple.keychain.get("missing-provider-key-test");"#,
+            allowedCapabilities: [.keychainRead]
+        )
+    )
+    let observed = await observe(call)
     #expect(observed.result?.output == .null)
+}
+
+@Test func hostCapabilityGrantOverridesModelAuthoredAllowlist() async throws {
+    let (tools, sandbox) = try makeTools(
+        capabilityGrant: .only([.fsRead], capabilityKeys: []),
+        codeModeProviders: [ManualProvider()]
+    )
+    defer { cleanup(sandbox) }
+
+    // The script asks for keychain.read and a provider key; the host grants neither.
+    let call = try await tools.executeJavaScript(
+        JavaScriptExecutionRequest(
+            code: #"return await apple.keychain.get("anything");"#,
+            allowedCapabilities: [.keychainRead],
+            allowedCapabilityKeys: ["myapp.api.doTheThing"]
+        )
+    )
+    let observed = await observe(call)
+    let error = try #require(observed.error)
+    #expect(error.code == "CAPABILITY_DENIED")
+    #expect(error.suggestions.contains { $0.contains("host app's capability grant") })
+    #expect(
+        error.diagnostics.contains { $0.code == "CAPABILITY_WITHHELD_BY_HOST" }
+    )
+
+    let providerCall = try await tools.executeJavaScript(
+        JavaScriptExecutionRequest(
+            code: #"return await myapp.api.doTheThing({ id: "123" });"#,
+            allowedCapabilities: [],
+            allowedCapabilityKeys: ["myapp.api.doTheThing"]
+        )
+    )
+    let providerObserved = await observe(providerCall)
+    #expect(providerObserved.error?.code == "CAPABILITY_DENIED")
+}
+
+@Test func hostCapabilityGrantPermitsWhatItIncludes() async throws {
+    let (tools, sandbox) = try makeTools(
+        capabilityGrant: .only([], capabilityKeys: ["myapp.api.doTheThing"]),
+        codeModeProviders: [ManualProvider()]
+    )
+    defer { cleanup(sandbox) }
+
+    let call = try await tools.executeJavaScript(
+        JavaScriptExecutionRequest(
+            code: #"return await myapp.api.doTheThing({ id: "123" });"#,
+            allowedCapabilities: [],
+            allowedCapabilityKeys: ["myapp.api.doTheThing"]
+        )
+    )
+    let observed = await observe(call)
+    let result = try #require(observed.result?.output?.objectValue)
+    #expect(result.string("id") == "123")
 }
 
 @Test func customProviderFunctionErrorsRemainStructured() async throws {
@@ -631,4 +704,79 @@ private func jsonLiteral(_ value: JSONValue) -> String {
     let result = try #require(response.result?.objectValue)
     #expect(result.string("custom") == "myapp.api.doTheThing")
     #expect(result.string("builtIn") == CapabilityID.weatherRead.rawValue)
+}
+
+// MARK: - Post-init provider registration
+
+private struct LateProvider: CodeModeProvider {
+    let codeModePath = "myapp.late"
+
+    func codeModeRegistrations() -> [CodeModeRegistration] {
+        [
+            CodeModeRegistration(
+                capabilityKey: "myapp.late.echo",
+                jsPath: "myapp.late.echo",
+                title: "echo",
+                summary: "Echo a value registered after init.",
+                tags: ["myapp", "late"],
+                example: #"await myapp.late.echo({ value: "hi" })"#,
+                requiredArguments: ["value"],
+                argumentTypes: ["value": .string],
+                argumentHints: ["value": "Value to echo"],
+                resultSummary: "Echoed value"
+            ) { arguments, _ in
+                .object(["value": .string(try CodeModeArgumentDecoder.requireString("value", in: arguments))])
+            },
+        ]
+    }
+}
+
+// The catalog used to be snapshotted in CodeModeAgentTools.init, so the
+// registry's public post-init register(...) methods were unreachable in the
+// supported flow — and would have desynced search from execution if reached.
+@Test func providersRegisteredAfterInitAreExecutable() async throws {
+    let (tools, sandbox) = try makeTools()
+    defer { cleanup(sandbox) }
+
+    let before = try await tools.executeJavaScript(
+        JavaScriptExecutionRequest(
+            code: #"return await myapp.late.echo({ value: "hi" });"#,
+            allowedCapabilities: [],
+            allowedCapabilityKeys: ["myapp.late.echo"]
+        )
+    )
+    // Not registered yet: the helper simply does not exist in the context.
+    let beforeObserved = await observe(before)
+    #expect(beforeObserved.error != nil)
+
+    tools.register(provider: LateProvider())
+
+    let call = try await tools.executeJavaScript(
+        JavaScriptExecutionRequest(
+            code: #"return await myapp.late.echo({ value: "hi" });"#,
+            allowedCapabilities: [],
+            allowedCapabilityKeys: ["myapp.late.echo"]
+        )
+    )
+    let observed = await observe(call)
+    #expect(observed.result?.output?.objectValue?.string("value") == "hi")
+}
+
+@Test func providersRegisteredAfterInitAppearInSearchAndTypeDeclarations() async throws {
+    let (tools, sandbox) = try makeTools()
+    defer { cleanup(sandbox) }
+
+    #expect(tools.capabilities().contains { $0.capability == "myapp.late.echo" } == false)
+
+    tools.register(provider: LateProvider())
+
+    // Search must not advertise anything execution cannot invoke, and vice versa.
+    let reference = try #require(tools.capabilities().first { $0.capability == "myapp.late.echo" })
+    #expect(reference.dts.contains("value: string;"))
+    #expect(tools.typeDeclarations().contains("namespace late {"))
+
+    let response = try await tools.searchJavaScriptAPI(
+        JavaScriptAPISearchRequest(code: #"async () => { return api.byJSName["myapp.late.echo"].summary; }"#)
+    )
+    #expect(response.result == .string("Echo a value registered after init."))
 }

@@ -602,7 +602,11 @@ import Testing
     )
 
     #expect(observed.result == nil)
-    #expect(observed.error?.code == "EXECUTION_TIMEOUT")
+    // A promise with no resolve path and no pending timer is provably
+    // unsettleable under this runtime, so it is reported immediately instead of
+    // sleeping a thread until the deadline for a result that can never arrive.
+    #expect(observed.error?.code == "JS_RUNTIME_ERROR")
+    #expect(observed.error?.message.contains("can never settle") == true)
 }
 
 @Test func executeRecoversWithFreshContextAfterTimeout() async throws {
@@ -617,7 +621,7 @@ import Testing
             timeoutMs: 30
         )
     )
-    #expect(timedOut.error?.code == "EXECUTION_TIMEOUT")
+    #expect(timedOut.error?.code == "JS_RUNTIME_ERROR")
 
     let recovered = try await execute(
         tools,
@@ -700,15 +704,32 @@ import Testing
     let (tools, sandbox) = try makeTools()
     defer { cleanup(sandbox) }
 
+    // A long timer, not an unsettleable promise: the latter now fails fast with
+    // JS_RUNTIME_ERROR, which would win the race against the cancellation this
+    // test is about.
     let call = try await tools.executeJavaScript(
         JavaScriptExecutionRequest(
             code: """
-            await new Promise(() => {});
+            console.log('running');
+            await new Promise(resolve => setTimeout(resolve, 20000));
             return { never: true };
             """,
-            allowedCapabilities: []
+            allowedCapabilities: [],
+            timeoutMs: 60_000
         )
     )
+
+    // Cancel only once the script is observed to be running. A `Task.yield()`
+    // before cancelling is not a guarantee under load: on a stalled runner the
+    // test task can be descheduled long enough for the 20s timer to elapse, and
+    // then a cancel of an already-finished execution is a no-op that this test
+    // would misreport as a runtime bug.
+    var running = false
+    for await event in call.events {
+        if case let .log(entry) = event, entry.message == "running" { running = true; break }
+        if case .finished = event { break }
+    }
+    #expect(running, "the script never reported starting")
 
     let waiter = Task<Result<JavaScriptExecutionResult, CodeModeToolError>, Never> {
         do {
@@ -720,7 +741,6 @@ import Testing
         }
     }
 
-    await Task.yield()
     waiter.cancel()
     let waiterResult = await waiter.value
 

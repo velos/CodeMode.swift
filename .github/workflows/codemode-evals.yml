@@ -26,7 +26,9 @@ jobs:
   # unchanged main added no signal for these offline checks.
   deterministic:
     name: Deterministic evals
-    runs-on: macos-latest
+    # Pinned, not macos-latest: the package declares a macOS 15 floor, and a
+    # silently-rolling runner would move that floor without a code change.
+    runs-on: macos-15
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -57,7 +59,7 @@ jobs:
 
   platform-build:
     name: Build (${{ matrix.platform }})
-    runs-on: macos-latest
+    runs-on: macos-15
     strategy:
       fail-fast: false
       matrix:
@@ -107,7 +109,7 @@ jobs:
   # live+compare steps with a warning, instead of pretending or failing noisily.
   llm-live:
     name: LLM eval (live regression gate)
-    runs-on: macos-latest
+    runs-on: macos-15
     needs: deterministic
     if: github.event_name == 'workflow_dispatch'
     env:

@@ -54,15 +54,39 @@ public struct CodeModeEvalExecuteStep: Codable, Sendable, Equatable {
     public var code: String
     public var allowedCapabilities: [CapabilityID]
     public var timeoutMs: Int?
+    /// Whether this step is *supposed* to fail.
+    ///
+    /// Repair scenarios deliberately call a helper wrong and then fix it from the
+    /// structured error, so their first step failing is the point. Every other
+    /// step failing should stop the run — otherwise a later step masks it and the
+    /// scenario passes on a broken transcript.
+    public var expectsFailure: Bool
 
     public init(
         code: String,
         allowedCapabilities: [CapabilityID] = [],
-        timeoutMs: Int? = nil
+        timeoutMs: Int? = nil,
+        expectsFailure: Bool = false
     ) {
         self.code = code
         self.allowedCapabilities = allowedCapabilities
         self.timeoutMs = timeoutMs
+        self.expectsFailure = expectsFailure
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case code
+        case allowedCapabilities
+        case timeoutMs
+        case expectsFailure
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.code = try container.decode(String.self, forKey: .code)
+        self.allowedCapabilities = try container.decodeIfPresent([CapabilityID].self, forKey: .allowedCapabilities) ?? []
+        self.timeoutMs = try container.decodeIfPresent(Int.self, forKey: .timeoutMs)
+        self.expectsFailure = try container.decodeIfPresent(Bool.self, forKey: .expectsFailure) ?? false
     }
 }
 
