@@ -95,21 +95,21 @@ private func reference(
 
     let surface = tools.typeDeclarations()
 
-    #expect(surface.contains("declare namespace apple {"))
-    #expect(surface.contains("namespace fs {"))
-    #expect(surface.contains("function read(args: {"))
+    #expect(surface.contains("declare const apple: {"))
+    #expect(surface.contains("fs: {"))
+    #expect(surface.contains("read(args: {"))
     // The Node-compat globals live in the hand-authored preamble, because their
     // positional convention is not something the catalog can describe.
     #expect(surface.contains("declare function fetch("))
     #expect(surface.contains("type CodeModeValue ="))
     // iOS-only helpers must not be declared for a macOS host.
-    #expect(surface.contains("namespace alarm {") == false)
+    #expect(surface.contains("alarm: {") == false)
 }
 
 @Test func iOSOnlyHelpersAppearForAniOSHost() async throws {
     let (tools, sandbox) = try makeTools(hostPlatform: .iOS)
     defer { cleanup(sandbox) }
-    #expect(tools.typeDeclarations().contains("namespace alarm {"))
+    #expect(tools.typeDeclarations().contains("alarm: {"))
 }
 
 @Test func everyCapabilityCarriesItsOwnDeclarationForSearchResults() async throws {
@@ -142,8 +142,8 @@ private func reference(
         )
     )
     let payload = try #require(response.result?.stringValue)
-    #expect(payload.contains("declare namespace apple {"))
-    #expect(payload.contains("function read(args: {"))
+    #expect(payload.contains("declare const apple: {"))
+    #expect(payload.contains("read(args: {"))
     #expect(payload.contains("path: string;"))
 }
 
@@ -197,4 +197,23 @@ private func reference(
     let output = try #require(observed.result?.output?.objectValue)
     #expect(output.string("viaObject") == "object-form")
     #expect(output.string("viaPositional") == "object-form")
+}
+
+@Test func reservedWordHelpersRenderAsValidMemberNames() async throws {
+    let (tools, sandbox) = try makeTools(hostPlatform: .iOS)
+    defer { cleanup(sandbox) }
+
+    // `apple.keychain.delete` and the `export` helpers used to render as
+    // `function delete(` / `function export(` — invalid TypeScript. As object
+    // type members they are legal.
+    let surface = tools.typeDeclarations()
+    let reserved = ["break", "case", "catch", "class", "const", "continue", "debugger", "default", "delete",
+                    "do", "else", "enum", "export", "extends", "false", "finally", "for", "function", "if",
+                    "import", "in", "instanceof", "new", "null", "return", "super", "switch", "this",
+                    "throw", "true", "try", "typeof", "var", "void", "while", "with"]
+    for word in reserved {
+        #expect(surface.contains("function \(word)(") == false, "reserved word '\(word)' declared as a function")
+    }
+    #expect(surface.contains("delete(args: {"))
+    #expect(surface.contains("declare namespace") == false)
 }

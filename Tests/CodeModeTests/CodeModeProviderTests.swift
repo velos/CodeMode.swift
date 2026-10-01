@@ -773,7 +773,7 @@ private struct LateProvider: CodeModeProvider {
     // Search must not advertise anything execution cannot invoke, and vice versa.
     let reference = try #require(tools.capabilities().first { $0.capability == "myapp.late.echo" })
     #expect(reference.dts.contains("value: string;"))
-    #expect(tools.typeDeclarations().contains("namespace late {"))
+    #expect(tools.typeDeclarations().contains("late: {"))
 
     let response = try await tools.searchJavaScriptAPI(
         JavaScriptAPISearchRequest(code: #"async () => { return api.byJSName["myapp.late.echo"].summary; }"#)

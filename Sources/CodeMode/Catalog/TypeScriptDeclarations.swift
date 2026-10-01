@@ -88,10 +88,11 @@ public enum TypeScriptDeclarations {
 
     /// The declaration for one capability, suitable for a search result payload.
     ///
-    /// Declared at its real call path — `declare namespace apple { namespace fs {
-    /// function read(...) } }` — so what the model reads is exactly what it can
-    /// call. An earlier version flattened this to `apple_fs_read`, a name that
-    /// does not exist in the runtime.
+    /// Declared at its real call path — `declare const apple: { fs: { read(…) } }`
+    /// — so what the model reads is exactly what it can call. Each fragment is
+    /// valid TypeScript on its own; for one compilation unit covering several
+    /// capabilities, use `surface(for:)`, which merges them under a single
+    /// declaration per root.
     public static func declaration(for reference: JavaScriptAPIReference) -> String {
         guard let canonical = canonicalName(for: reference) else {
             return ""
@@ -105,8 +106,9 @@ public enum TypeScriptDeclarations {
         return renderNamespaces(for: [reference])
     }
 
-    /// The whole surface: the preamble plus every capability, grouped into
-    /// namespaces by its canonical dotted JavaScript name.
+    /// The preamble plus the given capabilities, grouped by canonical dotted
+    /// JavaScript name under one declaration per root — valid as a single
+    /// compilation unit.
     public static func surface(for references: [JavaScriptAPIReference]) -> String {
         """
         // CodeMode JavaScript API — generated from the capability registry.
@@ -323,20 +325,28 @@ public enum TypeScriptDeclarations {
         }
     }
 
+    /// Renders as an object type — `declare const apple: { keychain: {
+    /// delete(args): …; }; };` — not as `declare namespace`.
+    ///
+    /// Namespace members are declarations and need identifiers, so helpers named
+    /// with reserved words (`apple.keychain.delete`, `apple.photos.export`)
+    /// rendered as `function delete(…)`: not valid TypeScript, which broke any
+    /// host that type-checks the output. Object type members may be any property
+    /// name.
     private static func render(namespace: Namespace, indent: String, isTopLevel: Bool) -> String {
         let inner = indent + "  "
-        var lines = ["\(indent)\(isTopLevel ? "declare namespace" : "namespace") \(namespace.name) {"]
+        var lines = [isTopLevel ? "\(indent)declare const \(namespace.name): {" : "\(indent)\(namespace.name): {"]
 
         for member in namespace.members.sorted(by: { $0.name < $1.name }) {
             lines.append(indented(member.documentation, by: inner))
-            lines.append("\(inner)function \(member.name)\(indented(member.signature, by: inner, skipFirstLine: true));")
+            lines.append("\(inner)\(member.name)\(indented(member.signature, by: inner, skipFirstLine: true));")
         }
 
         for (_, child) in namespace.children.sorted(by: { $0.key < $1.key }) {
             lines.append(render(namespace: child, indent: inner, isTopLevel: false))
         }
 
-        lines.append("\(indent)}")
+        lines.append("\(indent)};")
         return lines.joined(separator: "\n")
     }
 
