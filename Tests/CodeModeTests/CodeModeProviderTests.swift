@@ -610,7 +610,14 @@ private func jsonLiteral(_ value: JSONValue) -> String {
         )
     )
     let observed = await observe(call)
-    #expect(observed.result?.output == .null)
+    // The subject is capability gating, not keychain storage: reaching the
+    // bridge at all is the proof. Where the test host has no keychain
+    // entitlement the bridge then fails for that reason, which is still not a
+    // denial.
+    #expect(observed.error?.code != "CAPABILITY_DENIED")
+    if keychainIsAvailable {
+        #expect(observed.result?.output == .null)
+    }
 }
 
 @Test func hostCapabilityGrantOverridesModelAuthoredAllowlist() async throws {

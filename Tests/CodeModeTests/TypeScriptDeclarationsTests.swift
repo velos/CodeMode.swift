@@ -171,7 +171,7 @@ private func reference(
     #expect(observed.result?.output == .string("source"))
 }
 
-@Test func keychainHelpersAcceptTheObjectFormTheCatalogAdvertises() async throws {
+@Test(.enabled(if: keychainIsAvailable, "no keychain entitlement in this test host (errSecMissingEntitlement)")) func keychainHelpersAcceptTheObjectFormTheCatalogAdvertises() async throws {
     let (tools, sandbox) = try makeTools()
     defer { cleanup(sandbox) }
 

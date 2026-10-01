@@ -8,6 +8,22 @@ public final class KeychainBridge: @unchecked Sendable {
         self.service = service
     }
 
+    /// A failure that says what went wrong, not just which OSStatus it was.
+    ///
+    /// "failed with status -34018" told neither the model nor the host
+    /// developer anything. -34018 in particular — `errSecMissingEntitlement` —
+    /// is a host configuration problem (no keychain access group; routine in an
+    /// unsigned test bundle), and the model should know a retry cannot fix it.
+    static func failure(_ operation: String, status: OSStatus) -> BridgeError {
+        let description = (SecCopyErrorMessageString(status, nil) as String?) ?? "OSStatus \(status)"
+        if status == errSecMissingEntitlement {
+            return .nativeFailure(
+                "\(operation) failed: the host app has no keychain entitlement (\(status)). This is a host configuration issue — the app needs a keychain access group — and retrying will not help."
+            )
+        }
+        return .nativeFailure("\(operation) failed: \(description) (\(status))")
+    }
+
     public func read(arguments: [String: JSONValue]) throws -> JSONValue {
         guard let key = arguments.string("key"), key.isEmpty == false else {
             throw BridgeError.invalidArguments("keychain.read requires 'key'")
@@ -32,7 +48,7 @@ public final class KeychainBridge: @unchecked Sendable {
         case errSecItemNotFound:
             return .null
         default:
-            throw BridgeError.nativeFailure("keychain.read failed with status \(status)")
+            throw Self.failure("keychain.read", status: status)
         }
     }
 
@@ -62,12 +78,12 @@ public final class KeychainBridge: @unchecked Sendable {
         if status == errSecDuplicateItem {
             let updateStatus = SecItemUpdate(baseQuery as CFDictionary, attrs as CFDictionary)
             guard updateStatus == errSecSuccess else {
-                throw BridgeError.nativeFailure("keychain.write update failed with status \(updateStatus)")
+                throw Self.failure("keychain.write", status: updateStatus)
             }
             return .object(["key": .string(key), "written": .bool(true)])
         }
 
-        throw BridgeError.nativeFailure("keychain.write failed with status \(status)")
+        throw Self.failure("keychain.write", status: status)
     }
 
     public func delete(arguments: [String: JSONValue]) throws -> JSONValue {
@@ -86,6 +102,6 @@ public final class KeychainBridge: @unchecked Sendable {
             return .object(["key": .string(key), "deleted": .bool(true)])
         }
 
-        throw BridgeError.nativeFailure("keychain.delete failed with status \(status)")
+        throw Self.failure("keychain.delete", status: status)
     }
 }

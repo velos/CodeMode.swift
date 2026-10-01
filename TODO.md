@@ -234,9 +234,15 @@ tool model).
   - [x] `swift test` passes — 206 tests, 0 failures, ~5s. Note: the *first*
     verification run hung indefinitely and exposed the watchdog re-arm bug
     (see CRITICAL ISSUES §1); after the fix the suite is green.
-  - [ ] Watchdog terminates `while(true){}` on an iOS device/simulator —
-    verified on macOS only; JSC ships per-OS, so worth one manual check on a
-    simulator before tagging.
+  - [x] Watchdog terminates `while(true){}` on an iOS simulator — verified
+    2026-10-01 on an iPhone 16 Pro simulator, iOS 18.6, by running the full
+    `CodeModeTests` target there (`xcodebuild test -scheme CodeMode-Package
+    -destination 'platform=iOS Simulator,…' -only-testing:CodeModeTests`). All
+    seven watchdog tests pass: CPU loop, loop inside a promise chain,
+    catch-proof termination, cancel mid-loop, runaway getter, serialization
+    budget, and search. Keychain storage tests skip there — an unsigned test
+    bundle has no keychain entitlement — and everything else passes. Still
+    simulator, not device.
 
 ## SUGGESTED ORDER OF ATTACK
 1. Quick wins: tag `0.1.0`, fix calendar-span drift, add core-policy-layer tests,

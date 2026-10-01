@@ -1,6 +1,26 @@
 import Foundation
 import Testing
 @testable import CodeMode
+import Security
+
+/// Whether this process can use the keychain at all. An unsigned SwiftPM test
+/// bundle on the iOS simulator has no keychain access group, so every keychain
+/// call fails with `errSecMissingEntitlement` (-34018). Tests whose subject *is*
+/// keychain storage skip there, with that reason; tests that only touch the
+/// keychain incidentally assert their real subject instead.
+let keychainIsAvailable: Bool = {
+    let query: [String: Any] = [
+        kSecClass as String: kSecClassGenericPassword,
+        kSecAttrService as String: "CodeModeTests.keychain-probe",
+        kSecAttrAccount as String: UUID().uuidString,
+        kSecValueData as String: Data("probe".utf8),
+    ]
+    let status = SecItemAdd(query as CFDictionary, nil)
+    if status == errSecSuccess {
+        SecItemDelete(query as CFDictionary)
+    }
+    return status != errSecMissingEntitlement
+}()
 
 struct TestSandbox {
     let root: URL
