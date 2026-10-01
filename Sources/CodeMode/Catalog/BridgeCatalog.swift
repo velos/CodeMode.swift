@@ -87,10 +87,10 @@ final class BridgeCatalog: @unchecked Sendable {
         current().searchCatalog
     }
 
-    /// TypeScript declarations for the whole platform-filtered surface, for a
-    /// host to drop into its system prompt.
-    func typeDeclarations() -> String {
-        TypeScriptDeclarations.surface(for: current().references)
+    /// TypeScript declarations for the platform-filtered references that pass
+    /// `isIncluded`, for a host to drop into its system prompt.
+    func typeDeclarations(where isIncluded: (JavaScriptAPIReference) -> Bool) -> String {
+        TypeScriptDeclarations.surface(for: current().references.filter(isIncluded))
     }
 
     func closestFunctionNames(to candidate: String, limit: Int = 3) -> [String] {

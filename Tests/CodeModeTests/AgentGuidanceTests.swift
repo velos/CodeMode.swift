@@ -130,28 +130,42 @@ import Testing
     #expect(output.int("filedCount") == 1)
 }
 
-@Test func toolDescriptionExamplesNameRealHelpersAndArguments() async throws {
-    let (tools, sandbox) = try makeTools()
+@Test func everyHelperCallInTheDocsNamesARealHelperAndRealArguments() async throws {
+    let (tools, sandbox) = try makeTools(hostPlatform: .iOS)
     defer { cleanup(sandbox) }
 
-    let description = CodeModeAgentToolDescriptions.executeJavaScript.description
     let references = tools.capabilities()
     let byJSName = Dictionary(references.flatMap { ref in ref.jsNames.map { ($0, ref) } }, uniquingKeysWith: { first, _ in first })
 
-    // An example that names a helper or argument the runtime does not have
-    // teaches the exact failure the examples exist to prevent — and a wrong
-    // argument name is the easiest kind to get wrong when writing prose.
-    let used: [(helper: String, arguments: [String])] = [
-        ("apple.calendar.listEvents", ["start", "end"]),
-        ("apple.contacts.list", ["identifiers"]),
-    ]
+    // An example naming a helper or argument the runtime does not have teaches
+    // the exact failure the docs exist to prevent — and the wrong argument name
+    // is the easy mistake (`identifier` vs `identifiers` got through once).
+    // Parsed rather than listed, so new examples are checked automatically.
+    let texts = [CodeModeAgentToolDescriptions.executeJavaScript.description]
+        + CodeModeAgentGuidance.Length.allCases.map { CodeModeAgentGuidance.systemPrompt($0) }
+    let call = try Regex(#"((?:apple|ios)\.[A-Za-z.]+)\(\{([^}]*)\}"#)
+    let key = try Regex(#"(?:^|[,{\s])([A-Za-z_][A-Za-z0-9_]*)\s*(?=[:,}]|$)"#)
 
-    for (helper, arguments) in used {
-        #expect(description.contains(helper))
-        let reference = try #require(byJSName[helper], "description references missing helper \(helper)")
-        let known = Set(reference.requiredArguments + reference.optionalArguments)
-        for argument in arguments {
-            #expect(known.contains(argument), "\(helper) has no argument '\(argument)'")
+    var checked = 0
+    for text in texts {
+        for match in text.matches(of: call) {
+            let helper = String(match.output[1].substring!)
+            let reference = try #require(byJSName[helper], "docs reference missing helper \(helper)")
+            let known = Set(reference.requiredArguments + reference.optionalArguments)
+            let body = String(match.output[2].substring!)
+            for argument in body.matches(of: key).map({ String($0.output[1].substring!) }) {
+                #expect(known.contains(argument), "\(helper) has no argument '\(argument)'")
+            }
+            checked += 1
         }
     }
+    #expect(checked >= 5, "the parser found too few helper calls to be checking anything")
+}
+
+@Test func theToolDescriptionStaysWithinItsBudget() {
+    // Sent on every turn and not trimmable by the host — unlike the guidance
+    // tiers, which exist precisely so worked examples can be budgeted. Examples
+    // belong there; this guard stops the description regrowing them.
+    #expect(CodeModeAgentToolDescriptions.executeJavaScript.description.count < 4_800)
+    #expect(CodeModeAgentToolDescriptions.executeJavaScript.description.contains("const results = []") == false)
 }

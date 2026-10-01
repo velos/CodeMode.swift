@@ -4,6 +4,7 @@ public final class CodeModeAgentTools: @unchecked Sendable {
     private let registry: CapabilityRegistry
     private let catalog: BridgeCatalog
     private let runtime: BridgeRuntime
+    private let capabilityGrant: CapabilityGrant
 
     public convenience init(config: CodeModeConfiguration = .init()) {
         self.init(config: config, clock: RealClock())
@@ -39,6 +40,7 @@ public final class CodeModeAgentTools: @unchecked Sendable {
         let providerRegistrations = config.codeModeProviders.flatMap { $0.codeModeRegistrations() }
         let registry = CapabilityRegistry(registrations: registrations, codeModeRegistrations: providerRegistrations)
         self.registry = registry
+        self.capabilityGrant = config.capabilityGrant
         self.catalog = BridgeCatalog(registry: registry)
         self.runtime = BridgeRuntime(
             registry: registry,
@@ -60,14 +62,36 @@ public final class CodeModeAgentTools: @unchecked Sendable {
         runtime.makeExecutionCall(request)
     }
 
-    /// TypeScript declarations for the whole platform-filtered API surface.
+    /// TypeScript declarations for what this host actually permits: the
+    /// platform-filtered surface, narrowed to the configured `CapabilityGrant`.
     ///
     /// Models write markedly better code against real types than against prose,
-    /// so a host can drop this into its system prompt when the surface is small
-    /// enough to afford, and rely on `searchJavaScriptAPI` (whose results carry a
-    /// per-capability `dts`) when it is not.
+    /// but the unrestricted iOS surface is roughly 21,000 tokens. A host with a
+    /// grant pays only for what it grants — and never advertises a helper the
+    /// model would be denied. Searches return a per-capability `dts` for the
+    /// cases in between.
     public func typeDeclarations() -> String {
-        catalog.typeDeclarations()
+        catalog.typeDeclarations { reference in
+            if let builtIn = reference.builtInCapability {
+                return capabilityGrant.permits(builtIn)
+            }
+            return capabilityGrant.permits(key: reference.capabilityKey)
+        }
+    }
+
+    /// Declarations for an explicit subset — for example, the capabilities a
+    /// particular agent task needs, when even the grant is too broad to inline.
+    /// Identifiers not available on this host are skipped.
+    public func typeDeclarations(
+        for capabilities: Set<CapabilityID>,
+        capabilityKeys: Set<CodeModeCapabilityKey> = []
+    ) -> String {
+        catalog.typeDeclarations { reference in
+            if let builtIn = reference.builtInCapability {
+                return capabilities.contains(builtIn)
+            }
+            return capabilityKeys.contains(reference.capabilityKey)
+        }
     }
 
     /// Every capability available on this host, for consent UI and for hosts

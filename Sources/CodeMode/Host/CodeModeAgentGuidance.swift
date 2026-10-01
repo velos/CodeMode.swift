@@ -10,7 +10,9 @@ import Foundation
 /// pattern this package exists to replace.
 ///
 /// Pair it with `CodeModeAgentTools.typeDeclarations()`, which supplies the
-/// vocabulary this supplies the strategy for:
+/// vocabulary this supplies the strategy for. Those declarations follow the
+/// host's `CapabilityGrant`, so a host with a ceiling pays only for what it
+/// grants — the unrestricted iOS surface is roughly 21,000 tokens:
 ///
 /// ```swift
 /// let prompt = CodeModeAgentGuidance.systemPrompt(.standard)
@@ -96,7 +98,9 @@ public enum CodeModeAgentGuidance {
     rather than assembling the metadata fields yourself.
     2. Write one script that completes the task. Reach for ordinary control flow: \
     loops over collections, `if` for branching, `try`/`catch` around anything that \
-    may fail per item.
+    may fail per item. Before writing a loop of single calls, check the declaration \
+    for an argument that takes a collection — `apple.contacts.list({ identifiers })` \
+    is one call, not one per contact.
     3. Do the filtering and aggregation *in the script*. Return the graded answer — \
     a count, a summary, the three matching records — not the raw collection you \
     read. A large return value is truncated, and the data you did not need cost \
@@ -172,8 +176,8 @@ public enum CodeModeAgentGuidance {
     - **Returning the raw collection.** Reading 500 records to answer "how many \
     are overdue" should return a number, not 500 records.
     - **Asking for capabilities you do not call.** Request the exact set your \
-    script uses; a wider list is refused by hosts that enforce a ceiling, and it \
-    is the wrong thing to ask a user to approve.
+    script uses. A wider list grants nothing useful, and it is the wrong thing to \
+    ask a user to approve.
     - **Forgetting `await`.** An un-awaited helper's failure is silently \
     discarded and you will be told the run succeeded. A \
     `BRIDGE_FAILURES_NOT_SURFACED` diagnostic means exactly this happened.

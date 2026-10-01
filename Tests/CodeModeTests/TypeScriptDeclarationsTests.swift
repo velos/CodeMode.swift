@@ -217,3 +217,48 @@ private func reference(
     #expect(surface.contains("delete(args: {"))
     #expect(surface.contains("declare namespace") == false)
 }
+
+// MARK: - Declarations follow the grant
+
+@Test func typeDeclarationsFollowTheCapabilityGrant() async throws {
+    let (granted, grantedSandbox) = try makeTools(capabilityGrant: .only([.fsRead, .fsList]), hostPlatform: .iOS)
+    defer { cleanup(grantedSandbox) }
+    let (open, openSandbox) = try makeTools(hostPlatform: .iOS)
+    defer { cleanup(openSandbox) }
+
+    let narrow = granted.typeDeclarations()
+    let full = open.typeDeclarations()
+
+    // Only what the host grants is advertised: never a helper the model would be
+    // denied, and never 21k tokens of surface when two helpers are permitted.
+    #expect(narrow.contains("read(args: {"))
+    #expect(narrow.contains("list(args: {"))
+    #expect(narrow.contains("keychain: {") == false)
+    #expect(narrow.contains("write(args: {") == false)
+    #expect(narrow.contains("declare function fetch("), "the preamble is always included")
+    #expect(narrow.count * 10 < full.count)
+}
+
+@Test func typeDeclarationsCanBeNarrowedToAnExplicitSubset() async throws {
+    let (tools, sandbox) = try makeTools(hostPlatform: .iOS)
+    defer { cleanup(sandbox) }
+
+    let subset = tools.typeDeclarations(for: [.keychainRead])
+    #expect(subset.contains("keychain: {"))
+    #expect(subset.contains("get(args: {"))
+    // Not `fs: {` — the always-included preamble declares the Node `fs` shim.
+    #expect(subset.contains("read(args: {") == false)
+}
+
+@Test func anUnrestrictedGrantDeclaresTheWholeSurface() async throws {
+    let (tools, sandbox) = try makeTools(hostPlatform: .iOS)
+    defer { cleanup(sandbox) }
+    let declared = tools.typeDeclarations()
+    for reference in tools.capabilities() {
+        let leaf = reference.jsNames.first { $0.contains(".") && !$0.hasPrefix("fs.promises.") }?
+            .split(separator: ".").last.map(String.init)
+        if let leaf {
+            #expect(declared.contains("\(leaf)("), "missing \(reference.capability)")
+        }
+    }
+}

@@ -44,6 +44,16 @@ public struct CapabilityGrant: Sendable, Equatable {
         CapabilityGrant(capabilities: capabilities, capabilityKeys: capabilityKeys)
     }
 
+    /// Whether the grant admits this capability. Used to keep what the host
+    /// advertises consistent with what it will actually allow.
+    public func permits(_ capability: CapabilityID) -> Bool {
+        capabilities?.contains(capability) ?? true
+    }
+
+    public func permits(key: CodeModeCapabilityKey) -> Bool {
+        capabilityKeys?.contains(key) ?? true
+    }
+
     /// Applies the ceiling to a model-authored request.
     ///
     /// Returns the effective sets alongside everything that was asked for and

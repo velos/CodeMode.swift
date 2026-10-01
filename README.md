@@ -210,10 +210,19 @@ and hints. That metadata is emitted as TypeScript so the model writes code
 against real declarations instead of a coarse type map plus prose:
 
 ```swift
-let tools = CodeModeAgentTools()
-print(tools.typeDeclarations())      // whole platform-filtered surface
-print(tools.capabilities())          // every reference, each carrying `dts`
+let tools = CodeModeAgentTools(
+    config: CodeModeConfiguration(capabilityGrant: .only([.fsRead, .fsList]))
+)
+print(tools.typeDeclarations())                    // only what the grant permits
+print(tools.typeDeclarations(for: [.keychainRead])) // an explicit subset
+print(tools.capabilities())                         // every reference, each carrying `dts`
 ```
+
+`typeDeclarations()` follows the host's `CapabilityGrant`, so it never advertises
+a helper the model would be denied — and size matters here: the unrestricted iOS
+surface is roughly 21,000 tokens, while a grant of a few helpers is around 1,000,
+most of it the shared preamble. Without a grant, prefer search-time `ref.dts` or
+`typeDeclarations(for:)` over inlining everything.
 
 Every `JavaScriptAPIReference` carries a per-capability `dts`, so code-driven
 search stays the filter and TypeScript becomes the payload:
