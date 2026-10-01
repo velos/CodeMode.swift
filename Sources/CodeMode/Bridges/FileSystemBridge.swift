@@ -136,9 +136,11 @@ public final class FileSystemBridge: @unchecked Sendable {
 
         let fromURL = try context.pathPolicy.resolve(path: from)
         let toURL = try context.pathPolicy.resolve(path: to)
-        try prepareDestination(toURL, operation: "fs.move", arguments: arguments, context: context)
+        try validateTransfer(from: fromURL, to: toURL, operation: "fs.move", arguments: arguments, context: context)
 
-        try fileSystem.moveItem(at: fromURL, to: toURL)
+        try replacing(toURL, operation: "fs.move", arguments: arguments) {
+            try fileSystem.moveItem(at: fromURL, to: toURL)
+        }
         return .object([
             "from": .string(fromURL.path),
             "to": .string(toURL.path),
@@ -152,9 +154,18 @@ public final class FileSystemBridge: @unchecked Sendable {
 
         let fromURL = try context.pathPolicy.resolve(path: from)
         let toURL = try context.pathPolicy.resolve(path: to)
-        try prepareDestination(toURL, operation: "fs.copy", arguments: arguments, context: context)
+        try validateTransfer(from: fromURL, to: toURL, operation: "fs.copy", arguments: arguments, context: context)
 
-        try fileSystem.copyItem(at: fromURL, to: toURL)
+        // A copy writes new bytes, so it answers to the write limit — otherwise
+        // copying a large tree is a way around it, and fills the disk.
+        let bytes = try totalSize(of: fromURL, stoppingAbove: limits.maxWriteBytes)
+        guard bytes <= limits.maxWriteBytes else {
+            throw Self.overLimit("fs.copy", url: fromURL, bytes: bytes, limit: limits.maxWriteBytes)
+        }
+
+        try replacing(toURL, operation: "fs.copy", arguments: arguments) {
+            try fileSystem.copyItem(at: fromURL, to: toURL)
+        }
         return .object([
             "from": .string(fromURL.path),
             "to": .string(toURL.path),
@@ -174,24 +185,45 @@ public final class FileSystemBridge: @unchecked Sendable {
         )
     }
 
-    /// Clears the way for a move/copy, refusing anything destructive the caller
-    /// did not explicitly ask for.
+    /// Everything that must hold before a move or copy touches the disk.
     ///
-    /// The previous behavior was an unconditional recursive `removeItem` on any
-    /// existing destination, and containment alone admits a root: `documents:`
-    /// resolves to the documents root, so `fs.move({ from: 'tmp:junk.txt',
-    /// to: 'documents:' })` deleted the user's whole Documents directory. The
-    /// gates here match the ones `fs.delete` already enforces.
-    private func prepareDestination(
-        _ toURL: URL,
+    /// Containment alone admits a sandbox root: `documents:` resolves to the
+    /// documents root itself. On the destination side that let
+    /// `fs.move({ to: 'documents:' })` delete Documents; on the source side
+    /// `fs.move({ from: 'documents:', to: 'tmp:x' })` moved Documents into a
+    /// purgeable directory, and `fs.copy` from a root duplicated the whole tree.
+    /// Both sides are refused, matching `fs.delete`.
+    private func validateTransfer(
+        from fromURL: URL,
+        to toURL: URL,
         operation: String,
         arguments: [String: JSONValue],
         context: BridgeInvocationContext
     ) throws {
+        guard context.pathPolicy.isAllowedRoot(fromURL) == false else {
+            throw BridgeError.pathViolation(
+                "\(operation) refuses a sandbox root as its source. Name a path inside the root, for example 'documents:archive'."
+            )
+        }
         guard context.pathPolicy.isAllowedRoot(toURL) == false else {
             throw BridgeError.pathViolation(
                 "\(operation) refuses a sandbox root as its destination. Name a path inside the root, for example 'documents:archive/file.txt'."
             )
+        }
+
+        // Checked before anything is removed. Without it, a missing source with
+        // overwrite: true deleted the destination and then failed.
+        guard fileSystem.itemExists(at: fromURL) else {
+            throw BridgeError.invalidArguments("\(operation) source does not exist: \(fromURL.lastPathComponent)")
+        }
+
+        // Same path, or a destination inside the source: the operation can never
+        // succeed, and with overwrite: true the old order removed the destination
+        // first — for `from == to`, that was the source itself.
+        let fromPath = fromURL.standardizedFileURL.path
+        let toPath = toURL.standardizedFileURL.path
+        guard toPath != fromPath, toPath.hasPrefix(fromPath + "/") == false else {
+            throw BridgeError.invalidArguments("\(operation) destination cannot be the source or a path inside it.")
         }
 
         guard fileSystem.itemExists(at: toURL) else {
@@ -210,8 +242,64 @@ public final class FileSystemBridge: @unchecked Sendable {
                 "\(operation) destination is a directory. Pass recursive: true along with overwrite: true to replace it and everything under it."
             )
         }
+    }
 
-        try fileSystem.removeItem(at: toURL)
+    /// Runs `operation`, replacing an existing destination only if it succeeds.
+    ///
+    /// The destination is moved aside rather than deleted, the operation runs,
+    /// and only then is the old item removed; on failure it is moved back. The
+    /// previous remove-then-act order meant any failure after the remove — a
+    /// missing source, a full disk, a permissions error — lost the destination
+    /// along with the operation.
+    private func replacing(
+        _ toURL: URL,
+        operation: String,
+        arguments: [String: JSONValue],
+        _ body: () throws -> Void
+    ) throws {
+        guard fileSystem.itemExists(at: toURL) else {
+            try body()
+            return
+        }
+
+        // Same directory, so the aside move is a rename, not a copy.
+        let aside = toURL
+            .deletingLastPathComponent()
+            .appendingPathComponent(".\(toURL.lastPathComponent).codemode-replacing-\(UUID().uuidString)")
+        try fileSystem.moveItem(at: toURL, to: aside)
+
+        do {
+            try body()
+        } catch {
+            try? fileSystem.moveItem(at: aside, to: toURL)
+            throw error
+        }
+        try? fileSystem.removeItem(at: aside)
+    }
+
+    /// Total bytes under `url`, stopping as soon as the running total exceeds
+    /// `limit` so a huge tree is not walked in full just to be refused.
+    private func totalSize(of url: URL, stoppingAbove limit: Int) throws -> Int {
+        let attributes = try fileSystem.attributesOfItem(at: url)
+        guard attributes.isDirectory else {
+            return attributes.size
+        }
+
+        var total = 0
+        var pending = [url]
+        while let directory = pending.popLast() {
+            for entry in try fileSystem.listDirectory(at: directory) {
+                if entry.isDirectory {
+                    pending.append(URL(fileURLWithPath: entry.path))
+                } else {
+                    total += entry.size
+                    if total > limit {
+                        return total
+                    }
+                }
+            }
+        }
+        return total
     }
 
     public func delete(arguments: [String: JSONValue], context: BridgeInvocationContext) throws -> JSONValue {

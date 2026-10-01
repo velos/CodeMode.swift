@@ -424,3 +424,141 @@ private final class RecordingCodeModeFileSystem: CodeModeFileSystem, @unchecked 
     ], context: context)
     #expect(try requireObject(base64).string("base64") == binary.base64EncodedString())
 }
+
+// MARK: - Source-side guards and non-destructive replacement
+
+@Test func fileSystemMoveRefusesASandboxRootAsSource() throws {
+    let fs = FileSystemBridge()
+    let (context, sandbox) = try makeInvocationContext()
+    defer { cleanup(sandbox) }
+    _ = try fs.write(arguments: ["path": .string("documents:precious.txt"), "data": .string("keep")], context: context)
+
+    // The destination-side guard alone let this move Documents into tmp:, which
+    // the OS may purge.
+    do {
+        _ = try fs.move(arguments: ["from": .string("documents:"), "to": .string("tmp:stolen")], context: context)
+        Issue.record("Expected fs.move to refuse a sandbox root as its source")
+    } catch {
+        #expect(requireBridgeErrorCode(error) == "PATH_POLICY_VIOLATION")
+    }
+    #expect(FileManager.default.fileExists(atPath: sandbox.documents.appendingPathComponent("precious.txt").path))
+}
+
+@Test func fileSystemCopyRefusesASandboxRootAsSource() throws {
+    let fs = FileSystemBridge()
+    let (context, sandbox) = try makeInvocationContext()
+    defer { cleanup(sandbox) }
+
+    do {
+        _ = try fs.copy(arguments: ["from": .string("documents:"), "to": .string("tmp:copy")], context: context)
+        Issue.record("Expected fs.copy to refuse a sandbox root as its source")
+    } catch {
+        #expect(requireBridgeErrorCode(error) == "PATH_POLICY_VIOLATION")
+    }
+}
+
+@Test func fileSystemOverwriteWithAMissingSourceKeepsTheDestination() throws {
+    let fs = FileSystemBridge()
+    let (context, sandbox) = try makeInvocationContext()
+    defer { cleanup(sandbox) }
+    _ = try fs.write(arguments: ["path": .string("documents:important.txt"), "data": .string("keep")], context: context)
+
+    // Previously: destination removed, then the move failed on the missing source.
+    #expect(throws: (any Error).self) {
+        _ = try fs.move(arguments: [
+            "from": .string("tmp:does-not-exist"),
+            "to": .string("documents:important.txt"),
+            "overwrite": .bool(true),
+        ], context: context)
+    }
+    let survived = try fs.read(arguments: ["path": .string("documents:important.txt")], context: context)
+    #expect(try requireObject(survived).string("text") == "keep")
+}
+
+@Test func fileSystemOverwriteOntoItselfIsRefusedAndKeepsTheFile() throws {
+    let fs = FileSystemBridge()
+    let (context, sandbox) = try makeInvocationContext()
+    defer { cleanup(sandbox) }
+    _ = try fs.write(arguments: ["path": .string("tmp:x.txt"), "data": .string("keep")], context: context)
+    _ = try fs.mkdir(arguments: ["path": .string("tmp:dir")], context: context)
+
+    // from == to with overwrite: true used to delete the source.
+    #expect(throws: (any Error).self) {
+        _ = try fs.move(arguments: ["from": .string("tmp:x.txt"), "to": .string("tmp:x.txt"), "overwrite": .bool(true)], context: context)
+    }
+    #expect(try fs.exists(arguments: ["path": .string("tmp:x.txt")], context: context).boolValue == true)
+
+    // A destination inside the source can never succeed either.
+    #expect(throws: (any Error).self) {
+        _ = try fs.move(arguments: ["from": .string("tmp:dir"), "to": .string("tmp:dir/inner")], context: context)
+    }
+}
+
+/// Fails the copy itself, after the destination has been moved aside — the case
+/// the old remove-then-act order turned into data loss.
+private final class FailingCopyFileSystem: CodeModeFileSystem, @unchecked Sendable {
+    private let base = LocalCodeModeFileSystem()
+    func listDirectory(at url: URL) throws -> [CodeModeFileSystemEntry] { try base.listDirectory(at: url) }
+    func readData(at url: URL) throws -> Data { try base.readData(at: url) }
+    func writeData(_ data: Data, to url: URL) throws { try base.writeData(data, to: url) }
+    func moveItem(at sourceURL: URL, to destinationURL: URL) throws { try base.moveItem(at: sourceURL, to: destinationURL) }
+    func copyItem(at sourceURL: URL, to destinationURL: URL) throws {
+        throw CocoaError(.fileWriteOutOfSpace)
+    }
+    func removeItem(at url: URL) throws { try base.removeItem(at: url) }
+    func createDirectory(at url: URL, recursive: Bool) throws { try base.createDirectory(at: url, recursive: recursive) }
+    func attributesOfItem(at url: URL) throws -> CodeModeFileSystemAttributes { try base.attributesOfItem(at: url) }
+    func itemExists(at url: URL) -> Bool { base.itemExists(at: url) }
+    func access(at url: URL) -> CodeModeFileSystemAccess { base.access(at: url) }
+}
+
+@Test func fileSystemFailedReplacementRestoresTheDestination() throws {
+    let fs = FileSystemBridge(fileSystem: FailingCopyFileSystem())
+    let (context, sandbox) = try makeInvocationContext()
+    defer { cleanup(sandbox) }
+    _ = try fs.write(arguments: ["path": .string("tmp:src.txt"), "data": .string("new")], context: context)
+    _ = try fs.write(arguments: ["path": .string("tmp:dst.txt"), "data": .string("original")], context: context)
+
+    #expect(throws: (any Error).self) {
+        _ = try fs.copy(arguments: ["from": .string("tmp:src.txt"), "to": .string("tmp:dst.txt"), "overwrite": .bool(true)], context: context)
+    }
+
+    let restored = try fs.read(arguments: ["path": .string("tmp:dst.txt")], context: context)
+    #expect(try requireObject(restored).string("text") == "original")
+    // And nothing left behind from the aside move.
+    let leftovers = try FileManager.default.contentsOfDirectory(atPath: sandbox.tmp.path).filter { $0.contains("codemode-replacing") }
+    #expect(leftovers.isEmpty)
+}
+
+@Test func fileSystemSuccessfulReplacementLeavesNoAsideFile() throws {
+    let fs = FileSystemBridge()
+    let (context, sandbox) = try makeInvocationContext()
+    defer { cleanup(sandbox) }
+    _ = try fs.write(arguments: ["path": .string("tmp:src.txt"), "data": .string("new")], context: context)
+    _ = try fs.write(arguments: ["path": .string("tmp:dst.txt"), "data": .string("original")], context: context)
+
+    _ = try fs.move(arguments: ["from": .string("tmp:src.txt"), "to": .string("tmp:dst.txt"), "overwrite": .bool(true)], context: context)
+
+    let replaced = try fs.read(arguments: ["path": .string("tmp:dst.txt")], context: context)
+    #expect(try requireObject(replaced).string("text") == "new")
+    let leftovers = try FileManager.default.contentsOfDirectory(atPath: sandbox.tmp.path).filter { $0.contains("codemode-replacing") }
+    #expect(leftovers.isEmpty)
+}
+
+@Test func fileSystemCopyAnswersToTheWriteLimit() throws {
+    let fs = FileSystemBridge(limits: FileSystemLimits(maxReadBytes: 1_024, maxWriteBytes: 100))
+    let (context, sandbox) = try makeInvocationContext()
+    defer { cleanup(sandbox) }
+    _ = try fs.mkdir(arguments: ["path": .string("tmp:tree/nested")], context: context)
+    _ = try fs.write(arguments: ["path": .string("tmp:tree/a.txt"), "data": .string(String(repeating: "x", count: 60))], context: context)
+    _ = try fs.write(arguments: ["path": .string("tmp:tree/nested/b.txt"), "data": .string(String(repeating: "y", count: 60))], context: context)
+
+    // Each file is under the limit; the tree is not.
+    do {
+        _ = try fs.copy(arguments: ["from": .string("tmp:tree"), "to": .string("tmp:tree-copy")], context: context)
+        Issue.record("Expected fs.copy to refuse a tree over the write limit")
+    } catch {
+        #expect(requireBridgeErrorCode(error) == "INVALID_ARGUMENTS")
+    }
+    #expect(try fs.exists(arguments: ["path": .string("tmp:tree-copy")], context: context).boolValue == false)
+}
