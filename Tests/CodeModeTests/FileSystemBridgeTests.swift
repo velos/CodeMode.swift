@@ -562,3 +562,55 @@ private final class FailingCopyFileSystem: CodeModeFileSystem, @unchecked Sendab
     }
     #expect(try fs.exists(arguments: ["path": .string("tmp:tree-copy")], context: context).boolValue == false)
 }
+
+/// A host's own policy — here, one that narrows the default to two roots. Since
+/// `allowedRoots` has no default, it must state its roots, and the bridge's root
+/// guards apply to it exactly as to `DefaultPathPolicy`.
+private struct TwoRootPolicy: PathPolicy {
+    let base: DefaultPathPolicy
+    let roots: [URL]
+
+    func resolve(path: String) throws -> URL {
+        let url = try base.resolve(path: path)
+        guard roots.contains(where: { url.path.hasPrefix($0.resolvingSymlinksInPath().path) }) else {
+            throw BridgeError.pathViolation("outside this host's roots")
+        }
+        return url
+    }
+
+    var allowedRoots: [URL] { roots }
+}
+
+@Test func customPathPoliciesGetTheSameRootGuards() throws {
+    let sandbox = try makeTestSandbox()
+    defer { cleanup(sandbox) }
+    let policy = TwoRootPolicy(
+        base: DefaultPathPolicy(config: PathPolicyConfig(tmpRoot: sandbox.tmp, cachesRoot: sandbox.caches, documentsRoot: sandbox.documents)),
+        roots: [sandbox.tmp, sandbox.documents]
+    )
+    let context = BridgeInvocationContext(
+        executionContext: .init(),
+        allowedCapabilities: Set(CapabilityID.allCases),
+        pathPolicy: policy,
+        artifactStore: InMemoryArtifactStore(),
+        permissionBroker: NoopPermissionBroker(),
+        auditLogger: SyncAuditLogger(),
+        transcript: ExecutionTranscript(),
+        cancellationController: ExecutionCancellationController()
+    )
+    let fs = FileSystemBridge()
+    _ = try fs.write(arguments: ["path": .string("documents:keep.txt"), "data": .string("x")], context: context)
+
+    for arguments: [String: JSONValue] in [
+        ["from": .string("documents:"), "to": .string("tmp:stolen")],
+        ["from": .string("tmp:keep.txt"), "to": .string("documents:"), "overwrite": .bool(true), "recursive": .bool(true)],
+    ] {
+        do {
+            _ = try fs.move(arguments: arguments, context: context)
+            Issue.record("Expected the custom policy's root to be refused for \(arguments)")
+        } catch {
+            #expect(requireBridgeErrorCode(error) == "PATH_POLICY_VIOLATION")
+        }
+    }
+    #expect(FileManager.default.fileExists(atPath: sandbox.documents.appendingPathComponent("keep.txt").path))
+}

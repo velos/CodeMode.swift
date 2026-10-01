@@ -27,15 +27,15 @@ public protocol PathPolicy: Sendable {
     /// The roots this policy admits.
     ///
     /// `resolve` accepts a root itself — `documents:` resolves to the documents
-    /// root — so destructive operations need to be able to recognize one and
-    /// refuse. Custom policies that do not implement this get an empty list and
-    /// simply lose that specific check.
+    /// root — so destructive filesystem operations need to recognize one and
+    /// refuse it. Deliberately has no default: an earlier default of `[]` meant a
+    /// host with its own policy silently got none of the root protection on
+    /// `fs.move`, `fs.copy`, and `fs.delete`. A policy that genuinely has no
+    /// roots to protect can return `[]` explicitly.
     var allowedRoots: [URL] { get }
 }
 
 public extension PathPolicy {
-    var allowedRoots: [URL] { [] }
-
     /// True when `url` *is* one of the allowed roots rather than something inside one.
     func isAllowedRoot(_ url: URL) -> Bool {
         let candidate = url.standardizedFileURL.resolvingSymlinksInPath().standardizedFileURL.path

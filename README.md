@@ -137,6 +137,8 @@ let tools = CodeModeAgentTools(
 
 `CodeModeFileSystem` receives paths after `PathPolicy` resolution, so sandbox root enforcement stays in CodeMode while the host can route reads, writes, listings, moves, copies, deletes, and stats through another backing implementation. `LocalCodeModeFileSystem` preserves the default `FileManager` behavior.
 
+A host that supplies its own `PathPolicy` must declare `allowedRoots`. `fs.move`, `fs.copy`, and `fs.delete` refuse a sandbox root as either source or destination, and they can only recognize a root the policy names — so there is deliberately no default.
+
 ## Network Access Policy
 
 `network.fetch` egress is governed by `CodeModeConfiguration.networkAccessPolicy`:
