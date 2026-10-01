@@ -38,12 +38,17 @@ just the watchdog:
 - [ ] **JS heap / memory cap** — nothing bounds `JSContext`/`JSContextGroup`
   heap; `new Array(1e9)` can still exhaust host memory. NOT addressed.
 - [x] **Bound on concurrent executions** — `ExecutionLimits.maxConcurrentExecutions`
-  (default 8) gates `runOnExecutionQueue` with a semaphore acquired *on* the
-  worker, so excess executions queue instead of exhausting the GCD thread pool.
-  Covered by `concurrentExecutionsAllCompleteAndStayIsolated` and
-  `executionsBeyondTheSlotLimitQueueRatherThanFail`.
-- [ ] `runOnExecutionQueue` still has no task-cancellation handler wired into the
-  dispatched block (best-effort only). NOT addressed.
+  (default 8) is enforced by the `ExecutionSlots` actor, acquired in the async
+  context *before* dispatch, so excess executions park as suspended tasks rather
+  than blocked GCD threads. Search has its own slots so discovery never waits
+  behind long scripts. Covered by `concurrentExecutionsAllCompleteAndStayIsolated`,
+  `executionsBeyondTheSlotLimitQueueRatherThanFail`, and
+  `searchDoesNotWaitBehindALongExecution`.
+- [x] Cancellation reaches `runOnExecutionQueue` at every stage: a cancel while
+  waiting for a slot throws before anything is dispatched
+  (`cancellingWhileWaitingForASlotNeverRunsTheScript`), and once dispatched,
+  `cancel()`, a cancelled `call.result` await, and dropping both the call and its
+  events stream all set the cancellation controller the runtime polls.
 
 ### 2. `fetch` has no destination restrictions or size limits  [x]
 - [x] `NetworkAccessPolicy` on `CodeModeConfiguration`: by default requests are
@@ -247,8 +252,9 @@ items that were not completed, kept explicit so they do not read as finished.
 ### #9 — async bridge ABI (partially done)
 Done: real timer queue (`setTimeout`/`clearTimeout` honour delays and cancel),
 immediate diagnosis of unsettleable promises, `BRIDGE_FAILURES_NOT_SURFACED` for
-swallowed rejections, bounded concurrent executions, `ContinuousClock` deadlines,
-deinit cancellation.
+swallowed rejections, bounded concurrent executions (actor slots, separate for
+search), `ContinuousClock` deadlines behind an injectable `RuntimeClock`, and
+cancellation once neither the call nor its events stream is reachable.
 - [ ] **`CapabilityHandler` is still synchronous**, so `Promise.all([fetch(a), fetch(b)])`
   is still serial. This is the change that requires resolving JS promises from
   Swift via retained resolve/reject `JSValue`s on a per-execution serial executor.

@@ -48,16 +48,24 @@ Then add the product to your target:
 ## Public API
 
 - `CodeModeAgentTools`
-- `searchJavaScriptAPI(_:) async throws -> JavaScriptAPISearchResponse`
-- `executeJavaScript(_:) async throws -> JavaScriptExecutionCall`
-- `JavaScriptExecutionCall.events`
-- `JavaScriptExecutionCall.result`
-- `JavaScriptExecutionCall.cancel()`
+  - `searchJavaScriptAPI(_:) async throws -> JavaScriptAPISearchResponse`
+  - `executeJavaScript(_:) async throws -> JavaScriptExecutionCall`
+  - `typeDeclarations()` / `typeDeclarations(for:capabilityKeys:)` — TypeScript for the granted surface or a subset
+  - `capabilities()` — every reference available on this host, each with its `dts`
+  - `register(provider:)` / `register(providers:)` — add host providers after construction
+- `JavaScriptExecutionCall.events`, `.result`, `.cancel()`
 - `CodeModeToolError`
-- `CodeModeConfiguration`
-- `CodeModeFileSystem`
-- `LocalCodeModeFileSystem`
-- `CodeModeAgentToolDescriptions`
+- `CodeModeConfiguration`, and the policies it carries:
+  - `CapabilityGrant` — the host-owned capability ceiling
+  - `NetworkAccessPolicy` — fetch destinations, response size, credential headers
+  - `ExecutionLimits` — result/log/event bounds and concurrency
+  - `FileSystemLimits` — `fs.read`/`fs.write`/`fs.copy` byte ceilings
+  - `PathPolicy` / `DefaultPathPolicy` — sandbox roots
+- `CodeModeFileSystem`, `LocalCodeModeFileSystem`
+- `CodeModeAgentToolDescriptions` — tool names, descriptions, and parameter schemas
+- `CodeModeAgentGuidance` — budgeted system-prompt guidance (`.brief`/`.standard`/`.full`)
+- `TypeScriptDeclarations` — the declaration generator behind `typeDeclarations()`
+- `HostConfigurationValidator` — Info.plist usage strings and configuration warnings
 - `CodeModeEvaluation` SwiftPM product for deterministic scenario evaluation
 - `SystemUIPresenter`
 - `UIKitSystemUIPresenter` on iOS/visionOS
