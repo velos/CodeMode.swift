@@ -139,6 +139,37 @@ public struct JavaScriptAPIReference: Sendable, Codable, Equatable {
         self.resultSummary = resultSummary
         self.dts = dts
     }
+
+    private enum CodingKeys: String, CodingKey {
+        case capability, capabilityKey, builtInCapability, jsNames, summary, tags, example
+        case requiredArguments, optionalArguments, argumentTypes, argumentHints
+        case argumentConstraints, resultSummary, dts
+    }
+
+    /// `dts` is optional on the way in. References encoded before it existed —
+    /// cached search results, eval fixtures — would otherwise fail to decode with
+    /// `keyNotFound`; when it is absent, the declaration is regenerated from the
+    /// decoded fields rather than left empty.
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.capability = try container.decode(String.self, forKey: .capability)
+        self.capabilityKey = try container.decode(CodeModeCapabilityKey.self, forKey: .capabilityKey)
+        self.builtInCapability = try container.decodeIfPresent(CapabilityID.self, forKey: .builtInCapability)
+        self.jsNames = try container.decode([String].self, forKey: .jsNames)
+        self.summary = try container.decode(String.self, forKey: .summary)
+        self.tags = try container.decode([String].self, forKey: .tags)
+        self.example = try container.decode(String.self, forKey: .example)
+        self.requiredArguments = try container.decode([String].self, forKey: .requiredArguments)
+        self.optionalArguments = try container.decode([String].self, forKey: .optionalArguments)
+        self.argumentTypes = try container.decode([String: CapabilityArgumentType].self, forKey: .argumentTypes)
+        self.argumentHints = try container.decode([String: String].self, forKey: .argumentHints)
+        self.argumentConstraints = try container.decode(CapabilityArgumentConstraints.self, forKey: .argumentConstraints)
+        self.resultSummary = try container.decode(String.self, forKey: .resultSummary)
+        self.dts = try container.decodeIfPresent(String.self, forKey: .dts) ?? ""
+        if self.dts.isEmpty {
+            self.dts = TypeScriptDeclarations.declaration(for: self)
+        }
+    }
 }
 
 public struct JavaScriptAPISearchResponse: Sendable, Codable, Equatable {

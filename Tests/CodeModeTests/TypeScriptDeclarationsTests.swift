@@ -262,3 +262,24 @@ private func reference(
         }
     }
 }
+
+// MARK: - Codable compatibility
+
+@Test func referencesEncodedBeforeDtsExistedStillDecode() throws {
+    // The shape a host cached before this branch: no `dts` key. The synthesized
+    // decoder threw keyNotFound on it.
+    let legacy = #"{"capability":"fs.read","capabilityKey":"fs.read","builtInCapability":"fs.read","jsNames":["apple.fs.read"],"summary":"Read a file.","tags":[],"example":"","requiredArguments":["path"],"optionalArguments":[],"argumentTypes":{"path":"string"},"argumentHints":{},"argumentConstraints":{"allowedStringValues":{}},"resultSummary":"Object."}"#
+    let decoded = try JSONDecoder().decode(JavaScriptAPIReference.self, from: Data(legacy.utf8))
+    #expect(decoded.capability == "fs.read")
+    // Regenerated rather than left empty.
+    #expect(decoded.dts.contains("read(args: {"))
+    #expect(decoded.dts.contains("path: string;"))
+}
+
+@Test func referencesRoundTripThroughCodableUnchanged() async throws {
+    let (tools, sandbox) = try makeTools()
+    defer { cleanup(sandbox) }
+    let original = tools.capabilities()
+    let decoded = try JSONDecoder().decode([JavaScriptAPIReference].self, from: JSONEncoder().encode(original))
+    #expect(decoded == original)
+}
