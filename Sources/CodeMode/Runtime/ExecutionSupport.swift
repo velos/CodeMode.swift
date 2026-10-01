@@ -42,7 +42,6 @@ final class ExecutionCancellationController: @unchecked Sendable {
 actor ExecutionSlots {
     private var available: Int
     private var waiters: [(id: UUID, continuation: CheckedContinuation<Void, Error>)] = []
-    private var cancelledBeforeParking: Set<UUID> = []
 
     init(count: Int) {
         available = max(1, count)
@@ -57,14 +56,11 @@ actor ExecutionSlots {
 
         let id = UUID()
         try await withTaskCancellationHandler {
+            // Runs synchronously on the actor, so the waiter is always parked
+            // before a `withdraw` from the cancellation handler can be scheduled
+            // here — even when the task was cancelled before this point.
             try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-                // The cancellation handler can run before this closure does; if it
-                // already did, do not park at all.
-                if cancelledBeforeParking.remove(id) != nil {
-                    continuation.resume(throwing: CancellationError())
-                } else {
-                    waiters.append((id, continuation))
-                }
+                waiters.append((id, continuation))
             }
         } onCancel: {
             Task { await self.withdraw(id) }
@@ -81,11 +77,13 @@ actor ExecutionSlots {
         }
     }
 
+    /// Removes a cancelled waiter. Not finding it means `release()` already
+    /// handed it a slot — the cancel arrived too late to matter, and the
+    /// execution observes it through its cancellation controller instead. An
+    /// earlier version recorded such ids "for later" and never removed them.
     private func withdraw(_ id: UUID) {
         if let index = waiters.firstIndex(where: { $0.id == id }) {
             waiters.remove(at: index).continuation.resume(throwing: CancellationError())
-        } else {
-            cancelledBeforeParking.insert(id)
         }
     }
 }

@@ -40,6 +40,10 @@ final class BridgeRuntime: @unchecked Sendable {
     /// tasks — not blocked threads — until a slot frees; `timeoutMs` still
     /// measures the run itself, not the wait.
     private let executionSlots: ExecutionSlots
+    /// Search has its own slots. It is cheap, capability-free, and bounded to 2s,
+    /// and sharing the execution slots meant API discovery stalled behind long
+    /// scripts — exactly when an agent is trying to work out its next step.
+    private let searchSlots: ExecutionSlots
     /// Real in production; virtual under test so timer-driven tests are exact
     /// and instant. See RuntimeClock.
     private let clock: any RuntimeClock
@@ -57,6 +61,7 @@ final class BridgeRuntime: @unchecked Sendable {
         self.unsupportedBuiltInJavaScriptNames = unsupportedBuiltInJavaScriptNames
         self.clock = clock
         self.executionSlots = ExecutionSlots(count: config.executionLimits.maxConcurrentExecutions)
+        self.searchSlots = ExecutionSlots(count: config.executionLimits.maxConcurrentExecutions)
     }
 
     func search(_ request: JavaScriptAPISearchRequest) throws -> JavaScriptAPISearchResponse {
@@ -115,7 +120,7 @@ final class BridgeRuntime: @unchecked Sendable {
     }
 
     func searchAsync(_ request: JavaScriptAPISearchRequest) async throws -> JavaScriptAPISearchResponse {
-        try await runOnExecutionQueue {
+        try await runOnExecutionQueue(slots: searchSlots) {
             try self.search(request)
         }
     }
@@ -204,13 +209,15 @@ final class BridgeRuntime: @unchecked Sendable {
     }
 
     private func runOnExecutionQueue<Output: Sendable>(
+        slots: ExecutionSlots? = nil,
         _ operation: @escaping @Sendable () throws -> Output
     ) async throws -> Output {
         // The slot is taken *here*, in the async context, so an execution beyond
         // the limit suspends without touching the thread pool. A cancel while
         // parked throws before anything is dispatched.
-        try await executionSlots.acquire()
-        defer { Task { await self.executionSlots.release() } }
+        let slots = slots ?? executionSlots
+        try await slots.acquire()
+        defer { Task { await slots.release() } }
 
         return try await withCheckedThrowingContinuation { continuation in
             executionQueue.async {

@@ -534,4 +534,39 @@ import Testing
         #expect(Date().timeIntervalSince(started) >= 0.09)
         #expect(controller.isCancelled == false)
     }
+
+    @Test func searchDoesNotWaitBehindALongExecution() async throws {
+        let (tools, sandbox) = try makeTools(
+            executionLimits: ExecutionLimits(maxConcurrentExecutions: 1)
+        )
+        defer { cleanup(sandbox) }
+
+        // Occupy the only execution slot with a script that writes a file after
+        // 3s. If search shared that slot it would wait for it, and the file would
+        // exist by the time search returned.
+        let occupant = try await tools.executeJavaScript(
+            JavaScriptExecutionRequest(
+                code: "console.log('running'); await new Promise(r => setTimeout(r, 3000)); await apple.fs.write({ path: 'tmp:occupant-done.txt', data: 'x' }); return 1;",
+                allowedCapabilities: [.fsWrite],
+                timeoutMs: 30_000
+            )
+        )
+        // Synchronize on the occupant actually holding the slot, not on a sleep.
+        var running = false
+        for await event in occupant.events {
+            if case let .log(entry) = event, entry.message == "running" { running = true; break }
+            if case .finished = event { break }
+        }
+        #expect(running, "the occupant never started")
+
+        let response = try await tools.searchJavaScriptAPI(
+            JavaScriptAPISearchRequest(code: "async () => api.references.length")
+        )
+        let occupantFinished = FileManager.default.fileExists(atPath: sandbox.tmp.appendingPathComponent("occupant-done.txt").path)
+
+        #expect((response.result?.intValue ?? 0) > 0)
+        #expect(occupantFinished == false, "search waited for the execution slot")
+        occupant.cancel()
+        _ = await observe(occupant)
+    }
 }
