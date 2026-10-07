@@ -283,3 +283,42 @@ private func reference(
     let decoded = try JSONDecoder().decode([JavaScriptAPIReference].self, from: JSONEncoder().encode(original))
     #expect(decoded == original)
 }
+
+// MARK: - Artifacts for the compiler check
+
+/// Writes every generated declaration to `$CODEMODE_DTS_OUTPUT` for a real
+/// `tsc --strict` pass (`scripts/check-typescript-declarations.sh`, run in CI).
+/// The unit tests above check known failure shapes; only a compiler checks
+/// that the output is TypeScript at all. Inert unless the variable is set.
+@Test(.enabled(if: ProcessInfo.processInfo.environment["CODEMODE_DTS_OUTPUT"] != nil, "set CODEMODE_DTS_OUTPUT to write declarations for tsc"))
+func writeTypeDeclarationsForCompilerCheck() async throws {
+    let output = URL(fileURLWithPath: try #require(ProcessInfo.processInfo.environment["CODEMODE_DTS_OUTPUT"]))
+    let surfaces = output.appendingPathComponent("surfaces", isDirectory: true)
+    let fragments = output.appendingPathComponent("fragments", isDirectory: true)
+    try FileManager.default.createDirectory(at: surfaces, withIntermediateDirectories: true)
+    try FileManager.default.createDirectory(at: fragments, withIntermediateDirectories: true)
+
+    try TypeScriptDeclarations.preamble.write(
+        to: output.appendingPathComponent("preamble.d.ts"), atomically: true, encoding: .utf8
+    )
+
+    // Every platform's surface, unrestricted, so no capability goes unchecked.
+    for platform in [HostPlatform.iOS, .macOS, .visionOS] {
+        let (tools, sandbox) = try makeTools(hostPlatform: platform)
+        defer { cleanup(sandbox) }
+        try tools.typeDeclarations().write(
+            to: surfaces.appendingPathComponent("\(platform).d.ts"), atomically: true, encoding: .utf8
+        )
+    }
+
+    // Fragments from the widest platform surface.
+    let (tools, sandbox) = try makeTools(hostPlatform: .iOS)
+    defer { cleanup(sandbox) }
+    let references = tools.capabilities()
+    for reference in references {
+        try reference.dts.write(
+            to: fragments.appendingPathComponent("\(reference.capability).d.ts"), atomically: true, encoding: .utf8
+        )
+    }
+    #expect(references.count > 100, "expected the full iOS catalog")
+}

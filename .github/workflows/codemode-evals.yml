@@ -51,6 +51,18 @@ jobs:
       - name: Test package
         run: swift test
 
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      # The generated TypeScript declarations go into model prompts and host
+      # type-checkers, so they are compiled for real: every platform surface and
+      # every per-capability fragment, under `tsc --strict`, TypeScript pinned.
+      # The Swift tests only catch failure shapes someone already thought of.
+      - name: Type-check generated TypeScript declarations
+        run: scripts/check-typescript-declarations.sh "$RUNNER_TEMP/codemode-dts"
+
       - name: Build eval CLI
         run: swift build --package-path Tools/CodeModeEval
 
