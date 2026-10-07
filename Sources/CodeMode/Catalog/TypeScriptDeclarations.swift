@@ -89,10 +89,16 @@ public enum TypeScriptDeclarations {
     /// The declaration for one capability, suitable for a search result payload.
     ///
     /// Declared at its real call path — `declare const apple: { fs: { read(…) } }`
-    /// — so what the model reads is exactly what it can call. Each fragment is
-    /// valid TypeScript on its own; for one compilation unit covering several
-    /// capabilities, use `surface(for:)`, which merges them under a single
-    /// declaration per root.
+    /// — so what the model reads is exactly what it can call.
+    ///
+    /// A fragment type-checks alongside `preamble`, which defines `CodeModeValue`;
+    /// on its own that name is unresolved. Fragments also do not merge with each
+    /// other — two for the same root each declare it — which is harmless when a
+    /// model reads joined search results, but for one compilation unit covering
+    /// several capabilities use `surface(for:)` (or
+    /// `CodeModeAgentTools.typeDeclarations(for:)`), which merges them under a
+    /// single declaration per root. Verified with `tsc --strict`: every fragment
+    /// plus the preamble, and every platform's whole surface, compile cleanly.
     public static func declaration(for reference: JavaScriptAPIReference) -> String {
         guard let canonical = canonicalName(for: reference) else {
             return ""
