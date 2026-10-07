@@ -16,6 +16,9 @@ public enum CodeModeEvalScenarios {
         filesystemCapabilityDenied,
         executionConsoleLogs,
         executionTimeout,
+        executionUnsettleablePromise,
+        executionTimerBackoff,
+        filesystemWholeJobInOneScript,
         reminderCatalogDiscovery,
         catalogFileSystemReadShape,
         catalogConsoleDiagnostics,
@@ -319,10 +322,16 @@ public enum CodeModeEvalScenarios {
             return api.byJSName["apple.fs.read"];
         }
         """,
-        executeCode: """
-        return await apple.fs.read({ encoding: "utf8" });
-        """,
         executeSteps: [
+            // Deliberately wrong, so the next step can repair from the structured
+            // error. Marked so the runner does not treat it as the run failing.
+            CodeModeEvalExecuteStep(
+                code: """
+                return await apple.fs.read({ encoding: "utf8" });
+                """,
+                allowedCapabilities: [.fsRead],
+                expectsFailure: true
+            ),
             CodeModeEvalExecuteStep(
                 code: """
                 const result = await apple.fs.read({ path: "tmp:repair.txt", encoding: "utf8" });
@@ -485,10 +494,10 @@ public enum CodeModeEvalScenarios {
         )
     )
 
-    public static let executionTimeout = CodeModeEvalScenario(
-        id: "execution.timeout",
-        title: "Unresolved promises time out",
-        task: "Await a never-resolving JavaScript promise. Do not catch the error in JavaScript; let executeJavaScript surface the structured execution-timeout error.",
+    public static let executionUnsettleablePromise = CodeModeEvalScenario(
+        id: "execution.unsettleable-promise",
+        title: "Unresolvable promises are reported, not waited out",
+        task: "Await a never-resolving JavaScript promise. Do not catch the error in JavaScript; let executeJavaScript surface the structured error.",
         executeCode: """
         await new Promise(() => {});
         return { never: true };
@@ -499,7 +508,90 @@ public enum CodeModeEvalScenarios {
             toolOrder: [.executeJavaScript],
             exactAllowedCapabilities: [],
             requiredExecuteCodeFragments: ["new Promise"],
+            expectedErrorCode: "JS_RUNTIME_ERROR"
+        )
+    )
+
+    public static let executionTimeout = CodeModeEvalScenario(
+        id: "execution.timeout",
+        title: "CPU-bound scripts hit the execution timeout",
+        task: "Run a CPU-bound infinite loop. Do not catch the error in JavaScript; let executeJavaScript surface the structured execution-timeout error.",
+        executeCode: """
+        while (true) {}
+        """,
+        allowedCapabilities: [],
+        timeoutMs: 200,
+        expectation: CodeModeEvalExpectation(
+            toolOrder: [.executeJavaScript],
+            exactAllowedCapabilities: [],
+            requiredExecuteCodeFragments: ["while"],
             expectedErrorCode: "EXECUTION_TIMEOUT"
+        )
+    )
+
+    public static let filesystemWholeJobInOneScript = CodeModeEvalScenario(
+        id: "fs.whole-job-one-script",
+        title: "A multi-step job runs as one script",
+        task: "Read every .json receipt in documents:receipts, total the amounts for trip 'lisbon', and return { total, count }. Do the whole job in a single executeJavaScript call — list, read, filter, and sum inside the script — and return only the totals, not the receipts.",
+        searchCode: """
+        async () => {
+            return api.references
+                .filter(ref => ["fs.list", "fs.read"].includes(ref.capability))
+                .map(ref => ref.dts)
+                .join("\\n\\n");
+        }
+        """,
+        executeCode: """
+        const entries = await apple.fs.list({ path: 'documents:receipts' });
+        let total = 0;
+        let count = 0;
+        for (const entry of entries) {
+            if (entry.isDirectory || !entry.name.endsWith('.json')) continue;
+            const { text } = await apple.fs.read({ path: entry.path });
+            const receipt = JSON.parse(text);
+            if (receipt.trip !== 'lisbon') continue;
+            total += receipt.amount;
+            count += 1;
+        }
+        return { total, count };
+        """,
+        allowedCapabilities: [.fsList, .fsRead],
+        seedFiles: [
+            CodeModeEvalSeedFile(path: "documents:receipts/a.json", text: #"{"trip":"lisbon","amount":12}"#),
+            CodeModeEvalSeedFile(path: "documents:receipts/b.json", text: #"{"trip":"porto","amount":99}"#),
+            CodeModeEvalSeedFile(path: "documents:receipts/c.json", text: #"{"trip":"lisbon","amount":30}"#),
+        ],
+        expectation: CodeModeEvalExpectation(
+            // One search, one execute. A transcript that splits the list/read/sum
+            // across several executions fails here — that is the whole point of
+            // the scenario, and it only has teeth against real LLM transcripts.
+            toolOrder: [.searchJavaScriptAPI, .executeJavaScript],
+            exactAllowedCapabilities: [.fsList, .fsRead],
+            forbiddenCapabilities: [.fsWrite, .fsDelete, .fsMove],
+            requiredExecuteCodeFragments: ["apple.fs.list", "apple.fs.read"],
+            expectedOutput: .object(["total": .number(42), "count": .number(2)])
+        )
+    )
+
+    public static let executionTimerBackoff = CodeModeEvalScenario(
+        id: "execution.timer-backoff",
+        title: "setTimeout honours its delay",
+        task: "Use setTimeout to wait before returning, and cancel a second timer with clearTimeout so its callback never runs.",
+        executeCode: """
+        const marks = [];
+        const cancelled = setTimeout(() => { marks.push('cancelled'); }, 5);
+        clearTimeout(cancelled);
+        await new Promise(resolve => setTimeout(resolve, 20));
+        marks.push('resumed');
+        return { marks };
+        """,
+        allowedCapabilities: [],
+        timeoutMs: 2_000,
+        expectation: CodeModeEvalExpectation(
+            toolOrder: [.executeJavaScript],
+            exactAllowedCapabilities: [],
+            requiredExecuteCodeFragments: ["setTimeout"],
+            expectedOutput: .object(["marks": .array([.string("resumed")])])
         )
     )
 

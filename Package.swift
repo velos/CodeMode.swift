@@ -67,6 +67,11 @@ let package = Package(
         .testTarget(
             name: "CodeModeAuthoringTests",
             dependencies: [
+                // Declared directly, not only via CodeModeAuthoring: these tests use
+                // CodeModeConfiguration/CodeModeAgentTools, and without the direct
+                // edge SwiftPM did not rebuild them when CodeMode's types changed
+                // layout — leaving stale objects that failed to link or crashed.
+                "CodeMode",
                 "CodeModeAuthoring",
                 "CodeModeMacros",
                 .product(name: "SwiftSyntaxMacrosTestSupport", package: "swift-syntax"),

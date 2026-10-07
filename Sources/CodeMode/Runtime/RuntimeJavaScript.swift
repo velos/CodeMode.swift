@@ -1,6 +1,83 @@
 import Foundation
 
 enum RuntimeJavaScript {
+    /// Shared by the execution and search runtimes.
+    private static let timerRuntime = """
+    // A real timer queue, drained by the host between JavaScript turns.
+    //
+    // `setTimeout` used to invoke its callback synchronously and ignore the
+    // delay, which made three things wrong at once: `clearTimeout` could never
+    // cancel, an error thrown by the callback propagated to setTimeout's *caller*
+    // rather than being an uncaught task error, and
+    // `await new Promise(r => setTimeout(r, 2000))` — the standard backoff — was
+    // a hot loop that hammered remote APIs through `fetch`.
+    globalThis.__codemode.timers = { nextID: 1, entries: [] };
+
+    globalThis.setTimeout = function(fn, delay) {
+        if (typeof fn !== 'function') {
+            return 0;
+        }
+        const timers = globalThis.__codemode.timers;
+        const id = timers.nextID++;
+        timers.entries.push({
+            id: id,
+            fn: fn,
+            args: Array.prototype.slice.call(arguments, 2),
+            dueIn: Math.max(0, Number(delay) || 0)
+        });
+        return id;
+    };
+
+    globalThis.clearTimeout = function(id) {
+        const timers = globalThis.__codemode.timers;
+        timers.entries = timers.entries.filter(function(entry){ return entry.id !== id; });
+    };
+
+    // Milliseconds until the earliest pending timer, or -1 when none are queued.
+    // -1 means nothing can advance the program: under this runtime's synchronous
+    // bridge there is no other source of asynchrony.
+    globalThis.__codemode.nextTimerDelay = function() {
+        const entries = globalThis.__codemode.timers.entries;
+        if (entries.length === 0) {
+            return -1;
+        }
+        return entries.reduce(function(min, entry){ return Math.min(min, entry.dueIn); }, Infinity);
+    };
+
+    globalThis.__codemode.advanceTimers = function(elapsedMs) {
+        const timers = globalThis.__codemode.timers;
+        const due = [];
+        const remaining = [];
+        timers.entries.forEach(function(entry){
+            entry.dueIn -= elapsedMs;
+            if (entry.dueIn <= 0) { due.push(entry); } else { remaining.push(entry); }
+        });
+        timers.entries = remaining;
+        // Due time first, registration order only to break ties — the order a
+        // real event loop fires in. Sorting by id alone was wrong whenever the
+        // host's sleep overshot far enough for two timers with *different*
+        // delays to come due in the same tick: the later one fired first purely
+        // because it was registered first. `dueIn` is now negative for anything
+        // overdue, so ascending puts the most overdue first.
+        due.sort(function(a, b){
+            return a.dueIn === b.dueIn ? a.id - b.id : a.dueIn - b.dueIn;
+        });
+        const errors = [];
+        due.forEach(function(entry){
+            try {
+                entry.fn.apply(null, entry.args);
+            } catch (error) {
+                // An uncaught error in a task cannot propagate to whoever called
+                // setTimeout; the host reports it as a diagnostic instead.
+                errors.push(String(error));
+            }
+        });
+        // Returned rather than buffered, so the host needs one round trip per
+        // tick instead of two.
+        return errors;
+    };
+    """
+
     static func pruningScript(removingJavaScriptNames names: some Sequence<String>) -> String {
         let bindingsToRemove = Array(Set(names)).sorted()
 
@@ -123,13 +200,7 @@ enum RuntimeJavaScript {
         error: function(){ __searchConsole('error', Array.from(arguments).map(function(v){ return String(v); }).join(' ')); }
     };
 
-    globalThis.setTimeout = function(fn, delay) {
-        if (typeof fn === 'function') {
-            fn();
-        }
-        return 0;
-    };
-    globalThis.clearTimeout = function(_) {};
+    \(timerRuntime)
     """
 
     static let bootstrap = """
@@ -200,13 +271,7 @@ enum RuntimeJavaScript {
         error: function(){ __nativeConsoleLog(Array.from(arguments).map(function(v){ return String(v); }).join(' ')); }
     };
 
-    globalThis.setTimeout = function(fn, delay) {
-        if (typeof fn === 'function') {
-            fn();
-        }
-        return 0;
-    };
-    globalThis.clearTimeout = function(_) {};
+    \(timerRuntime)
 
     if (typeof URLSearchParams === 'undefined') {
         globalThis.URLSearchParams = function(initial){
@@ -258,16 +323,32 @@ enum RuntimeJavaScript {
     };
 
     globalThis.apple = globalThis.apple || {};
+    // These accept either the object form the catalog advertises —
+    // apple.keychain.get({ key }) — or the positional form the examples have
+    // always shown. The catalog described object arguments while the wrapper took
+    // a positional string, so code written from the metadata sent "[object
+    // Object]" as the key.
+    function __keychainArgs(first, value) {
+        if (first && typeof first === 'object') {
+            const args = { key: String(first.key) };
+            if (first.value !== undefined) args.value = String(first.value);
+            return args;
+        }
+        const args = { key: String(first) };
+        if (value !== undefined) args.value = String(value);
+        return args;
+    }
+
     globalThis.apple.keychain = {
-        get: function(key) { return __invokeAsync('keychain.read', { key: String(key) }); },
-        set: function(key, value) { return __invokeAsync('keychain.write', { key: String(key), value: String(value) }); },
-        delete: function(key) { return __invokeAsync('keychain.delete', { key: String(key) }); }
+        get: function(key) { return __invokeAsync('keychain.read', __keychainArgs(key)); },
+        set: function(key, value) { return __invokeAsync('keychain.write', __keychainArgs(key, value)); },
+        delete: function(key) { return __invokeAsync('keychain.delete', __keychainArgs(key)); }
     };
 
     globalThis.apple.location = {
-        getPermissionStatus: function() { return __invokeAsync('location.read', { mode: 'permissionStatus' }); },
+        getPermissionStatus: function(args) { return __invokeAsync('location.read', Object.assign({ mode: 'permissionStatus' }, args || {})); },
         requestPermission: function() { return __invokeAsync('location.permission.request', {}); },
-        getCurrentPosition: function() { return __invokeAsync('location.read', { mode: 'current' }); }
+        getCurrentPosition: function(args) { return __invokeAsync('location.read', Object.assign({ mode: 'current' }, args || {})); }
     };
 
     globalThis.apple.calendar = {
@@ -353,6 +434,17 @@ enum RuntimeJavaScript {
         open: function(args) { return __invokeAsync('settings.ui.open', args || {}); }
     };
 
+    // fs.move / fs.copy refuse an existing destination without an explicit
+    // overwrite, so the Node-style aliases need a way to pass one through.
+    function __fsDestinationArgs(from, to, options) {
+        const args = { from: String(from), to: String(to) };
+        if (options && typeof options === 'object') {
+            if (options.overwrite !== undefined) args.overwrite = !!options.overwrite;
+            if (options.recursive !== undefined) args.recursive = !!options.recursive;
+        }
+        return args;
+    }
+
     globalThis.fs = {
         promises: {
             readFile: function(path, options) {
@@ -378,8 +470,12 @@ enum RuntimeJavaScript {
             rm: function(path, options) {
                 return __invokeAsync('fs.delete', { path: String(path), recursive: !!(options && options.recursive) });
             },
-            rename: function(from, to) { return __invokeAsync('fs.move', { from: String(from), to: String(to) }); },
-            copyFile: function(from, to) { return __invokeAsync('fs.copy', { from: String(from), to: String(to) }); }
+            rename: function(from, to, options) {
+                return __invokeAsync('fs.move', __fsDestinationArgs(from, to, options));
+            },
+            copyFile: function(from, to, options) {
+                return __invokeAsync('fs.copy', __fsDestinationArgs(from, to, options));
+            }
         }
     };
 

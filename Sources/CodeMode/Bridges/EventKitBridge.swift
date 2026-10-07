@@ -5,6 +5,8 @@ import EventKit
 #endif
 
 public final class EventKitBridge: @unchecked Sendable {
+    static let reminderFetchTimeoutSeconds: TimeInterval = 15
+
     public init() {}
 
     public func readEvents(arguments: [String: JSONValue], context: BridgeInvocationContext) throws -> JSONValue {
@@ -15,8 +17,13 @@ public final class EventKitBridge: @unchecked Sendable {
 
         #if canImport(EventKit)
         let store = EKEventStore()
-        let start = isoDate(arguments.string("start")) ?? Date()
-        let end = isoDate(arguments.string("end")) ?? Calendar.current.date(byAdding: .day, value: 14, to: start) ?? start
+        // A value that is present but unparseable is an error, not a reason to
+        // fall back to now/+14d: that handed the script a plausible but wrong
+        // window with no diagnostic to notice it by.
+        let start = try CodeModeDate.optional(arguments.string("start"), argument: "start", capability: "calendar.read") ?? Date()
+        let end = try CodeModeDate.optional(arguments.string("end"), argument: "end", capability: "calendar.read")
+            ?? Calendar.current.date(byAdding: .day, value: 14, to: start)
+            ?? start
         let limit = arguments.int("limit") ?? 50
         let calendars = try resolveCalendars(
             from: arguments,
@@ -97,11 +104,9 @@ public final class EventKitBridge: @unchecked Sendable {
 
         #if canImport(EventKit)
         let store = EKEventStore()
-        let semaphore = DispatchSemaphore(value: 0)
-        var result: [JSONValue] = []
         let includeCompleted = arguments.bool("includeCompleted") ?? false
-        let start = isoDate(arguments.string("start"))
-        let end = isoDate(arguments.string("end"))
+        let start = try CodeModeDate.optional(arguments.string("start"), argument: "start", capability: "reminders.read")
+        let end = try CodeModeDate.optional(arguments.string("end"), argument: "end", capability: "reminders.read")
         let limit = max(1, arguments.int("limit") ?? 50)
         let calendars = try resolveCalendars(
             from: arguments,
@@ -113,23 +118,30 @@ public final class EventKitBridge: @unchecked Sendable {
         let predicate = includeCompleted
             ? store.predicateForReminders(in: calendars)
             : store.predicateForIncompleteReminders(withDueDateStarting: start, ending: end, calendars: calendars)
-        store.fetchReminders(matching: predicate) { reminders in
-            let filtered = (reminders ?? [])
-                .filter { reminder in
-                    guard includeCompleted else { return true }
-                    guard let dueDate = reminder.dueDateComponents?.date else {
-                        return start == nil && end == nil
+        // Previously a `var` written from EventKit's completion queue, read after
+        // a semaphore wait whose timeout result was discarded — a data race with
+        // the late callback, and an empty array on timeout that the script could
+        // not tell apart from "no reminders".
+        let result = try CompletionWait.value(
+            timeout: Self.reminderFetchTimeoutSeconds,
+            operationName: "reminders.read"
+        ) { complete in
+            store.fetchReminders(matching: predicate) { reminders in
+                let filtered = (reminders ?? [])
+                    .filter { reminder in
+                        guard includeCompleted else { return true }
+                        guard let dueDate = reminder.dueDateComponents?.date else {
+                            return start == nil && end == nil
+                        }
+                        if let start, dueDate < start { return false }
+                        if let end, dueDate > end { return false }
+                        return true
                     }
-                    if let start, dueDate < start { return false }
-                    if let end, dueDate > end { return false }
-                    return true
-                }
-                .prefix(limit)
-            result = filtered.map { Self.reminderJSON($0) }
-            semaphore.signal()
+                    .prefix(limit)
+                complete(filtered.map { Self.reminderJSON($0) })
+            }
         }
 
-        _ = semaphore.wait(timeout: .now() + 15)
         return .array(result)
         #else
         _ = arguments
@@ -191,8 +203,7 @@ public final class EventKitBridge: @unchecked Sendable {
     }
 
     private func isoDate(_ text: String?) -> Date? {
-        guard let text, text.isEmpty == false else { return nil }
-        return ISO8601DateFormatter().date(from: text)
+        CodeModeDate.parse(text)
     }
 
     private func eventOperation(_ arguments: [String: JSONValue]) throws -> CalendarWriteOperation {
@@ -480,6 +491,17 @@ public final class EventKitBridge: @unchecked Sendable {
         return span.ekSpan
     }
 
+    /// Test seam: these serializers are the only EventKit logic reachable
+    /// without a live, permission-granted store, and they are where the
+    /// implicitly-unwrapped `calendar`/`title` crashes lived.
+    static func eventJSONForTesting(_ event: EKEvent) -> JSONValue {
+        eventJSON(event)
+    }
+
+    static func reminderJSONForTesting(_ reminder: EKReminder) -> JSONValue {
+        reminderJSON(reminder)
+    }
+
     private static func eventJSON(_ event: EKEvent) -> JSONValue {
         .object([
             "identifier": .string(event.eventIdentifier ?? ""),
@@ -487,8 +509,11 @@ public final class EventKitBridge: @unchecked Sendable {
             "startDate": .string(event.startDate.ISO8601Format()),
             "endDate": .string(event.endDate.ISO8601Format()),
             "notes": .string(event.notes ?? ""),
-            "calendarIdentifier": .string(event.calendar.calendarIdentifier),
-            "calendarTitle": .string(event.calendar.title),
+            // `EKEvent.calendar` is `EKCalendar!` and is nil for an orphaned
+            // event — every neighboring field here is nil-coalesced, and this one
+            // crashed the execution thread.
+            "calendarIdentifier": .string(event.calendar?.calendarIdentifier ?? ""),
+            "calendarTitle": .string(event.calendar?.title ?? ""),
             "location": .string(event.location ?? ""),
             "url": .string(event.url?.absoluteString ?? ""),
             "isAllDay": .bool(event.isAllDay),
@@ -498,7 +523,8 @@ public final class EventKitBridge: @unchecked Sendable {
     private static func reminderJSON(_ reminder: EKReminder) -> JSONValue {
         var object: [String: JSONValue] = [
             "identifier": .string(reminder.calendarItemIdentifier),
-            "title": .string(reminder.title),
+            // `EKReminder.title` is `String!`.
+            "title": .string(reminder.title ?? ""),
             "isCompleted": .bool(reminder.isCompleted),
             "dueDate": .string(reminder.dueDateComponents?.date?.ISO8601Format() ?? ""),
             "completionDate": .string(reminder.completionDate?.ISO8601Format() ?? ""),

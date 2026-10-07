@@ -26,11 +26,21 @@ public final class HealthBridge: @unchecked Sendable {
         let writeTypes = try requestedWriteTypes(from: writeNames)
         try ensureAuthorization(toShare: writeTypes, read: readTypes, context: context, forceRequest: true)
 
+        // `requestAuthorization`'s `success` means the sheet flow completed, not
+        // that anything was granted — HealthKit deliberately refuses to disclose
+        // read authorization so an app cannot infer a health condition from a
+        // denial. Reporting `granted: true` here was a fabrication that left the
+        // transcript claiming access while reads returned []. Share types are the
+        // only ones with an answerable status, so those are the only ones
+        // reported.
         return .object([
-            "status": .string(PermissionStatus.granted.rawValue),
-            "granted": .bool(true),
+            "status": .string("completed"),
+            "authorizationFlowCompleted": .bool(true),
             "readTypes": .array(readNames.map(JSONValue.string)),
             "writeTypes": .array(writeNames.map(JSONValue.string)),
+            "writeAuthorization": .object(writeAuthorizationStatuses(for: writeNames)),
+            "readAuthorizationDisclosed": .bool(false),
+            "note": .string("HealthKit does not disclose read authorization. An empty health.read result may mean the user denied that type rather than that no samples exist."),
         ])
         #else
         _ = arguments
@@ -150,15 +160,7 @@ public final class HealthBridge: @unchecked Sendable {
     }
 
     private func parseISODate(_ value: String?) -> Date? {
-        guard let value else { return nil }
-
-        let formatter = ISO8601DateFormatter()
-        if let date = formatter.date(from: value) {
-            return date
-        }
-
-        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        return formatter.date(from: value)
+        CodeModeDate.parse(value)
     }
 
     #if canImport(HealthKit)
@@ -320,6 +322,44 @@ public final class HealthBridge: @unchecked Sendable {
         return types
     }
 
+    /// Per-type share authorization, which is the only part HealthKit answers
+    /// honestly. Read authorization is deliberately undisclosed by the framework.
+    private func writeAuthorizationStatuses(for names: [String]) -> [String: JSONValue] {
+        var statuses: [String: JSONValue] = [:]
+        for name in names {
+            guard let spec = try? writeSpec(for: name),
+                  let quantityType = HKObjectType.quantityType(forIdentifier: spec.identifier)
+            else {
+                continue
+            }
+            statuses[name] = .string(Self.shareStatusName(healthStore.authorizationStatus(for: quantityType)))
+        }
+        return statuses
+    }
+
+    /// `.granted` only when every requested share type is actually authorized;
+    /// otherwise `.notDetermined`, because HealthKit will not say more.
+    private func resolvedShareAuthorization(for toShare: Set<HKSampleType>) -> PermissionStatus {
+        guard toShare.isEmpty == false else {
+            return .notDetermined
+        }
+        let allShared = toShare.allSatisfy { healthStore.authorizationStatus(for: $0) == .sharingAuthorized }
+        return allShared ? .granted : .notDetermined
+    }
+
+    private static func shareStatusName(_ status: HKAuthorizationStatus) -> String {
+        switch status {
+        case .sharingAuthorized:
+            return PermissionStatus.granted.rawValue
+        case .sharingDenied:
+            return PermissionStatus.denied.rawValue
+        case .notDetermined:
+            return PermissionStatus.notDetermined.rawValue
+        @unknown default:
+            return PermissionStatus.unavailable.rawValue
+        }
+    }
+
     private func ensureAuthorization(
         toShare: Set<HKSampleType>,
         read: Set<HKObjectType>,
@@ -340,7 +380,12 @@ public final class HealthBridge: @unchecked Sendable {
         let requestStatus = try authorizationRequestStatus(toShare: toShare, read: read)
         switch requestStatus {
         case .unnecessary:
-            context.recordPermission(.healthKit, status: .granted)
+            // `.unnecessary` means "there is nothing left to ask the user", not
+            // "access was granted" — for read types the user may well have
+            // denied. Record what is actually known: granted only when every
+            // share type says so, otherwise leave it undetermined rather than
+            // writing a granted claim into the transcript.
+            context.recordPermission(.healthKit, status: resolvedShareAuthorization(for: toShare))
         case .shouldRequest, .unknown:
             context.recordPermission(.healthKit, status: .notDetermined)
             let granted = try requestAuthorization(toShare: toShare, read: read)

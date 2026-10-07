@@ -37,11 +37,18 @@ just the watchdog:
   serialization, cancellation, catch-proof termination, context recovery).
 - [ ] **JS heap / memory cap** — nothing bounds `JSContext`/`JSContextGroup`
   heap; `new Array(1e9)` can still exhaust host memory. NOT addressed.
-- [ ] **Bound on concurrent executions** — `executionQueue` is `.concurrent`
-  with spin-waiting workers (`BridgeRuntime.swift:25-29`), so N long-running
-  scripts occupy N threads. No concurrency cap. NOT addressed.
-- [ ] `runOnExecutionQueue` still has no task-cancellation handler wired into the
-  dispatched block (best-effort only). NOT addressed.
+- [x] **Bound on concurrent executions** — `ExecutionLimits.maxConcurrentExecutions`
+  (default 8) is enforced by the `ExecutionSlots` actor, acquired in the async
+  context *before* dispatch, so excess executions park as suspended tasks rather
+  than blocked GCD threads. Search has its own slots so discovery never waits
+  behind long scripts. Covered by `concurrentExecutionsAllCompleteAndStayIsolated`,
+  `executionsBeyondTheSlotLimitQueueRatherThanFail`, and
+  `searchDoesNotWaitBehindALongExecution`.
+- [x] Cancellation reaches `runOnExecutionQueue` at every stage: a cancel while
+  waiting for a slot throws before anything is dispatched
+  (`cancellingWhileWaitingForASlotNeverRunsTheScript`), and once dispatched,
+  `cancel()`, a cancelled `call.result` await, and dropping both the call and its
+  events stream all set the cancellation controller the runtime polls.
 
 ### 2. `fetch` has no destination restrictions or size limits  [x]
 - [x] `NetworkAccessPolicy` on `CodeModeConfiguration`: by default requests are
@@ -227,9 +234,15 @@ tool model).
   - [x] `swift test` passes — 206 tests, 0 failures, ~5s. Note: the *first*
     verification run hung indefinitely and exposed the watchdog re-arm bug
     (see CRITICAL ISSUES §1); after the fix the suite is green.
-  - [ ] Watchdog terminates `while(true){}` on an iOS device/simulator —
-    verified on macOS only; JSC ships per-OS, so worth one manual check on a
-    simulator before tagging.
+  - [x] Watchdog terminates `while(true){}` on an iOS simulator — verified
+    2026-10-01 on an iPhone 16 Pro simulator, iOS 18.6, by running the full
+    `CodeModeTests` target there (`xcodebuild test -scheme CodeMode-Package
+    -destination 'platform=iOS Simulator,…' -only-testing:CodeModeTests`). All
+    seven watchdog tests pass: CPU loop, loop inside a promise chain,
+    catch-proof termination, cancel mid-loop, runaway getter, serialization
+    budget, and search. Keychain storage tests skip there — an unsigned test
+    bundle has no keychain entitlement — and everything else passes. Still
+    simulator, not device.
 
 ## SUGGESTED ORDER OF ATTACK
 1. Quick wins: tag `0.1.0`, fix calendar-span drift, add core-policy-layer tests,
@@ -237,6 +250,84 @@ tool model).
 2. Runtime hardening milestone: (watchdog ✔) + JS heap cap + concurrency bound
    → "resource- and network-bounded runtime."
 3. Metadata-consolidation refactor + macro decision, protected by new drift tests.
+
+## REVIEW FOLLOW-UP — STILL OPEN
+From `REVIEW.md`. Everything in P0 and P2 is done; these are the parts of the P1
+items that were not completed, kept explicit so they do not read as finished.
+
+### #9 — async bridge ABI (partially done)
+Done: real timer queue (`setTimeout`/`clearTimeout` honour delays and cancel),
+immediate diagnosis of unsettleable promises, `BRIDGE_FAILURES_NOT_SURFACED` for
+swallowed rejections, bounded concurrent executions (actor slots, separate for
+search), `ContinuousClock` deadlines behind an injectable `RuntimeClock`, and
+cancellation once neither the call nor its events stream is reachable.
+- [ ] **`CapabilityHandler` is still synchronous**, so `Promise.all([fetch(a), fetch(b)])`
+  is still serial. This is the change that requires resolving JS promises from
+  Swift via retained resolve/reject `JSValue`s on a per-execution serial executor.
+- [ ] **Timeout/cancel still cannot interrupt an in-flight native call.** The
+  watchdog only traps while JS runs; `MediaBridge.transcode` can still overrun a
+  short `timeoutMs` by minutes.
+- [ ] **`CodeModeAsyncBridge.run` still parks a semaphore** for up to 30s (longer
+  than the 10s default execution timeout) for async host tools.
+- [ ] Optional: pool `JSVirtualMachine`s. Constraint to respect — the JSC time
+  limit is per context *group*, so a pooled VM must never host two concurrent
+  executions.
+
+### #11 — generate the JS bindings from the catalog
+Done: the concrete drift found while generating declarations is fixed (keychain
+object/positional, `fs.promises.rename`/`copyFile` options, location argument
+pass-through, tool-description calling conventions).
+- [ ] `RuntimeJavaScript.bootstrap` is still ~250 hand-written lines that can
+  drift from the catalog again. Wrappers that inject hidden arguments
+  (`createEvent` forces `operation: 'create'`) still cannot be expressed in
+  catalog metadata, so the generated `.d.ts` advertises an argument the wrapper
+  overrides.
+
+### #13 — provider ergonomics + MCP
+Done: catalog unfrozen (post-init `register(provider:)` works and stays in sync),
+enum constraints, real examples, per-segment tags.
+- [ ] `@CodeModeProvider(namespace:)` on a type with `@CodeModeTool` on methods —
+  today it is still one struct per JavaScript function.
+- [ ] `requiredPermissions` and typed results for provider registrations.
+- [ ] MCP adapter materializing an MCP server's tools as `CodeModeRegistration`s
+  under `mcp.<server>.<tool>`. Blocked on async handlers (#9).
+
+### Test seams
+Done: EventKit event/reminder serialization is now covered directly (the two
+implicit-unwrap crashes), concurrent execution is covered, CI runners are pinned
+to `macos-15` rather than `macos-latest`. `FetchTaskHandler`'s redirect
+re-validation and size-cap cancellation turned out to be covered already
+(`NetworkAccessPolicyTests`), contrary to the review.
+- [ ] **Store protocols for EventKit/Health/Photos/Home/Contacts**, mirroring
+  `CodeModeFileSystem`. Their create/update/filter logic still executes nowhere:
+  the bridges hard-instantiate `EKEventStore()`, `HKHealthStore()`, `PHAsset`, so
+  tests can only reach permission denial and argument validation.
+- [ ] A simulator test job, so UIKit presenters, AlarmKit, and the TCC-gated happy
+  paths are executed somewhere rather than only compiled.
+
+### Smaller P2 items not taken
+- [ ] **No "prompt pending" permission status.** `request*` waits 10s and ignores
+  the timeout, so a user who takes 11s gets `PERMISSION_DENIED` while the dialog
+  is still on screen. Needs a new `PermissionStatus` case, which is source-breaking
+  for host code switching exhaustively.
+
+## DECLINED REVIEW FINDINGS
+- **"Stop imposing swift-syntax on every consumer" (REVIEW.md P1 #12)** —
+  considered 2026-07-25 and declined. The proposal is to check in the expanded
+  `@BuiltInCodeMode` members so the `CodeMode` target can drop its
+  `CodeModeMacros` dependency. Declined because:
+  - The cost it cites is already measured and mitigated: prebuilt swift-syntax is
+    default-on for macros on the supported toolchains (`PLAN-registration-macros.md`
+    §"The swift-syntax cost, measured today"), so consumers pay ~0 incremental
+    build time, and the version range is already widened to `602.0.0..<604.0.0`
+    for `mlx-swift-lm` co-resolution — the one concrete conflict named.
+  - The migration is effectively one-way across 117 tool definitions and strips
+    the `@ToolParam("hint")` annotations off the property declarations, leaving
+    the hints readable only inside the generated argument arrays.
+  - It works against REVIEW #11 and #13, which both ask for *more* generation
+    from this metadata, not less.
+  Revisit if a consumer hits a swift-syntax version conflict the range cannot
+  absorb, or if prebuilts stop being default-on.
 
 ## OPEN QUESTIONS FOR THE USER
 - [ ] Decision on the private-but-exported JSC symbol (App Store risk)?

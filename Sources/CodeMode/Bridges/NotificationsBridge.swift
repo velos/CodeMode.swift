@@ -228,7 +228,7 @@ public final class NotificationsBridge: @unchecked Sendable {
 
     private func isoDate(_ text: String?) -> Date? {
         guard let text else { return nil }
-        return ISO8601DateFormatter().date(from: text)
+        return CodeModeDate.parse(text)
     }
 
     #if canImport(UserNotifications)
