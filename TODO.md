@@ -228,9 +228,10 @@ tool model).
 ---
 
 ## MUST-DO BEFORE MERGE
-- [/] **Verify on macOS** — done 2026-07-11 (macOS 26.5, Swift 6.3.2 / Xcode 26.5):
+- [x] **Verify on macOS** — done 2026-07-11 (macOS 26.5, Swift 6.3.2 / Xcode 26.5):
   - [x] `CCodeModeJSC` shim links and the private symbols resolve at load time
-    on macOS. (iOS/visionOS remain compile-verified only, via CI.)
+    on macOS, and on the iOS simulator (below). visionOS is compile-verified
+    only, via CI.
   - [x] `swift test` passes — 206 tests, 0 failures, ~5s. Note: the *first*
     verification run hung indefinitely and exposed the watchdog re-arm bug
     (see CRITICAL ISSUES §1); after the fix the suite is green.
