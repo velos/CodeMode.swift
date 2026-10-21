@@ -614,3 +614,59 @@ private struct TwoRootPolicy: PathPolicy {
     }
     #expect(FileManager.default.fileExists(atPath: sandbox.documents.appendingPathComponent("keep.txt").path))
 }
+
+// MARK: - Hidden entries count against the copy limit
+
+@Test func fileSystemCopyCountsHiddenFilesAgainstTheLimit() throws {
+    // Found by Codex review: the size walk listed directories with
+    // `.skipsHiddenFiles` while `copyItem` copies everything, so a 1,024-byte
+    // hidden file copied under a 4-byte limit.
+    let fs = FileSystemBridge(limits: FileSystemLimits(maxReadBytes: 4_096, maxWriteBytes: 4))
+    let (context, sandbox) = try makeInvocationContext()
+    defer { cleanup(sandbox) }
+    let tree = sandbox.tmp.appendingPathComponent("tree")
+    try FileManager.default.createDirectory(at: tree, withIntermediateDirectories: true)
+    try Data(count: 1_024).write(to: tree.appendingPathComponent(".hidden"))
+
+    do {
+        _ = try fs.copy(arguments: ["from": .string("tmp:tree"), "to": .string("tmp:tree-copy")], context: context)
+        Issue.record("Expected a hidden file over the limit to be refused")
+    } catch {
+        #expect(requireBridgeErrorCode(error) == "INVALID_ARGUMENTS")
+    }
+    #expect(FileManager.default.fileExists(atPath: sandbox.tmp.appendingPathComponent("tree-copy").path) == false)
+}
+
+@Test func fileSystemCopyCountsFilesInsideHiddenDirectories() throws {
+    let fs = FileSystemBridge(limits: FileSystemLimits(maxReadBytes: 4_096, maxWriteBytes: 100))
+    let (context, sandbox) = try makeInvocationContext()
+    defer { cleanup(sandbox) }
+    // A visible file under the limit, and a hidden subtree that pushes it over.
+    let hiddenDir = sandbox.tmp.appendingPathComponent("tree/.cache/nested")
+    try FileManager.default.createDirectory(at: hiddenDir, withIntermediateDirectories: true)
+    try Data(count: 10).write(to: sandbox.tmp.appendingPathComponent("tree/visible.txt"))
+    try Data(count: 500).write(to: hiddenDir.appendingPathComponent("blob"))
+
+    #expect(throws: (any Error).self) {
+        _ = try fs.copy(arguments: ["from": .string("tmp:tree"), "to": .string("tmp:tree-copy")], context: context)
+    }
+}
+
+@Test func fileSystemListStillHidesHiddenEntries() throws {
+    // Display behavior is unchanged: the filtering moved from the storage layer
+    // to fs.list, where it no longer hides anything from limit accounting.
+    let fs = FileSystemBridge()
+    let (context, sandbox) = try makeInvocationContext()
+    defer { cleanup(sandbox) }
+    _ = try fs.write(arguments: ["path": .string("tmp:dir/visible.txt"), "data": .string("v")], context: context)
+    try Data("h".utf8).write(to: sandbox.tmp.appendingPathComponent("dir/.secret"))
+
+    let names = try requireArray(fs.list(arguments: ["path": .string("tmp:dir")], context: context))
+        .compactMap { $0.objectValue?.string("name") }
+    #expect(names == ["visible.txt"])
+
+    // While the storage layer reports everything, marked.
+    let entries = try LocalCodeModeFileSystem().listDirectory(at: sandbox.tmp.appendingPathComponent("dir"))
+    #expect(entries.first { $0.name == ".secret" }?.isHidden == true)
+    #expect(entries.first { $0.name == "visible.txt" }?.isHidden == false)
+}

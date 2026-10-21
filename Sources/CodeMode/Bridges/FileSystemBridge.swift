@@ -43,7 +43,10 @@ public final class FileSystemBridge: @unchecked Sendable {
         }
 
         let url = try context.pathPolicy.resolve(path: path)
-        let entries: [JSONValue] = try fileSystem.listDirectory(at: url).map { item in
+        // Hidden entries stay out of the listing, as before; the filtering just
+        // lives here now rather than in the storage layer, where it also hid
+        // them from copy-limit accounting.
+        let entries: [JSONValue] = try fileSystem.listDirectory(at: url).filter { !$0.isHidden }.map { item in
             return .object([
                 "name": .string(item.name),
                 "path": .string(item.path),
