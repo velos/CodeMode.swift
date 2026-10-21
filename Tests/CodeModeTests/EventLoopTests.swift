@@ -659,4 +659,57 @@ import Testing
             #expect(clock.elapsed == .milliseconds(100), "\(tamper)")
         }
     }
+
+    // MARK: - Script-controlled exception objects
+
+    @Test func anInjectedTopLevelThrowCannotCrashTheHostThroughItsLineNumber() async throws {
+        // User code is spliced into `(async function(){ … })()`, so a script can
+        // close the wrapper early and throw an arbitrary object at top level. The
+        // host read its `line` through `NSNumber.intValue`, which saturates
+        // -Infinity to Int.min, and the line adjustment overflowed: a crash,
+        // reachable with no capabilities. Pre-existing on main.
+        let lines = ["-Infinity", "Infinity", "1e300", "-1e300", "NaN", "-5", "2.5", "'abc'", "null"]
+        for line in lines {
+            let (tools, sandbox) = try makeTools()
+            defer { cleanup(sandbox) }
+            let observed = try await execute(
+                tools,
+                request: JavaScriptExecutionRequest(
+                    code: "return 1; })(); throw { line: \(line), column: \(line), message: 'x' }; (async function(){",
+                    allowedCapabilities: []
+                )
+            )
+            let error = try #require(observed.error, "line \(line)")
+            if let reported = error.line {
+                #expect(reported >= 1, "line \(line)")
+            }
+            if let column = error.column {
+                #expect(column >= 1, "column \(line)")
+            }
+        }
+    }
+
+    @Test func searchSurvivesAnInjectedTopLevelThrow() async throws {
+        let (tools, sandbox) = try makeTools()
+        defer { cleanup(sandbox) }
+        do {
+            _ = try await tools.searchJavaScriptAPI(
+                JavaScriptAPISearchRequest(code: "async () => 1)); throw { line: -Infinity }; ((async () => 1")
+            )
+        } catch let error as CodeModeToolError {
+            if let line = error.line { #expect(line >= 1) }
+        }
+    }
+
+    @Test func realSyntaxErrorsStillReportTheirLine() async throws {
+        let (tools, sandbox) = try makeTools()
+        defer { cleanup(sandbox) }
+        // The validation must not throw away JavaScriptCore's own line numbers.
+        let observed = try await execute(
+            tools,
+            request: JavaScriptExecutionRequest(code: "const a = 1;\nconst b = ;\nreturn a;", allowedCapabilities: [])
+        )
+        #expect(observed.error?.code == "JS_SYNTAX_ERROR")
+        #expect(observed.error?.line == 2)
+    }
 }

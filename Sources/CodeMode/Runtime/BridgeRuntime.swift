@@ -1093,7 +1093,8 @@ final class BridgeRuntime: @unchecked Sendable {
 
     private func syntaxError(from snapshot: JavaScriptExceptionSnapshot?, lineOffset: Int) -> CodeModeToolError {
         let message = snapshot?.message ?? "JavaScript syntax error"
-        let adjustedLine = snapshot?.line.map { max(1, $0 - lineOffset) }
+        // Non-overflowing even if a line ever arrives unvalidated.
+        let adjustedLine = snapshot?.line.map { $0 > lineOffset ? $0 - lineOffset : 1 }
         return CodeModeToolError(
             code: "JS_SYNTAX_ERROR",
             message: message,
@@ -1372,11 +1373,24 @@ final class BridgeRuntime: @unchecked Sendable {
         return JavaScriptExceptionSnapshot(name: name, message: message, line: line, column: column)
     }
 
+    /// A line or column from an exception object, or nil if it is not one.
+    ///
+    /// The exception is not always JavaScriptCore's own: user code is spliced
+    /// into an `(async function(){ … })()` wrapper, so a script can close it
+    /// early and throw an arbitrary object at top level. `NSNumber.intValue`
+    /// saturates `-Infinity` to `Int.min`, and the line adjustment below then
+    /// overflowed — `throw { line: -Infinity }` crashed the host. Only a positive
+    /// whole number in a plausible range is accepted.
     private static func numericProperty(in exception: JSValue, names: [String]) -> Int? {
         for name in names {
-            if let value = exception.forProperty(name)?.toNumber() {
-                return value.intValue
+            guard let number = exception.forProperty(name)?.toNumber() else {
+                continue
             }
+            let value = number.doubleValue
+            guard value.isFinite, value == value.rounded(), value >= 1, value <= Double(Int32.max) else {
+                return nil
+            }
+            return Int(value)
         }
         return nil
     }
