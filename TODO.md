@@ -64,11 +64,9 @@ just the watchdog:
   not just the execution transcript.
 - [x] Tests (`NetworkAccessPolicyTests.swift`) — pass on macOS (2026-07-11).
 
-### 3. Package not installable as documented  [/]
-- [x] README no longer tells users to depend on `from: "0.1.0"` against a
-  tagless repo; documents branch-based install for now.
-- [ ] **Tag `0.1.0`** (the actual fix) once CI is green, then restore the
-  versioned SPM install snippet. NOT done.
+### 3. Package not installable as documented  [x]
+- [x] Tagged: `0.1.0` through `0.2.2` exist, and the README's install snippet
+  is versioned again.
 
 ---
 
