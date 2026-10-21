@@ -569,4 +569,94 @@ import Testing
         occupant.cancel()
         _ = await observe(occupant)
     }
+
+    // MARK: - Delays that are not ordinary numbers
+
+    @Test func unrepresentableTimerDelaysTimeOutInsteadOfCrashingTheHost() async throws {
+        // `Int(_: Double)` traps on these, and the timer loop converted the delay
+        // straight from JavaScript: a capability-free `setTimeout(r, 1e300)`
+        // killed the host process. Each must end in an ordinary timeout, exactly
+        // at the deadline.
+        for delay in ["1e300", "Infinity", "Number.MAX_VALUE", "2 ** 53"] {
+            let clock = VirtualClock()
+            let (tools, sandbox) = try makeTools(clock: clock)
+            defer { cleanup(sandbox) }
+
+            let observed = try await execute(
+                tools,
+                request: JavaScriptExecutionRequest(
+                    code: "await new Promise(r => setTimeout(r, \(delay))); return 1;",
+                    allowedCapabilities: [],
+                    timeoutMs: 100
+                )
+            )
+
+            #expect(observed.error?.code == "EXECUTION_TIMEOUT", "delay \(delay)")
+            #expect(clock.elapsed == .milliseconds(100), "delay \(delay)")
+        }
+    }
+
+    @Test func degenerateTimerDelaysFireImmediately() async throws {
+        // NaN, negative, and missing delays mean "as soon as possible", as on the web.
+        for delay in ["-5", "NaN", "'abc'", "undefined", "null", "-Infinity"] {
+            let clock = VirtualClock()
+            let (tools, sandbox) = try makeTools(clock: clock)
+            defer { cleanup(sandbox) }
+
+            let observed = try await execute(
+                tools,
+                request: JavaScriptExecutionRequest(
+                    code: "await new Promise(r => setTimeout(r, \(delay))); return 'fired';",
+                    allowedCapabilities: []
+                )
+            )
+
+            #expect(observed.result?.output == .string("fired"), "delay \(delay)")
+            #expect(clock.elapsed == .zero, "delay \(delay)")
+        }
+    }
+
+    @Test func searchSurvivesAnUnrepresentableTimerDelay() async throws {
+        // Search runs the same settlement loop, with no capabilities at all.
+        let (tools, sandbox) = try makeTools(clock: VirtualClock())
+        defer { cleanup(sandbox) }
+
+        do {
+            _ = try await tools.searchJavaScriptAPI(
+                JavaScriptAPISearchRequest(code: "async () => { await new Promise(r => setTimeout(r, 1e300)); return 1; }")
+            )
+            Issue.record("Expected the search to time out")
+        } catch let error as CodeModeToolError {
+            #expect(error.code == "SEARCH_TIMEOUT")
+        }
+    }
+
+    @Test func aScriptTamperingWithTheTimerInternalsCannotCrashTheHost() async throws {
+        // `__codemode` is on globalThis, so the JavaScript-side delay
+        // normalization is not a boundary: a script can replace the function the
+        // host reads, or push an entry directly. The Swift-side bound is what
+        // keeps the host alive; this exercises it with the normalization bypassed.
+        let tampering = [
+            "globalThis.__codemode.nextTimerDelay = () => 1e300;",
+            "globalThis.__codemode.nextTimerDelay = () => Infinity;",
+            "globalThis.__codemode.timers.entries.push({ id: 1e9, fn: () => {}, args: [], dueIn: Infinity });",
+        ]
+        for tamper in tampering {
+            let clock = VirtualClock()
+            let (tools, sandbox) = try makeTools(clock: clock)
+            defer { cleanup(sandbox) }
+
+            let observed = try await execute(
+                tools,
+                request: JavaScriptExecutionRequest(
+                    code: "\(tamper) await new Promise(() => {}); return 1;",
+                    allowedCapabilities: [],
+                    timeoutMs: 100
+                )
+            )
+
+            #expect(observed.error?.code == "EXECUTION_TIMEOUT", "\(tamper)")
+            #expect(clock.elapsed == .milliseconds(100), "\(tamper)")
+        }
+    }
 }

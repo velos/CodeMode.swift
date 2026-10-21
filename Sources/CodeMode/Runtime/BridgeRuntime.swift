@@ -689,7 +689,15 @@ final class BridgeRuntime: @unchecked Sendable {
         settlement: SettlementParameters
     ) throws {
         let start = clock.now
-        let target = start.advanced(by: .milliseconds(Int(delayMs.rounded(.up))))
+        // Bounded by the remaining budget *before* conversion. `delayMs` comes
+        // out of JavaScript, and `Int(_: Double)` traps on anything non-finite or
+        // out of range — `setTimeout(r, 1e300)` killed the host process here,
+        // with no capability required. The script normalizes delays too, but
+        // this conversion must not depend on that: whatever arrives, the wait is
+        // at most the time left before the deadline, which is always small.
+        let remainingMs = max(0, (settlement.watchdog.deadline - start).milliseconds)
+        let waitMs = delayMs.isFinite ? min(max(0, delayMs), remainingMs) : remainingMs
+        let target = start.advanced(by: .milliseconds(Int(waitMs.rounded(.up))))
 
         while clock.now < target {
             try checkInterrupted(settlement)

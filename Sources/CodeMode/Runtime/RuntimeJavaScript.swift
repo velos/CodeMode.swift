@@ -23,10 +23,24 @@ enum RuntimeJavaScript {
             id: id,
             fn: fn,
             args: Array.prototype.slice.call(arguments, 2),
-            dueIn: Math.max(0, Number(delay) || 0)
+            dueIn: __normalizedTimerDelay(delay)
         });
         return id;
     };
+
+    // NaN, negative, and missing delays mean "as soon as possible", as on the
+    // web. Anything above 2^31-1 ms — including Infinity and 1e300 — is clamped
+    // to it: ~24.8 days is far beyond any execution deadline, so such a timer
+    // can only end in a timeout, and the host never sees an unrepresentable
+    // number. (Browsers instead wrap large delays to fire immediately, which
+    // would make `setTimeout(r, Infinity)` a hot loop.)
+    function __normalizedTimerDelay(delay) {
+        const ms = Number(delay);
+        if (!(ms > 0)) {
+            return 0;
+        }
+        return Math.min(ms, 2147483647);
+    }
 
     globalThis.clearTimeout = function(id) {
         const timers = globalThis.__codemode.timers;
