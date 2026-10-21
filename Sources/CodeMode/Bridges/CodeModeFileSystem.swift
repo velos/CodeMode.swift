@@ -5,12 +5,16 @@ public struct CodeModeFileSystemEntry: Sendable, Equatable {
     public var path: String
     public var isDirectory: Bool
     public var size: Int
+    /// Hidden from display listings (`fs.list`), but still a real entry: it is
+    /// copied, moved, and counted against limits like any other.
+    public var isHidden: Bool
 
-    public init(name: String, path: String, isDirectory: Bool, size: Int) {
+    public init(name: String, path: String, isDirectory: Bool, size: Int, isHidden: Bool = false) {
         self.name = name
         self.path = path
         self.isDirectory = isDirectory
         self.size = size
+        self.isHidden = isHidden
     }
 }
 
@@ -39,6 +43,14 @@ public struct CodeModeFileSystemAccess: Sendable, Equatable {
 }
 
 public protocol CodeModeFileSystem: Sendable {
+    /// Every entry in the directory, *including hidden ones* — mark those with
+    /// `isHidden` rather than omitting them.
+    ///
+    /// The filesystem bridge measures directory trees through this listing to
+    /// enforce `FileSystemLimits` on `fs.copy`, while `copyItem` copies
+    /// everything. A listing that skips hidden entries therefore lets a hidden
+    /// file or subtree of any size through the limit. Hiding is a display
+    /// concern; `fs.list` filters on `isHidden` itself.
     func listDirectory(at url: URL) throws -> [CodeModeFileSystemEntry]
     func readData(at url: URL) throws -> Data
     func writeData(_ data: Data, to url: URL) throws
@@ -59,19 +71,24 @@ public final class LocalCodeModeFileSystem: CodeModeFileSystem, @unchecked Senda
     }
 
     public func listDirectory(at url: URL) throws -> [CodeModeFileSystemEntry] {
+        // No `.skipsHiddenFiles`: see the protocol requirement. Skipping them
+        // here let hidden entries bypass the copy limit.
         let values = try fileManager.contentsOfDirectory(
             at: url,
-            includingPropertiesForKeys: [.isDirectoryKey, .fileSizeKey],
-            options: [.skipsHiddenFiles]
+            includingPropertiesForKeys: [.isDirectoryKey, .fileSizeKey, .isHiddenKey],
+            options: []
         )
 
         return try values.map { item in
-            let resourceValues = try item.resourceValues(forKeys: [.isDirectoryKey, .fileSizeKey])
+            let resourceValues = try item.resourceValues(forKeys: [.isDirectoryKey, .fileSizeKey, .isHiddenKey])
             return CodeModeFileSystemEntry(
                 name: item.lastPathComponent,
                 path: item.path,
                 isDirectory: resourceValues.isDirectory ?? false,
-                size: resourceValues.fileSize ?? 0
+                size: resourceValues.fileSize ?? 0,
+                // The same test `.skipsHiddenFiles` applied: dot-prefixed names
+                // and the filesystem's hidden flag.
+                isHidden: resourceValues.isHidden ?? item.lastPathComponent.hasPrefix(".")
             )
         }
     }

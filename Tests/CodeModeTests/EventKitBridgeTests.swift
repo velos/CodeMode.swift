@@ -135,3 +135,44 @@ import Testing
 
     #expect(observed.error?.code == "PERMISSION_DENIED")
 }
+
+// MARK: - Serialization of degenerate items
+
+#if canImport(EventKit)
+import EventKit
+
+// EventKit's serialization logic executes nowhere today — not in unit tests, not
+// in CI, not in evals — because the bridge hard-instantiates EKEventStore and the
+// tests can only reach permission denial. These construct the model objects
+// directly, which needs no permission, and cover the two implicitly-unwrapped
+// fields that crashed the execution thread.
+
+@Test func eventSerializationSurvivesAnEventWithNoCalendar() throws {
+    let store = EKEventStore()
+    let event = EKEvent(eventStore: store)
+    event.title = "Orphaned"
+    event.startDate = Date(timeIntervalSince1970: 1_700_000_000)
+    event.endDate = event.startDate.addingTimeInterval(3_600)
+
+    // `EKEvent.calendar` is `EKCalendar!` and is nil for an orphaned event, while
+    // every neighbouring field was nil-coalesced.
+    #expect(event.calendar == nil)
+
+    let json = try #require(EventKitBridge.eventJSONForTesting(event).objectValue)
+    #expect(json.string("title") == "Orphaned")
+    #expect(json.string("calendarIdentifier") == "")
+    #expect(json.string("calendarTitle") == "")
+    #expect(json.string("notes") == "")
+}
+
+@Test func reminderSerializationSurvivesAMissingTitle() throws {
+    let store = EKEventStore()
+    let reminder = EKReminder(eventStore: store)
+
+    // `EKReminder.title` is `String!`.
+    let json = try #require(EventKitBridge.reminderJSONForTesting(reminder).objectValue)
+    #expect(json.string("title") == "")
+    #expect(json.string("calendarIdentifier") == "")
+    #expect(json.bool("isCompleted") == false)
+}
+#endif

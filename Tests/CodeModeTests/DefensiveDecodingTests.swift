@@ -56,6 +56,50 @@ private func decodeRequest(_ json: String) throws -> JavaScriptExecutionRequest 
     }
 }
 
+// MARK: - Adversarial numbers must not trap
+
+@Test func executionRequestRejectsNonRepresentableTimeout() throws {
+    // `Int.init(_: Double)` traps on these. This decode path runs on
+    // model-authored JSON before any script does, so a trap here is an
+    // in-process kill of the host app.
+    for literal in ["1e300", "-1e300", "1e400", "-1e400"] {
+        #expect(throws: (any Error).self) {
+            _ = try decodeRequest(#"{"code":"return 1;","allowedCapabilities":[],"timeoutMs":\#(literal)}"#)
+        }
+        #expect(throws: (any Error).self) {
+            _ = try decodeRequest(#"{"code":"return 1;","allowedCapabilities":[],"timeoutMs":"\#(literal)"}"#)
+        }
+    }
+
+    for literal in ["inf", "-inf", "infinity", "nan", "NaN"] {
+        #expect(throws: (any Error).self) {
+            _ = try decodeRequest(#"{"code":"return 1;","allowedCapabilities":[],"timeoutMs":"\#(literal)"}"#)
+        }
+    }
+}
+
+@Test func executionRequestClampsTimeoutToAdvertisedBounds() throws {
+    // The schema advertises 1...60000; out-of-range values are clamped rather
+    // than failing the call.
+    #expect(try decodeRequest(#"{"code":"return 1;","allowedCapabilities":[],"timeoutMs":600000}"#).timeoutMs == 60_000)
+    #expect(try decodeRequest(#"{"code":"return 1;","allowedCapabilities":[],"timeoutMs":0}"#).timeoutMs == 1)
+    #expect(try decodeRequest(#"{"code":"return 1;","allowedCapabilities":[],"timeoutMs":-5}"#).timeoutMs == 1)
+    #expect(JavaScriptExecutionRequest(code: "", allowedCapabilities: [], timeoutMs: 10_000_000).timeoutMs == 60_000)
+}
+
+@Test func jsonValueIntConversionIsTotal() {
+    #expect(JSONValue.number(.infinity).intValue == nil)
+    #expect(JSONValue.number(-.infinity).intValue == nil)
+    #expect(JSONValue.number(.nan).intValue == nil)
+    #expect(JSONValue.number(1e300).intValue == nil)
+    #expect(JSONValue.number(-1e300).intValue == nil)
+    #expect(JSONValue.number(9.3e18).intValue == nil)
+    #expect(JSONValue.number(42).intValue == 42)
+    #expect(JSONValue.number(-42.9).intValue == -42)
+    #expect(JSONValue.number(Double(Int.max)).intValue == nil)
+    #expect(JSONValue.number(Double(Int.min)).intValue == Int.min)
+}
+
 @Test func executionRequestRoundTripsThroughCodable() throws {
     let original = JavaScriptExecutionRequest(
         code: "return 1;",
@@ -116,6 +160,38 @@ private func makeEchoRegistry(argumentTypes: [String: CapabilityArgumentType]) -
         )
         #expect(result.objectValue?["flag"] == .bool(expected))
     }
+}
+
+@Test func registryRejectsNonFiniteDeclaredNumbers() throws {
+    let registry = makeEchoRegistry(argumentTypes: ["timeoutMs": .number])
+    let (context, sandbox) = try makeInvocationContext(allowedCapabilities: [.fsRead])
+    defer { cleanup(sandbox) }
+
+    // Straight through as a JSON number...
+    #expect(throws: (any Error).self) {
+        _ = try registry.invoke(
+            CapabilityID.fsRead.rawValue,
+            arguments: ["timeoutMs": .number(.infinity)],
+            context: context
+        )
+    }
+    // ...and smuggled through string coercion, which `Double.init(String)` accepts.
+    for spelling in ["inf", "-infinity", "nan"] {
+        #expect(throws: (any Error).self) {
+            _ = try registry.invoke(
+                CapabilityID.fsRead.rawValue,
+                arguments: ["timeoutMs": .string(spelling)],
+                context: context
+            )
+        }
+    }
+
+    let ok = try registry.invoke(
+        CapabilityID.fsRead.rawValue,
+        arguments: ["timeoutMs": .string("2500")],
+        context: context
+    )
+    #expect(ok.objectValue?["timeoutMs"] == .number(2_500))
 }
 
 @Test func registryDoesNotCoerceNonBooleanStringsOrBadNumbers() throws {

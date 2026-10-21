@@ -289,7 +289,7 @@ struct HealthPermissionRequestTool: BuiltInCodeModeTool {
     static let codeModeSummary = "Request HealthKit authorization for requested read/write types."
     static let codeModeTags = ["healthkit", "health", "permission"]
     static let codeModeExample = "await apple.health.requestPermission({ readTypes: ['stepCount', 'heartRate'], writeTypes: ['stepCount'] })"
-    static let codeModeResultSummary = "Object with status/granted fields and requested type arrays."
+    static let codeModeResultSummary = "Object with status ('completed'), per-type writeAuthorization, and the requested type arrays. Read authorization is never disclosed by HealthKit, so an empty health.read may mean denial."
 
     struct Arguments: Sendable {
         @ToolParam("Optional array of type names to read, e.g. stepCount, heartRate, activeEnergyBurned.")

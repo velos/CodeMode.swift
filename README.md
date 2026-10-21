@@ -1,91 +1,39 @@
 # CodeMode.swift
 
-`CodeMode.swift` is a Swift package that implements [CodeMode](https://blog.cloudflare.com/code-mode/) for Apple platform APIs by exposing agents to two tools:
+A Swift package that implements [Code Mode](https://blog.cloudflare.com/code-mode/) for Apple platform APIs.
 
-- `searchJavaScriptAPI`: code-driven discovery of the bundled JavaScript wrapped Apple API surface for the current host platform.
-- `executeJavaScript`: constrained JavaScript execution with capability allowlisting and structured errors.
+Instead of handing an agent one tool per API, CodeMode gives it two:
 
-GitHub: [velos/CodeMode.swift](https://github.com/velos/CodeMode.swift)
+- **`searchJavaScriptAPI`**: the agent writes a small JavaScript function that filters a catalog of available helpers.
+- **`executeJavaScript`**: the agent writes one script that does the whole job — read the calendar, filter it, write a file, return a summary — against helpers like `apple.calendar.read` and `apple.fs.write`.
 
-## Highlights
+Models are better at writing code than at chaining dozens of tool calls, and a script that does its filtering locally returns the answer rather than every intermediate result. One execution replaces a round trip per operation.
 
-- Platforms: `iOS 18+`, `macOS 15+`, `visionOS 2+`
-- watchOS is audited but not a runtime target in this package because the current runtime depends on JavaScriptCore.
-- Typed Swift host API through `CodeModeAgentTools`
-- Streaming execution via `JavaScriptExecutionCall`
-- Structured failures via `CodeModeToolError`
-- Hybrid JS surface:
-  - web-style globals: `fetch`, `URL`, `URLSearchParams`, `setTimeout`, `console`
-  - cross-platform Apple namespaces: `apple.keychain`, `apple.location`, `apple.weather`, `apple.calendar`, `apple.reminders`, `apple.contacts`, `apple.photos`, `apple.vision`, `apple.notifications`, `apple.health`, `apple.home`, `apple.media`, `apple.fs`, `apple.cloudkit`, `apple.maps`, `apple.storekit`, `apple.speech`, `apple.appIntents`, `apple.activity`, `apple.foundationModels`, `apple.music`, `apple.wallet`
-  - platform-specific namespaces when needed: `ios.alarm`
-- iOS/visionOS system UI helpers through an injected presenter, including alerts, calendar editors, photo/contact/document pickers, share sheets, Quick Look previews, web authentication, and iOS-only camera/scan/mail/message compose flows
-- Node-style aliases for file operations through `globalThis.fs.promises`
-- Sandboxed filesystem policy with allowed roots: `tmp`, `caches`, `documents`
-- Search and execution only expose helpers supported on the current host platform
-- `apple.*` is the canonical cross-Apple namespace, not a promise that every helper exists on every Apple OS
-- Library-only package surface
+Platforms: iOS 18+, macOS 15+, visionOS 2+. watchOS is out of scope because the runtime depends on JavaScriptCore.
 
 ## Installation
-
-Add `CodeMode.swift` with Swift Package Manager:
 
 ```swift
 .package(url: "https://github.com/velos/CodeMode.swift", branch: "main")
 ```
 
-No release has been tagged yet, so depend on `main` for now. Once `0.1.0` is tagged, prefer the versioned form:
-
-```swift
-.package(url: "https://github.com/velos/CodeMode.swift", from: "0.1.0")
-```
-
-Then add the product to your target:
+No release is tagged yet; once `0.1.0` is, prefer `from: "0.1.0"`. Add the product to your target:
 
 ```swift
 .product(name: "CodeMode", package: "CodeMode")
 ```
 
-## Public API
-
-- `CodeModeAgentTools`
-- `searchJavaScriptAPI(_:) async throws -> JavaScriptAPISearchResponse`
-- `executeJavaScript(_:) async throws -> JavaScriptExecutionCall`
-- `JavaScriptExecutionCall.events`
-- `JavaScriptExecutionCall.result`
-- `JavaScriptExecutionCall.cancel()`
-- `CodeModeToolError`
-- `CodeModeConfiguration`
-- `CodeModeFileSystem`
-- `LocalCodeModeFileSystem`
-- `CodeModeAgentToolDescriptions`
-- `CodeModeEvaluation` SwiftPM product for deterministic scenario evaluation
-- `SystemUIPresenter`
-- `UIKitSystemUIPresenter` on iOS/visionOS
-
-## Quick Start
+## Quick start
 
 ```swift
 import CodeMode
 
-let tools = CodeModeAgentTools()
-
-let searchResponse = try await tools.searchJavaScriptAPI(
-    JavaScriptAPISearchRequest(
-        code: """
-        async () => {
-            return api.references
-                .filter(ref => ref.tags.includes("reminders"))
-                .map(ref => ({
-                    capability: ref.capability,
-                    jsNames: ref.jsNames,
-                    summary: ref.summary
-                }));
-        }
-        """
+let tools = CodeModeAgentTools(
+    config: CodeModeConfiguration(
+        // The host's ceiling on what any script may use. See "Security model".
+        capabilityGrant: .only([.fsRead, .fsWrite])
     )
 )
-
-print(searchResponse.result ?? .null)
 
 let call = try await tools.executeJavaScript(
     JavaScriptExecutionRequest(
@@ -98,314 +46,167 @@ let call = try await tools.executeJavaScript(
 )
 
 for await event in call.events {
-    switch event {
-    case .log(let entry):
-        print(entry.message)
-    case .diagnostic(let diagnostic):
-        print(diagnostic.message)
-    case .syntaxError(let error),
-         .functionNotFound(let error),
-         .thrownError(let error),
-         .toolError(let error):
-        print("\(error.code): \(error.message)")
-    case .finished:
-        break
+    if case .log(let entry) = event { print(entry.message) }
+}
+
+let result = try await call.result   // throws CodeModeToolError on failure
+print(result.output ?? .null)          // "hello"
+```
+
+In an agent, the model writes `code` and `allowedCapabilities`; your host passes them through.
+
+## How it works
+
+1. **Search.** `searchJavaScriptAPI` runs the model's function against an `api` object listing every helper available on this platform: names, arguments, types, examples, and a TypeScript declaration for each. The model gets back only what its function returns.
+2. **Execute.** Each execution gets a fresh `JSContext` with this platform's helpers installed. The script is compiled as the body of an async function, so it can use top-level `await` and `return`.
+3. **Bridge.** Each `apple.*` call crosses into Swift, is checked against the capability grant, path policy, and network policy, handles any system permission prompt, and calls the real framework (EventKit, CoreLocation, HealthKit, and so on).
+4. **Report.** Logs, diagnostics, and errors stream as events while the script runs. The final result is JSON, or a `CodeModeToolError` with a code, the failing helper, a line, and repair suggestions the model can act on.
+
+Calls into native code are synchronous, so `Promise.all` over several helpers runs them one at a time. `setTimeout` and `clearTimeout` are real timers, so `await new Promise(r => setTimeout(r, 1000))` actually waits.
+
+### The JavaScript surface
+
+- **Web-style globals:** `fetch`, `URL`, `URLSearchParams`, `setTimeout`/`clearTimeout`, `console`, and Node-style `fs.promises` and `path`.
+- **`apple.*` namespaces:** `keychain`, `location`, `weather`, `calendar`, `reminders`, `contacts`, `photos`, `vision`, `notifications`, `health`, `home`, `media`, `fs`, `cloudkit`, `maps`, `storekit`, `speech`, `appIntents`, `activity`, `foundationModels`, `music`, `wallet`.
+- **Platform-specific namespaces** such as `ios.alarm` (AlarmKit).
+- **System UI** on iOS and visionOS: alerts and prompts, pickers for photos, contacts, documents, and calendars, share sheets, Quick Look, web authentication, and on iOS camera capture, document scanning, and mail and message compose. These need a `SystemUIPresenter`, such as `UIKitSystemUIPresenter`, and fail with `UI_PRESENTER_UNAVAILABLE` without one.
+
+`apple.*` is the shared cross-platform namespace, not a promise that every helper exists on every OS. Search and execution only ever expose what the current host supports.
+
+## Wiring it into an agent
+
+Three pieces, all generated from the same registry, so they cannot disagree with what actually runs:
+
+```swift
+// Tool definitions: names, descriptions, and JSON parameter schemas.
+CodeModeAgentToolDescriptions.searchJavaScriptAPI
+CodeModeAgentToolDescriptions.executeJavaScript
+
+// How to use the tools: one script per task, request only what you call,
+// repair from the structured error.
+let guidance = CodeModeAgentGuidance.systemPrompt(.standard)
+
+// What the helpers are: TypeScript declarations for the granted surface.
+let declarations = tools.typeDeclarations()
+```
+
+**Guidance** matters more than it looks. The tool descriptions tell a model what helpers are called, not what shape its work should take, and without it agents tend to use `executeJavaScript` as a thin RPC, one call per operation. It comes in three tiers. Each is self-contained, and a smaller tier drops examples, never rules:
+
+| Tier | ~Tokens | Adds |
+| --- | --- | --- |
+| `.brief` | 160 | One call runs the whole task; request only the capabilities you use. |
+| `.standard` | 620 | The search → write → repair workflow, with a worked example. |
+| `.full` | 1000 | Partial-failure handling, sequential native calls, and anti-patterns. |
+
+`CodeModeAgentGuidance.systemPrompt(approximateTokenBudget: 800)` picks the largest tier that fits, falling back to `.brief`. Counts are estimated at four characters per token.
+
+**Declarations** follow the host's `CapabilityGrant`, so they never advertise a helper the model would be denied. Size is the reason to grant narrowly: the unrestricted surface is about 21,000 tokens on iOS, while a grant of a few helpers is about 1,000. `typeDeclarations(for:)` renders an explicit subset, and every search result carries its own `dts`, so a model can also fetch declarations through search instead of having them all in its prompt:
+
+```javascript
+async () => api.references
+  .filter(ref => ref.tags.includes("calendar"))
+  .map(ref => ref.dts)
+  .join("\n\n")
+```
+
+Constrained arguments become string-literal unions and argument hints become doc comments. CI compiles every generated declaration with `tsc --strict`.
+
+## Security model
+
+Scripts are written by a model, which means they may be written by whoever controls the model's input. The defaults assume that.
+
+**Capabilities.** `allowedCapabilities` is part of the tool schema, so the model fills it in. It's a useful least-privilege declaration, but not a sandbox on its own. `CodeModeConfiguration.capabilityGrant` is the host-owned ceiling, and a script gets `requested ∩ granted`:
+
+```swift
+CodeModeConfiguration(
+    capabilityGrant: .only(
+        [.fsRead, .fsWrite, .networkFetch],
+        capabilityKeys: ["myapp.tasks.complete"]   // custom providers
+    )
+)
+```
+
+The default is `.unrestricted`, for source compatibility; set a grant whenever tool JSON comes from a model. A capability the grant withholds fails with `CAPABILITY_DENIED`, marked as not fixable by retrying. Built-in capabilities and custom provider keys are separate lists, so a provider key can never name a built-in.
+
+**Filesystem.** Paths are scoped to the `tmp:`, `caches:`, and `documents:` roots. `fs.move`, `fs.copy`, and `fs.delete` refuse a root as source or destination, and replacing an existing file needs `overwrite: true`. If the operation fails, the original file is restored. Reads, writes, and copies are capped at 16 MB by default (`FileSystemLimits`). Provide a `CodeModeFileSystem` to back these operations with your own storage. Paths reach it already resolved by `PathPolicy`. A custom `PathPolicy` must declare its `allowedRoots`.
+
+**Network.** `NetworkAccessPolicy.standard` blocks:
+
+- loopback, private, link-local, CGNAT, and unique-local addresses, including cloud metadata endpoints;
+- `localhost`, `.local`, `.internal`, and single-label hosts.
+
+It also re-checks redirect targets and caps response bodies at 10 MB. Matching is by hostname without DNS resolution, so set `allowedHosts` if you need a strict list. `fetch` runs on an isolated ephemeral session, with no cookies, stored credentials, or shared cache, so a script can't use whatever your app is signed in to. Scripts can't set `Cookie`, `Authorization`, or `Proxy-*` headers unless you set `allowsCredentialHeaders`.
+
+**Resources.** `timeoutMs` (default 10 s, maximum 60 s) bounds the whole execution, including time spent in native calls. It is enforced preemptively, so `while (true) {}` is terminated, not waited out. `ExecutionLimits` bounds result size, logs, diagnostics, buffered events, and concurrent executions (8 by default). Each limit truncates with a diagnostic rather than failing.
+
+> **App Store note.** Preemption uses `JSContextGroupSetExecutionTimeLimit`. JavaScriptCore exports it but declares it only in a private header, and CodeMode reaches it through a small C shim (`CCodeModeJSC`). It is JavaScriptCore's only way to interrupt a runaway script.
+
+## Adding your own helpers
+
+Expose app functionality alongside the built-ins with the `@CodeMode` macro from the `CodeModeAuthoring` product:
+
+```swift
+import CodeModeAuthoring
+
+@CodeMode(path: "myapp.tasks.complete", description: "Mark a task complete.")
+struct TaskComplete: Sendable {
+    let store: TaskStore
+
+    struct Arguments {
+        @CodeModeParam("Task identifier") var id: String
+    }
+
+    func call(arguments: Arguments) async throws {
+        try await store.complete(id: arguments.id)
     }
 }
 
-let result = try await call.result
-print(result.output ?? .null)
-```
-
-## Filesystem Integration
-
-CodeMode keeps its JavaScript filesystem API stable while allowing hosts to provide the underlying operations:
-
-```swift
 let tools = CodeModeAgentTools(
-    config: CodeModeConfiguration(
-        fileSystem: MyCodeModeFileSystem()
-    )
+    config: CodeModeConfiguration(codeModeProviders: [TaskComplete(store: store)])
 )
 ```
 
-`CodeModeFileSystem` receives paths after `PathPolicy` resolution, so sandbox root enforcement stays in CodeMode while the host can route reads, writes, listings, moves, copies, deletes, and stats through another backing implementation. `LocalCodeModeFileSystem` preserves the default `FileManager` behavior.
+Scripts call it as `await myapp.tasks.complete({ id: "task-123" })`, and the model requests it through `allowedCapabilityKeys`. It appears in search and in the TypeScript declarations like any built-in. `register(provider:)` adds providers after construction. See [the CodeModeAuthoring README](Sources/CodeModeAuthoring/README.md) for supported types and structured errors.
 
-## Network Access Policy
+## Host app setup
 
-`network.fetch` egress is governed by `CodeModeConfiguration.networkAccessPolicy`:
-
-- The default `NetworkAccessPolicy.standard` refuses loopback, RFC 1918, link-local (including cloud metadata addresses such as `169.254.169.254`), CGNAT, and unique-local destinations, plus `localhost` and `.local`/`.localhost`/`.internal` names, and caps buffered response bodies at 10 MB.
-- Redirect targets are re-validated against the policy before they are followed.
-- Refusals throw structured `NETWORK_POLICY_VIOLATION` errors and are written to the audit logger along with successful fetch destinations.
-- `allowedHosts` restricts fetch to an explicit list (entries match the host and its subdomains, and deliberately allowlisted private hosts such as `localhost` are honored); `blockedHosts` refuses specific hosts; `NetworkAccessPolicy.permissive` restores unrestricted behavior.
-- Matching is by URL host only; DNS resolution is not performed, so a public hostname that resolves to a private address is not detected. Hosts that need stricter guarantees should set `allowedHosts`.
+Bridged APIs need the usual privacy strings and entitlements. `HostConfigurationValidator` checks them for you:
 
 ```swift
-let tools = CodeModeAgentTools(
-    config: CodeModeConfiguration(
-        networkAccessPolicy: NetworkAccessPolicy(
-            allowedHosts: ["api.example.com"],
-            maxResponseBytes: 2_000_000
-        )
-    )
-)
+let issues = HostConfigurationValidator.validate(requiredCapabilities: [.locationRead, .contactsSearch])
+    + HostConfigurationValidator.validate(configuration: config)   // e.g. warns on an unrestricted grant
 ```
 
-## Search
+| Capabilities | Info.plist key |
+| --- | --- |
+| `location.read`, `location.permission.request` (iOS) | `NSLocationWhenInUseUsageDescription` |
+| `contacts.read`, `contacts.search`, `contacts.ui.*` | `NSContactsUsageDescription` |
+| `calendar.read`, `calendar.ui.presentEvent` | `NSCalendarsFullAccessUsageDescription` |
+| `calendar.write`, `calendar.ui.presentNewEvent`, `calendar.ui.pickCalendar` | `NSCalendarsWriteOnlyAccessUsageDescription` |
+| `reminders.read`, `reminders.write` | `NSRemindersFullAccessUsageDescription` |
+| `photos.read`, `photos.export`, `photos.ui.presentLimitedLibraryPicker` | `NSPhotoLibraryUsageDescription` |
+| `camera.ui.capture`, `camera.ui.scanData`, `documents.ui.scan` | `NSCameraUsageDescription` |
+| `camera.ui.capture` (video) | `NSMicrophoneUsageDescription` |
+| `alarm.*` (iOS 26+) | `NSAlarmKitUsageDescription` |
+| `health.permission.request`, `health.read` / `health.write` | `NSHealthShareUsageDescription` / `NSHealthUpdateUsageDescription` |
+| `home.read`, `home.write` | `NSHomeKitUsageDescription` |
 
-`searchJavaScriptAPI` accepts `JavaScriptAPISearchRequest`:
-
-- `code`: JavaScript source that evaluates to an async function
-
-Behavior:
-
-- empty search input throws `CodeModeToolError(code: "INVALID_REQUEST", ...)`
-- search executes your async function against a preloaded `api` object
-- `api` only contains capabilities and JS names supported on the current host platform
-- returned output must be JSON-serializable
-- syntax errors, invalid search programs, timeouts, and runtime failures throw `CodeModeToolError`
-- responses include `result: JSONValue?` plus non-fatal diagnostics
-
-Available in search code:
-
-```ts
-interface JavaScriptAPIReference {
-  capability: string;
-  capabilityKey: string;
-  builtInCapability: string | null;
-  jsNames: string[];
-  summary: string;
-  tags: string[];
-  example: string;
-  requiredArguments: string[];
-  optionalArguments: string[];
-  argumentTypes: Record<string, string>;
-  argumentHints: Record<string, string>;
-  argumentConstraints: { allowedStringValues: Record<string, string[]> };
-  resultSummary: string;
-}
-
-declare const api: {
-  references: JavaScriptAPIReference[];
-  byCapability: Record<string, JavaScriptAPIReference>;
-  byJSName: Record<string, JavaScriptAPIReference>;
-};
-```
-
-Example search programs:
-
-```javascript
-async () => {
-  return api.references
-    .filter(ref => ref.tags.includes("media"))
-    .map(ref => ({ capability: ref.capability, jsNames: ref.jsNames }));
-}
-```
-
-```javascript
-async () => {
-  return api.byJSName["apple.fs.read"];
-}
-```
-
-## Execution
-
-`executeJavaScript` accepts `JavaScriptExecutionRequest`:
-
-- `code`
-- `allowedCapabilities`
-- `timeoutMs`
-- `context`
-
-It returns a `JavaScriptExecutionCall` immediately.
-
-Cross-platform privileged helpers are installed under `apple.*`. Platform-specific helpers are installed only where supported, for example `ios.alarm.*` on iOS hosts that support AlarmKit.
-
-`apple.location.requestPermission()` is currently exposed only on iOS hosts. Other Apple platforms can expose `apple.location.*` helpers when supported, but the explicit permission-request helper is intentionally hidden outside iOS for now.
-
-System UI helpers are installed only on supported UI platforms. Shared iOS/visionOS helpers include `apple.ui.presentAlert`, `apple.ui.presentPrompt`, `apple.settings.open`, `apple.calendar.pickCalendar`, `apple.calendar.presentEvent`, `apple.calendar.presentNewEvent`, `apple.contacts.pick`, `apple.contacts.presentContact`, `apple.contacts.presentNewContact`, `apple.photos.pick`, `apple.photos.presentLimitedLibraryPicker`, `apple.documents.pick`, `apple.documents.export`, `apple.documents.save`, `apple.documents.openIn`, `apple.share.present`, `apple.quicklook.preview`, `apple.camera.scanData`, `apple.print.present`, `apple.web.present`, and `apple.auth.webAuthenticate`. iOS-only helpers include `apple.camera.capture`, `apple.documents.scan`, `apple.mail.compose`, and `apple.messages.compose`. Host apps must provide a `SystemUIPresenter`; otherwise UI-presenting helpers fail with `UI_PRESENTER_UNAVAILABLE`.
-
-`call.events` is a non-throwing `AsyncStream` that can emit:
-
-- `.log(ExecutionLog)`
-- `.diagnostic(ToolDiagnostic)`
-- `.syntaxError(CodeModeToolError)`
-- `.functionNotFound(CodeModeToolError)`
-- `.thrownError(CodeModeToolError)`
-- `.toolError(CodeModeToolError)`
-- `.finished`
-
-`call.result` is the throwing boundary:
-
-- on success it returns `JavaScriptExecutionResult`
-- on failure it throws `CodeModeToolError`
-- `call.cancel()` interrupts in-flight JavaScript
-
-### Timeout and cancellation
-
-`timeoutMs` and `cancel()` are enforced preemptively: a JavaScriptCore execution
-time limit terminates CPU-bound scripts (for example `while (true) {}`) instead
-of relying on a wall-clock check that cannot interrupt running JavaScript.
-
-- `timeoutMs` bounds total wall-clock for the execution, including the
-  synchronous portion of the script and any time already elapsed while a bridge
-  call blocked on native I/O (network, a UI picker). Hosts that present
-  long-running UI or issue slow requests should size `timeoutMs` accordingly;
-  the default is `10000`.
-- Preemption uses `JSContextGroupSetExecutionTimeLimit`, which JavaScriptCore
-  exports but declares only in a private WebKit header. CodeMode reaches it
-  through a thin C shim (`CCodeModeJSC`). This is JavaScriptCore's only
-  mechanism for interrupting runaway scripts; hosts submitting to the App Store
-  should be aware they rely on this exported-but-private symbol.
-
-`CodeModeToolError` includes structured fields such as:
-
-- `code`
-- `message`
-- `functionName`
-- `capability`
-- `line`
-- `column`
-- `suggestions`
-- `diagnostics`
-- `logs`
-- `permissionEvents`
-
-For hosts that vend these methods as LLM tool calls, use `CodeModeAgentToolDescriptions.searchJavaScriptAPI` and `CodeModeAgentToolDescriptions.executeJavaScript` as the canonical tool descriptions.
-
-## Host App Permissions and Capabilities
-
-Host apps must provide privacy usage strings for bridged APIs that request protected resources.
-
-Required Info.plist keys by capability:
-
-- Location read (`location.read`): `NSLocationWhenInUseUsageDescription`
-- Location permission request (`location.permission.request`, iOS-only): `NSLocationWhenInUseUsageDescription`
-- Contacts (`contacts.read`, `contacts.search`, `contacts.ui.presentContact`, `contacts.ui.presentNewContact`): `NSContactsUsageDescription`
-- Calendar read (`calendar.read`): `NSCalendarsFullAccessUsageDescription`
-- Calendar event detail UI (`calendar.ui.presentEvent`): `NSCalendarsFullAccessUsageDescription`
-- Calendar write-only (`calendar.write`): `NSCalendarsWriteOnlyAccessUsageDescription`
-- Calendar event editor/chooser UI (`calendar.ui.presentNewEvent`, `calendar.ui.pickCalendar`): `NSCalendarsWriteOnlyAccessUsageDescription`
-- Reminders (`reminders.read`, `reminders.write`): `NSRemindersFullAccessUsageDescription`
-- Photos (`photos.read`, `photos.export`, `photos.ui.presentLimitedLibraryPicker`): `NSPhotoLibraryUsageDescription`
-- Camera UI (`camera.ui.capture`, `camera.ui.scanData`, `documents.ui.scan`): `NSCameraUsageDescription`
-- Camera video capture (`camera.ui.capture`): `NSMicrophoneUsageDescription`
-- AlarmKit (`alarm.permission.request`, `alarm.read`, `alarm.schedule`, `alarm.cancel`): `NSAlarmKitUsageDescription`
-- HealthKit read (`health.permission.request`, `health.read`): `NSHealthShareUsageDescription`
-- HealthKit write (`health.permission.request`, `health.write`): `NSHealthUpdateUsageDescription`
-- HomeKit (`home.read`, `home.write`): `NSHomeKitUsageDescription`
-
-Notifications:
-
-- Local notification scheduling and management (`notifications.*`) requires runtime authorization via `apple.notifications.requestPermission()`
-- No additional Info.plist privacy string is required for `UNUserNotificationCenter` authorization prompts
-
-AlarmKit:
-
-- `alarm.*` requires `iOS 26+` and runtime authorization via `ios.alarm.requestPermission()`
-
-HealthKit:
-
-- `health.*` requires the HealthKit entitlement and runtime authorization via `apple.health.requestPermission(...)`
-
-Weather:
-
-- `weather.read` requires enabling the WeatherKit capability on the app target
-- Weather does not require a separate privacy prompt in this package because `weather.read` expects explicit coordinates
-
-Programmatic validation helper:
-
-```swift
-import CodeMode
-
-let required: Set<CapabilityID> = [
-    .locationRead,
-    .contactsSearch,
-    .weatherRead,
-]
-
-let issues = HostConfigurationValidator.validate(requiredCapabilities: required)
-for issue in issues {
-    print("[\(issue.severity.rawValue)] \(issue.key): \(issue.message)")
-}
-```
+HealthKit also needs its entitlement, and `weather.read` needs the WeatherKit capability. Notifications, alarms, and HealthKit authorize at runtime through their `requestPermission` helpers.
 
 ## Development
 
-- Run the deterministic CodeMode eval harness:
-
 ```sh
-swift run --package-path Tools/CodeModeEval codemode-eval
-swift run --package-path Tools/CodeModeEval codemode-eval list
-swift run --package-path Tools/CodeModeEval codemode-eval run fs.round-trip --show-code
-swift run --package-path Tools/CodeModeEval codemode-eval run --json
+swift test                                                   # unit and integration tests
+swift run --package-path Tools/CodeModeEval codemode-eval    # 52 deterministic agent scenarios
+scripts/check-typescript-declarations.sh                     # tsc --strict over every declaration
 ```
 
-The eval harness runs 49 built-in user-style scenarios through the same
-`searchJavaScriptAPI` and `executeJavaScript` APIs that host apps expose to
-agents. It validates tool order, discovered catalog output, generated JavaScript
-fragments, exact `allowedCapabilities`, structured errors, repair suggestions,
-console logs, diagnostics, and final output. The scenarios cover filesystem
-workflows, capability minimization, path policy failures, permission failures,
-catalog search behavior, helper suggestions, API argument-shape confusion,
-recovery after structured tool errors, execution timeouts, and catalog coverage
-for the expanded Apple API families.
-
-- Preview LLM eval suites and work with saved live reports:
-
-```sh
-swift run --package-path Tools/CodeModeEval codemode-eval plan --suite core --repeat 5 --request-delay-ms 1000
-swift run --package-path Tools/CodeModeEval codemode-eval summarize Tools/CodeModeEval/.build/reports/core-baseline.json --output Tools/CodeModeEval/.build/reports/core-summary.json
-swift run --package-path Tools/CodeModeEval codemode-eval report Tools/CodeModeEval/.build/reports/core-baseline.json --output Tools/CodeModeEval/.build/reports/core-baseline.md
-swift run --package-path Tools/CodeModeEval codemode-eval compare Tools/CodeModeEval/.build/reports/core-baseline.json Tools/CodeModeEval/.build/reports/core-candidate.json
-```
-
-The default eval package intentionally avoids private Wavelike dependencies, so
-`swift build --package-path Tools/CodeModeEval` works in public or unauthenticated
-CI. Use `plan` to preview request budgets, `summarize` to strip raw transcripts
-before committing baselines, `report` to generate Markdown diagnostics with
-tool-attempt retry traces, then `compare` to fail on pass-rate, exact-capability,
-retry, or turn-count regressions. Tolerances are configurable with
-`--pass-rate-tolerance`, `--capability-rate-tolerance`, `--retry-tolerance`, and
-`--turn-tolerance`. The saved JSON report envelope includes raw run results plus
-aggregate pass rate, average turns, retry count, exact/minimal capability
-success, per-scenario metrics, and failure categories such as `wrong_tool`,
-`wrong_js`, `overbroad_capability`, `failed_recovery`, and `no_final_answer`.
-See [EVALS.md](EVALS.md) for CI/nightly policy, baseline handling, and
-recommended commands.
-The CLI lives in `Tools/CodeModeEval` so library consumers do not resolve
-ArgumentParser when they use the `CodeMode` product.
-
-- License: MIT. See [LICENSE](LICENSE)
+The eval scenarios drive the two tools the way an agent would. They grade the tool order, the generated code, whether the requested capabilities were exactly the minimal set, structured errors, and recovery after a failure. The same CLI plans, summarizes, and compares live-model runs; see [EVALS.md](EVALS.md). It lives in `Tools/CodeModeEval`, so library users don't resolve ArgumentParser.
 
 ## Acknowledgements
 
-The "Code Mode" framing and the tool-oriented search and execution model in this repository were influenced by Cloudflare's Code Mode work:
-
-- [Cloudflare Code Mode API reference](https://developers.cloudflare.com/agents/api-reference/codemode/)
-- [Cloudflare Code Mode announcement](https://blog.cloudflare.com/code-mode/)
-- [Cloudflare Code Mode MCP](https://blog.cloudflare.com/code-mode-mcp/)
-
-This repository is an independent implementation and is not affiliated with Cloudflare.
-
-## Development Process
+The Code Mode framing and its search-and-execute model come from Cloudflare's work: the [announcement](https://blog.cloudflare.com/code-mode/), the [API reference](https://developers.cloudflare.com/agents/api-reference/codemode/), and [Code Mode MCP](https://blog.cloudflare.com/code-mode-mcp/). This is an independent implementation, not affiliated with Cloudflare.
 
 Development of `CodeMode.swift` was done exclusively with Codex, initiated by an interactively built plan, executed by the model after the plan was finalized.
 
-## Shipped Expanded Families
-
-These API families are represented in the catalog and local bridge layer on this
-branch:
-
-- APNs / remote-notification token and settings lifecycle under `apple.notifications.*`
-- PassKit wallet APIs under `apple.wallet.*`
-- Speech, MusicKit, Foundation Models, CloudKit, Maps, StoreKit, App Intents, and ActivityKit namespaces
-
-## Deferred in v1
-
-The package intentionally defers these to later phases:
-
-- Production host entitlement provisioning and app-specific UX for newly bridged frameworks
-- Broader executable eval coverage for every catalog-only capability family
-- Behavior-preserving refactors that generate more JavaScript bindings from registration metadata
+License: MIT. See [LICENSE](LICENSE).

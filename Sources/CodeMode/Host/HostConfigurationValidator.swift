@@ -119,6 +119,26 @@ public enum HostConfigurationValidator {
         validate(requiredCapabilities: requiredCapabilities, infoPlist: bundle.infoDictionary ?? [:])
     }
 
+    /// Checks the runtime configuration itself, independent of Info.plist.
+    ///
+    /// The one thing worth flagging today is an unrestricted `capabilityGrant`.
+    /// It is the default for source compatibility, but it means the *model*
+    /// decides what a script may reach — the allowlist in the tool call is
+    /// model-authored. A host that pipes tool JSON straight into
+    /// `executeJavaScript` with this default has no capability boundary at all.
+    public static func validate(configuration: CodeModeConfiguration) -> [HostConfigurationIssue] {
+        guard configuration.capabilityGrant == .unrestricted else {
+            return []
+        }
+        return [
+            HostConfigurationIssue(
+                severity: .warning,
+                key: "capabilityGrant",
+                message: "CodeModeConfiguration.capabilityGrant is .unrestricted: the model-authored allowedCapabilities is the only allowlist in force. Set CapabilityGrant.only(...) to the capabilities this host actually permits."
+            )
+        ]
+    }
+
     public static func validate(requiredCapabilities: Set<CapabilityID>, infoPlist: [String: Any]) -> [HostConfigurationIssue] {
         var issues: [HostConfigurationIssue] = []
         let keys = requiredInfoPlistKeys(for: requiredCapabilities)

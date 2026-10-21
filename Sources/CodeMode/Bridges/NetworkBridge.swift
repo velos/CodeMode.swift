@@ -6,7 +6,27 @@ public final class NetworkBridge: @unchecked Sendable {
     private let session: URLSession
     private let policy: NetworkAccessPolicy
 
-    public init(session: URLSession = .shared, policy: NetworkAccessPolicy = .standard) {
+    /// The session `network.fetch` uses unless the host supplies its own.
+    ///
+    /// Deliberately *not* `URLSession.shared`: that session reads
+    /// `HTTPCookieStorage.shared` and `URLCredentialStorage.shared`, so every
+    /// script request would ride whatever the host app is already logged in to,
+    /// and a `Set-Cookie` in a script-fetched response would poison the app's
+    /// cookie jar. The sandbox's premise is that script traffic carries no
+    /// ambient authority, so this session has no cookie jar, no credential
+    /// store, and no shared cache.
+    public static let isolatedSession: URLSession = {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.httpCookieStorage = nil
+        configuration.urlCredentialStorage = nil
+        configuration.urlCache = nil
+        configuration.httpShouldSetCookies = false
+        configuration.httpCookieAcceptPolicy = .never
+        configuration.requestCachePolicy = .reloadIgnoringLocalCacheData
+        return URLSession(configuration: configuration)
+    }()
+
+    public init(session: URLSession = NetworkBridge.isolatedSession, policy: NetworkAccessPolicy = .standard) {
         self.session = session
         self.policy = policy
     }
@@ -43,12 +63,23 @@ public final class NetworkBridge: @unchecked Sendable {
         var request = URLRequest(url: url)
         request.httpMethod = options.string("method")?.uppercased() ?? "GET"
         request.timeoutInterval = TimeInterval(timeoutMs) / 1_000
+        // Belt and braces alongside the isolated session: even a host-supplied
+        // session must not attach its cookie jar to script traffic.
+        request.httpShouldHandleCookies = false
 
         if let headers = options.object("headers") {
-            for (key, value) in headers {
-                if let string = value.stringValue {
-                    request.setValue(string, forHTTPHeaderField: key)
+            for key in headers.keys.sorted() {
+                guard let string = headers[key]?.stringValue else {
+                    continue
                 }
+                if let reason = policy.headerViolationReason(for: key) {
+                    context.auditLogger.log(AuditEvent(
+                        capability: CapabilityID.networkFetch.rawValue,
+                        message: "denied \(urlString): \(reason)"
+                    ))
+                    throw BridgeError.networkPolicyViolation(reason)
+                }
+                request.setValue(string, forHTTPHeaderField: key)
             }
         }
 

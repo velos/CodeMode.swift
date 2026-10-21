@@ -5,8 +5,11 @@ import Foundation
 ///
 /// The default (`.standard`) blocks loopback, private-range, link-local, and
 /// other non-public destinations so agent-authored JavaScript cannot reach
-/// `127.0.0.1`, cloud metadata endpoints such as `169.254.169.254`, or hosts on
-/// the local network, and caps buffered response bodies at 10 MB.
+/// `127.0.0.1`, cloud metadata endpoints such as `169.254.169.254`, or names that
+/// resolve onto the local network, and caps buffered response bodies at 10 MB.
+/// "Names that resolve onto the local network" covers `localhost`,
+/// `*.local`/`*.localhost`/`*.internal`, and bare single-label hosts such as
+/// `router` or `intranet`, which reach the LAN through the DHCP search domain.
 ///
 /// Host matching is by URL host only; DNS resolution is not performed, so a
 /// public hostname that resolves to a private address is not detected. Hosts
@@ -31,27 +34,63 @@ public struct NetworkAccessPolicy: Sendable, Equatable {
     /// that exceed this are cancelled mid-transfer.
     public var maxResponseBytes: Int
 
+    /// Whether script-supplied credential headers reach the wire.
+    ///
+    /// `Cookie`, `Authorization`, and the `Proxy-*` pair are how a request
+    /// carries authority. Script-authored code should not be minting them
+    /// against arbitrary origins, so they are refused by default. Hosts whose
+    /// scripts legitimately call an authenticated API — a bearer token the
+    /// script fetched from the keychain, say — set this to true.
+    public var allowsCredentialHeaders: Bool
+
+    /// Request headers refused when `allowsCredentialHeaders` is false.
+    /// Matched case-insensitively; `proxy-` is matched as a prefix.
+    static let credentialHeaderNames: Set<String> = [
+        "cookie",
+        "cookie2",
+        "authorization",
+    ]
+
     public init(
         allowedHosts: [String]? = nil,
         blockedHosts: [String] = [],
         blocksPrivateNetworks: Bool = true,
-        maxResponseBytes: Int = 10_485_760
+        maxResponseBytes: Int = 10_485_760,
+        allowsCredentialHeaders: Bool = false
     ) {
         self.allowedHosts = allowedHosts
         self.blockedHosts = blockedHosts
         self.blocksPrivateNetworks = blocksPrivateNetworks
         self.maxResponseBytes = maxResponseBytes
+        self.allowsCredentialHeaders = allowsCredentialHeaders
     }
 
-    /// Secure default: private networks blocked, 10 MB response cap.
+    /// Secure default: private networks blocked, 10 MB response cap, no
+    /// script-supplied credential headers.
     public static let standard = NetworkAccessPolicy()
 
-    /// No destination restrictions and no response size cap. Matches the
-    /// pre-policy behavior of `network.fetch`; opt in deliberately.
+    /// No destination restrictions, no response size cap, and script-supplied
+    /// credential headers permitted. Matches the pre-policy behavior of
+    /// `network.fetch`; opt in deliberately.
     public static let permissive = NetworkAccessPolicy(
         blocksPrivateNetworks: false,
-        maxResponseBytes: .max
+        maxResponseBytes: .max,
+        allowsCredentialHeaders: true
     )
+
+    /// Returns a reason the header is refused, or nil when it may be sent.
+    func headerViolationReason(for name: String) -> String? {
+        guard allowsCredentialHeaders == false else {
+            return nil
+        }
+
+        let normalized = name.lowercased()
+        guard Self.credentialHeaderNames.contains(normalized) || normalized.hasPrefix("proxy-") else {
+            return nil
+        }
+
+        return "the \"\(name)\" request header carries authority and is refused by the host app's network access policy"
+    }
 
     /// Returns a human-readable reason the URL is refused, or nil when allowed.
     func violationReason(for url: URL) -> String? {
@@ -117,6 +156,14 @@ public struct NetworkAccessPolicy: Sendable, Equatable {
         var ipv6 = in6_addr()
         if inet_pton(AF_INET6, ipv6Host, &ipv6) == 1 {
             return isPrivateOrLocal(ipv6: ipv6)
+        }
+
+        // A bare single-label name — `router`, `intranet`, `nas`, `wpad` — is not
+        // a public destination. It resolves through the DHCP-supplied search
+        // domain, so it lands on the local network exactly like `*.local` does,
+        // and it previously fell straight through to "allowed".
+        if host.contains(".") == false {
+            return true
         }
 
         return false

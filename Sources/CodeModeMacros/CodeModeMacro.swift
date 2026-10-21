@@ -116,12 +116,13 @@ public struct CodeModeMacro: ExtensionMacro {
                         jsPath: \(literal(path)),
                         title: \(literal(title(for: path))),
                         summary: \(literal(summary)),
-                        tags: [\(literal(parentPath(for: path)))],
-                        example: "await \(path)({})",
+                        tags: \(tagsSource(for: path)),
+                        example: \(literal(example(for: path, fields: argumentFields.fields))),
                         requiredArguments: [\(argumentFields.fields.filter { !$0.optional }.map { literal($0.name) }.joined(separator: ", "))],
                         optionalArguments: [\(argumentFields.fields.filter(\.optional).map { literal($0.name) }.joined(separator: ", "))],
                         argumentTypes: \(argumentTypesSource(for: argumentFields.fields)),
                         argumentHints: \(argumentHintsSource(for: argumentFields.fields)),
+                        argumentConstraints: \(argumentConstraintsSource(for: argumentFields.fields)),
                         resultSummary: \(literal(returnsVoid ? "null" : resultInfo?.summary ?? "JSON value")),
                         handler: { arguments, _ in
                             try CodeModeAsyncBridge.run {
@@ -275,7 +276,8 @@ public struct CodeModeMacro: ExtensionMacro {
                     swiftType: typeInfo.swiftType,
                     argumentType: typeInfo.argumentType,
                     optional: typeInfo.optional,
-                    description: attributeName.flatMap { attributeString(named: $0, attributes: variable.attributes).first }
+                    description: attributeName.flatMap { attributeString(named: $0, attributes: variable.attributes).first },
+                    isStringEnum: typeInfo.isStringEnum
                 )
             )
         }
@@ -471,6 +473,60 @@ public struct CodeModeMacro: ExtensionMacro {
         return segments.dropLast().joined(separator: ".")
     }
 
+    /// Every path segment, so a helper is findable by its namespace *and* its
+    /// domain — the old single parent-path tag made `myapp.tasks.complete`
+    /// discoverable only by searching for "myapp.tasks".
+    private static func tagsSource(for path: String) -> String {
+        let segments = path.split(separator: ".").map(String.init)
+        var tags: [String] = []
+        for segment in segments where tags.contains(segment) == false {
+            tags.append(segment)
+        }
+        if segments.count > 1 {
+            tags.append(segments.dropLast().joined(separator: "."))
+        }
+        return "[" + tags.map(literal).joined(separator: ", ") + "]"
+    }
+
+    /// A call the model can pattern-match, rather than the vacuous
+    /// `await path({})` that was emitted regardless of the arguments.
+    private static func example(for path: String, fields: [ToolField]) -> String {
+        let required = fields.filter { $0.optional == false }
+        guard required.isEmpty == false else {
+            return "await \(path)({})"
+        }
+        let pairs = required.map { field in
+            "\(field.name): \(placeholder(for: field))"
+        }
+        return "await \(path)({ " + pairs.joined(separator: ", ") + " })"
+    }
+
+    private static func placeholder(for field: ToolField) -> String {
+        switch field.argumentType {
+        case "number":
+            return "0"
+        case "bool":
+            return "true"
+        case "array":
+            return "[]"
+        case "object":
+            return "{}"
+        default:
+            return "\"\(field.name)\""
+        }
+    }
+
+    private static func argumentConstraintsSource(for fields: [ToolField]) -> String {
+        let enumFields = fields.filter(\.isStringEnum)
+        guard enumFields.isEmpty == false else {
+            return "CapabilityArgumentConstraints.none"
+        }
+        let entries = enumFields.map { field in
+            "\(literal(field.name)): \(field.swiftType).codeModeAllowedValues"
+        }.joined(separator: ", ")
+        return "CapabilityArgumentConstraints(allowedStringValues: [\(entries)])"
+    }
+
     private static func literal(_ value: String) -> String {
         let escaped = value
             .replacingOccurrences(of: "\\", with: "\\\\")
@@ -511,6 +567,7 @@ private struct ToolField {
     var argumentType: String
     var optional: Bool
     var description: String?
+    var isStringEnum = false
 }
 
 private struct TypeInfo {
@@ -518,6 +575,7 @@ private struct TypeInfo {
     var argumentType: String
     var optional: Bool
     var isSupported: Bool
+    var isStringEnum = false
 
     init(typeSyntax rawType: String) {
         let trimmed = rawType.replacingOccurrences(of: " ", with: "")
@@ -554,11 +612,37 @@ private struct TypeInfo {
             if unwrapped.hasPrefix("["), unwrapped.hasSuffix("]") {
                 self.argumentType = unwrapped.contains(":") ? "object" : "array"
                 self.isSupported = Self.isSupportedCollection(unwrapped)
+            } else if Self.isSimpleIdentifier(unwrapped), Self.knownNonEnumTypes.contains(unwrapped) == false {
+                // An unrecognized simple type is taken to be a
+                // `CodeModeStringEnum`, the same assumption @BuiltInCodeMode
+                // makes. Host providers could not express constrained values at
+                // all before this, so their `allowedStringValues` was always
+                // empty while built-ins advertised theirs.
+                self.argumentType = "string"
+                self.isStringEnum = true
+                self.isSupported = true
             } else {
                 self.argumentType = "any"
                 self.isSupported = false
             }
         }
+    }
+
+    /// Types that are plainly not `CodeModeStringEnum`s. Without this list a
+    /// natural mistake such as `var date: Date` would be taken for an enum and
+    /// surface as a confusing error inside generated code instead of a macro
+    /// diagnostic pointing at the property.
+    private static let knownNonEnumTypes: Set<String> = [
+        "Date", "URL", "Data", "UUID", "Decimal", "Any", "AnyObject", "AnyHashable",
+        "Never", "Void", "Character", "Substring", "Int8", "Int16", "Int32", "Int64",
+        "UInt", "UInt8", "UInt16", "UInt32", "UInt64", "CGFloat", "NSNumber", "NSString",
+    ]
+
+    private static func isSimpleIdentifier(_ type: String) -> Bool {
+        guard let first = type.first, first.isLetter || first == "_" else {
+            return false
+        }
+        return type.allSatisfy { $0.isLetter || $0.isNumber || $0 == "_" || $0 == "." }
     }
 
     private static func isSupportedCollection(_ type: String) -> Bool {

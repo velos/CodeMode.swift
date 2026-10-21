@@ -40,19 +40,28 @@ final class ExecutionWatchdog: @unchecked Sendable {
     fileprivate static let checkInterval: TimeInterval = 0.05
 
     private let lock = NSLock()
-    private var deadlineValue: Date
+    /// `ContinuousClock`, not `Date`: a wall-clock deadline moves when NTP
+    /// adjusts the clock, which can push a timeout arbitrarily far out (or fire it
+    /// immediately) while a script is running.
+    private var deadlineValue: ContinuousClock.Instant
     private var terminationValue: Termination?
     private let cancellationController: ExecutionCancellationController
+    let clock: any RuntimeClock
 
-    init(timeoutMs: Int, cancellationController: ExecutionCancellationController) {
-        self.deadlineValue = Date().addingTimeInterval(Double(timeoutMs) / 1_000)
+    init(timeoutMs: Int, cancellationController: ExecutionCancellationController, clock: any RuntimeClock = RealClock()) {
+        self.clock = clock
+        self.deadlineValue = clock.now.advanced(by: .milliseconds(timeoutMs))
         self.cancellationController = cancellationController
     }
 
-    var deadline: Date {
+    var deadline: ContinuousClock.Instant {
         lock.lock()
         defer { lock.unlock() }
         return deadlineValue
+    }
+
+    var hasPassedDeadline: Bool {
+        clock.now >= deadline
     }
 
     var termination: Termination? {
@@ -67,7 +76,7 @@ final class ExecutionWatchdog: @unchecked Sendable {
     /// user-defined getters/`toJSON`), while a runaway getter is still terminated.
     func rearm(timeoutMs: Int) {
         lock.lock()
-        deadlineValue = Date().addingTimeInterval(Double(timeoutMs) / 1_000)
+        deadlineValue = clock.now.advanced(by: .milliseconds(timeoutMs))
         lock.unlock()
     }
 
@@ -100,7 +109,7 @@ final class ExecutionWatchdog: @unchecked Sendable {
             terminationValue = .cancelled
             return true
         }
-        if Date() >= deadlineValue {
+        if clock.now >= deadlineValue {
             terminationValue = .timedOut
             return true
         }

@@ -69,7 +69,7 @@ private struct FailingTaskTool: CodeModeProvider {
     #expect(registration.jsPath == "myapp.tasks.complete")
     #expect(registration.title == "complete")
     #expect(registration.summary == "Mark a task complete.")
-    #expect(registration.tags == ["myapp.tasks"])
+    #expect(registration.tags == ["myapp", "tasks", "complete", "myapp.tasks"])
     #expect(registration.requiredArguments == ["id"])
     #expect(registration.optionalArguments == ["note"])
     #expect(registration.argumentTypes["id"] == .string)
@@ -233,12 +233,13 @@ private func observe(_ call: JavaScriptExecutionCall) async -> ObservedExecution
                         jsPath: "macro.api.greet",
                         title: "greet",
                         summary: "Greet a person.",
-                        tags: ["macro.api"],
-                        example: "await macro.api.greet({})",
+                        tags: ["macro", "api", "greet", "macro.api"],
+                        example: "await macro.api.greet({ name: \\"name\\" })",
                         requiredArguments: ["name"],
                         optionalArguments: ["excited"],
                         argumentTypes: ["name": CapabilityArgumentType.string, "excited": CapabilityArgumentType.bool],
                         argumentHints: ["name": "Person name", "excited": "Whether to add emphasis"],
+                        argumentConstraints: CapabilityArgumentConstraints.none,
                         resultSummary: "Greeting payload",
                         handler: { arguments, _ in
                             try CodeModeAsyncBridge.run {
@@ -292,12 +293,13 @@ private func observe(_ call: JavaScriptExecutionCall) async -> ObservedExecution
                         jsPath: "macro.api.ping",
                         title: "ping",
                         summary: "Ping.",
-                        tags: ["macro.api"],
+                        tags: ["macro", "api", "ping", "macro.api"],
                         example: "await macro.api.ping({})",
                         requiredArguments: [],
                         optionalArguments: [],
                         argumentTypes: [:],
                         argumentHints: [:],
+                        argumentConstraints: CapabilityArgumentConstraints.none,
                         resultSummary: "null",
                         handler: { arguments, _ in
                             try CodeModeAsyncBridge.run {
@@ -510,4 +512,77 @@ private func observe(_ call: JavaScriptExecutionCall) async -> ObservedExecution
         ],
         macros: codeModeTestMacros()
     )
+}
+
+// MARK: - Constrained argument values for host providers
+
+/// Host providers could not express constrained values at all: the macro
+/// rejected any non-primitive property type, so their `allowedStringValues` was
+/// always empty while built-ins advertised theirs. This is the parity fix.
+enum DemoPriority: String, CodeModeStringEnum {
+    case low
+    case normal
+    case high
+}
+
+@CodeMode(path: "macro.api.prioritize", description: "Set a priority.")
+struct PrioritizeTool: Sendable {
+    struct Arguments {
+        @CodeModeParam("Task identifier")
+        var id: String
+        @CodeModeParam("low, normal (default), or high")
+        var priority: DemoPriority?
+    }
+
+    struct Result {
+        var id: String
+        var priority: String
+    }
+
+    func call(arguments: Arguments) throws -> Result {
+        Result(id: arguments.id, priority: (arguments.priority ?? .normal).rawValue)
+    }
+}
+
+@Test func codeModeMacroAdvertisesEnumConstraintsForHostProviders() throws {
+    let registration = try #require(PrioritizeTool().codeModeRegistrations().first)
+
+    #expect(registration.argumentTypes["priority"] == .string)
+    #expect(registration.argumentConstraints.allowedStringValues["priority"] == ["low", "normal", "high"])
+    // The generated example is a call the model can pattern-match, not the
+    // vacuous `await path({})` that used to be emitted regardless of arguments.
+    #expect(registration.example == #"await macro.api.prioritize({ id: "id" })"#)
+    // Tags cover every path segment, so the helper is findable by namespace and
+    // by name, not only by the full parent path.
+    #expect(registration.tags.contains("prioritize"))
+    #expect(registration.tags.contains("macro.api"))
+}
+
+@Test func codeModeMacroRejectsValuesOutsideTheConstraint() async throws {
+    let tools = CodeModeAgentTools(config: CodeModeConfiguration(codeModeProviders: [PrioritizeTool()]))
+
+    let denied = try await tools.executeJavaScript(
+        JavaScriptExecutionRequest(
+            code: #"return await macro.api.prioritize({ id: "1", priority: "urgent" });"#,
+            allowedCapabilities: [],
+            allowedCapabilityKeys: ["macro.api.prioritize"]
+        )
+    )
+    var deniedError: CodeModeToolError?
+    do {
+        _ = try await denied.result
+    } catch let error as CodeModeToolError {
+        deniedError = error
+    }
+    #expect(deniedError?.code == "INVALID_ARGUMENTS")
+
+    let accepted = try await tools.executeJavaScript(
+        JavaScriptExecutionRequest(
+            code: #"return await macro.api.prioritize({ id: "1", priority: "high" });"#,
+            allowedCapabilities: [],
+            allowedCapabilityKeys: ["macro.api.prioritize"]
+        )
+    )
+    let result = try await accepted.result
+    #expect(result.output?.objectValue?["priority"] == .string("high"))
 }

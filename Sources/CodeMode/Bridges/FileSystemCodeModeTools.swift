@@ -1,7 +1,16 @@
 import Foundation
 
-// Filesystem capabilities. Flat arguments, no constrained values, so no
-// CodeModeStringEnum is needed here.
+// Filesystem capabilities.
+
+/// The encodings `fs.read`/`fs.write` accept. Declared as an enum so the catalog
+/// advertises `allowedStringValues` instead of leaving the constraint in prose,
+/// where the model cannot discover it.
+enum FileEncoding: String, CodeModeStringEnum {
+    case utf8
+    case base64
+
+    static let codeModeAliases: [String: FileEncoding] = ["utf-8": .utf8]
+}
 
 @BuiltInCodeMode(.fsList, path: "apple.fs.list", aliases: ["fs.promises.readdir"])
 struct FSListTool: BuiltInCodeModeTool {
@@ -35,8 +44,8 @@ struct FSReadTool: BuiltInCodeModeTool {
     struct Arguments: Sendable {
         @ToolParam("File path using allowed root prefix.")
         var path: String
-        @ToolParam("utf8 (default) or base64.")
-        var encoding: String?
+        @ToolParam("utf8 (default) or base64. Binary files must use base64; a utf8 read of undecodable bytes fails rather than returning empty text.")
+        var encoding: FileEncoding?
         var raw: [String: JSONValue]
     }
 
@@ -61,7 +70,7 @@ struct FSWriteTool: BuiltInCodeModeTool {
         @ToolParam("UTF-8 text or base64 string depending on encoding.")
         var data: String?
         @ToolParam("utf8 (default) or base64.")
-        var encoding: String?
+        var encoding: FileEncoding?
         var raw: [String: JSONValue]
     }
 
@@ -75,7 +84,7 @@ struct FSWriteTool: BuiltInCodeModeTool {
 @BuiltInCodeMode(.fsMove, path: "apple.fs.move", aliases: ["fs.promises.rename"])
 struct FSMoveTool: BuiltInCodeModeTool {
     static let codeModeTitle = "Move file"
-    static let codeModeSummary = "Move file/directory within allowed sandbox roots."
+    static let codeModeSummary = "Move file/directory within allowed sandbox roots. Fails rather than clobbering an existing destination unless overwrite is set, and never accepts a sandbox root as the destination."
     static let codeModeTags = ["filesystem", "io", "fs"]
     static let codeModeExample = "await apple.fs.move({ from: 'tmp:a.txt', to: 'tmp:b.txt' })"
     static let codeModeResultSummary = "Object with from/to resolved paths."
@@ -83,8 +92,12 @@ struct FSMoveTool: BuiltInCodeModeTool {
     struct Arguments: Sendable {
         @ToolParam("Source sandbox path.")
         var from: String
-        @ToolParam("Destination sandbox path.")
+        @ToolParam("Destination sandbox path. Must name a path inside a root, not the root itself.")
         var to: String
+        @ToolParam("Required as true to replace an existing destination; default false.")
+        var overwrite: Bool?
+        @ToolParam("Required as true alongside overwrite when the existing destination is a directory.")
+        var recursive: Bool?
         var raw: [String: JSONValue]
     }
 
@@ -98,7 +111,7 @@ struct FSMoveTool: BuiltInCodeModeTool {
 @BuiltInCodeMode(.fsCopy, path: "apple.fs.copy", aliases: ["fs.promises.copyFile"])
 struct FSCopyTool: BuiltInCodeModeTool {
     static let codeModeTitle = "Copy file"
-    static let codeModeSummary = "Copy file/directory within allowed sandbox roots."
+    static let codeModeSummary = "Copy file/directory within allowed sandbox roots. Fails rather than clobbering an existing destination unless overwrite is set, and never accepts a sandbox root as the destination."
     static let codeModeTags = ["filesystem", "io", "fs"]
     static let codeModeExample = "await apple.fs.copy({ from: 'tmp:a.txt', to: 'tmp:b.txt' })"
     static let codeModeResultSummary = "Object with from/to resolved paths."
@@ -106,8 +119,12 @@ struct FSCopyTool: BuiltInCodeModeTool {
     struct Arguments: Sendable {
         @ToolParam("Source sandbox path.")
         var from: String
-        @ToolParam("Destination sandbox path.")
+        @ToolParam("Destination sandbox path. Must name a path inside a root, not the root itself.")
         var to: String
+        @ToolParam("Required as true to replace an existing destination; default false.")
+        var overwrite: Bool?
+        @ToolParam("Required as true alongside overwrite when the existing destination is a directory.")
+        var recursive: Bool?
         var raw: [String: JSONValue]
     }
 

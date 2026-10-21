@@ -201,3 +201,21 @@ import Testing
     #expect(issues.contains(where: { $0.key == "Apple Pay merchant configuration" && $0.severity == .warning }))
     #expect(issues.contains(where: { $0.key == "StoreKit configuration" && $0.severity == .warning }))
 }
+
+// MARK: - Configuration validation
+
+@Test func validatorWarnsWhenTheCapabilityGrantIsUnrestricted() {
+    // `.unrestricted` is the default for source compatibility, but it means the
+    // model-authored allowlist is the only one in force. A host should be told.
+    let issues = HostConfigurationValidator.validate(configuration: CodeModeConfiguration())
+    let issue = issues.first { $0.key == "capabilityGrant" }
+    #expect(issue?.severity == .warning)
+    #expect(issue?.message.contains(".unrestricted") == true)
+}
+
+@Test func validatorIsQuietWhenAGrantIsSet() {
+    for grant in [CapabilityGrant.only([.fsRead]), .none] {
+        let issues = HostConfigurationValidator.validate(configuration: CodeModeConfiguration(capabilityGrant: grant))
+        #expect(issues.isEmpty, "unexpected issues for grant \(grant): \(issues)")
+    }
+}

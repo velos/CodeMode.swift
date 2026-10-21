@@ -1,6 +1,26 @@
 import Foundation
 import Testing
 @testable import CodeMode
+import Security
+
+/// Whether this process can use the keychain at all. An unsigned SwiftPM test
+/// bundle on the iOS simulator has no keychain access group, so every keychain
+/// call fails with `errSecMissingEntitlement` (-34018). Tests whose subject *is*
+/// keychain storage skip there, with that reason; tests that only touch the
+/// keychain incidentally assert their real subject instead.
+let keychainIsAvailable: Bool = {
+    let query: [String: Any] = [
+        kSecClass as String: kSecClassGenericPassword,
+        kSecAttrService as String: "CodeModeTests.keychain-probe",
+        kSecAttrAccount as String: UUID().uuidString,
+        kSecValueData as String: Data("probe".utf8),
+    ]
+    let status = SecItemAdd(query as CFDictionary, nil)
+    if status == errSecSuccess {
+        SecItemDelete(query as CFDictionary)
+    }
+    return status != errSecMissingEntitlement
+}()
 
 struct TestSandbox {
     let root: URL
@@ -35,6 +55,8 @@ func cleanup(_ sandbox: TestSandbox) {
 
 func makeTools(
     permissionBroker: any PermissionBroker = NoopPermissionBroker(),
+    capabilityGrant: CapabilityGrant = .unrestricted,
+    executionLimits: ExecutionLimits = .standard,
     fileSystem: any CodeModeFileSystem = LocalCodeModeFileSystem(),
     systemUIPresenter: any SystemUIPresenter = UnavailableSystemUIPresenter(),
     eventInbox: any CodeModeEventInbox = UnavailableCodeModeEventInbox(),
@@ -49,7 +71,8 @@ func makeTools(
     passKitClient: any PassKitClient = UnavailablePassKitClient(),
     storeKitClient: any StoreKitClient = UnavailableStoreKitClient(),
     codeModeProviders: [any CodeModeProvider] = [],
-    hostPlatform: HostPlatform = .current
+    hostPlatform: HostPlatform = .current,
+    clock: any RuntimeClock = RealClock()
 ) throws -> (CodeModeAgentTools, TestSandbox) {
     let sandbox = try makeTestSandbox()
 
@@ -59,7 +82,9 @@ func makeTools(
 
     let configuration = CodeModeConfiguration(
         pathPolicy: pathPolicy,
+        capabilityGrant: capabilityGrant,
         fileSystem: fileSystem,
+        executionLimits: executionLimits,
         artifactStore: InMemoryArtifactStore(),
         permissionBroker: permissionBroker,
         auditLogger: SyncAuditLogger(),
@@ -79,7 +104,7 @@ func makeTools(
         hostPlatform: hostPlatform
     )
 
-    let tools = CodeModeAgentTools(config: configuration)
+    let tools = CodeModeAgentTools(config: configuration, clock: clock)
     return (tools, sandbox)
 }
 
