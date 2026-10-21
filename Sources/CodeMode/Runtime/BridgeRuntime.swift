@@ -493,13 +493,12 @@ final class BridgeRuntime: @unchecked Sendable {
         lastException: LockedBox<JavaScriptExceptionSnapshot?>
     ) throws -> JSONValue? {
         let executionCode = Self.returningBareAwaitCode(from: code) ?? code
+        context.setObject(executionCode, forKeyedSubscript: Self.sourceGlobal as NSString)
         let script = """
         globalThis.__codemode.state = 'pending';
         globalThis.__codemode.result = undefined;
         globalThis.__codemode.error = null;
-        (async function(){
-        \(indented(executionCode, prefix: "    "))
-        })()
+        \(Self.compileSource("Object.getPrototypeOf(async function(){}).constructor", body: "source"))()
         .then(function(value){
             globalThis.__codemode.state = 'fulfilled';
             globalThis.__codemode.result = value;
@@ -540,7 +539,7 @@ final class BridgeRuntime: @unchecked Sendable {
 
         let snapshot = lastException.get() ?? Self.snapshot(from: context.exception)
         if snapshot != nil || evaluation == nil {
-            throw syntaxError(from: snapshot, lineOffset: 4)
+            throw syntaxError(from: snapshot)
         }
 
         let settlement = try waitForSettlement(
@@ -803,13 +802,18 @@ final class BridgeRuntime: @unchecked Sendable {
         cancellationController: ExecutionCancellationController,
         lastException: LockedBox<JavaScriptExceptionSnapshot?>
     ) throws -> JSONValue? {
+        context.setObject(code, forKeyedSubscript: Self.sourceGlobal as NSString)
+        // The expression is parenthesized inside the compiled body, so the most
+        // it can escape is the parentheses — into a function body it could
+        // write anyway as an async arrow. The newline keeps a trailing `//`
+        // comment from swallowing the close.
         let script = """
         globalThis.__codemode.state = 'pending';
         globalThis.__codemode.result = undefined;
         globalThis.__codemode.error = null;
-        Promise.resolve()
-        .then(function(){
-            const __search = (\(code));
+        Promise.resolve(\(Self.compileSource("Function", body: "'return (' + source + '\\n);'")))
+        .then(function(makeSearch){ return makeSearch(); })
+        .then(function(__search){
             if (typeof __search !== 'function') {
                 const error = new Error('searchJavaScriptAPI code must evaluate to a function');
                 error.code = 'INVALID_REQUEST';
@@ -854,7 +858,7 @@ final class BridgeRuntime: @unchecked Sendable {
 
         let snapshot = lastException.get() ?? Self.snapshot(from: context.exception)
         if snapshot != nil || evaluation == nil {
-            throw syntaxError(from: snapshot, lineOffset: 5)
+            throw syntaxError(from: snapshot)
         }
 
         let settlement = try waitForSettlement(
@@ -1091,15 +1095,41 @@ final class BridgeRuntime: @unchecked Sendable {
         )
     }
 
-    private func syntaxError(from snapshot: JavaScriptExceptionSnapshot?, lineOffset: Int) -> CodeModeToolError {
+    /// The global a script's source is handed over in. Read and deleted by
+    /// `compileSource` before the script runs.
+    private static let sourceGlobal = "__codemodeSource"
+
+    /// A JS expression compiling the script source with `constructor`.
+    ///
+    /// The source is never spliced into the harness. It used to be pasted into
+    /// `(async function(){ … })()`, so `return 1; })(); throw …; (async function(){`
+    /// closed the wrapper and ran at top level — outside the harness's
+    /// `.catch`, and with full control of the exception the host then read. The
+    /// `Function` constructors parse their body on its own, so it cannot close
+    /// the function it is compiled into; a body that tries is a syntax error.
+    private static func compileSource(_ constructor: String, body: String) -> String {
+        """
+        (function(){
+            const source = globalThis.\(sourceGlobal);
+            delete globalThis.\(sourceGlobal);
+            return new (\(constructor))(\(body));
+        })()
+        """
+    }
+
+    /// A compile error from `compileSource`. JavaScriptCore numbers lines in the
+    /// generated `function anonymous(\n) {\n…` source, so the script's first line
+    /// is line 3. It reports the column of the constructor *call*, not of the
+    /// error, so no column is given rather than a wrong one.
+    private func syntaxError(from snapshot: JavaScriptExceptionSnapshot?) -> CodeModeToolError {
+        let generatedPreambleLines = 2
         let message = snapshot?.message ?? "JavaScript syntax error"
         // Non-overflowing even if a line ever arrives unvalidated.
-        let adjustedLine = snapshot?.line.map { $0 > lineOffset ? $0 - lineOffset : 1 }
+        let adjustedLine = snapshot?.line.map { $0 > generatedPreambleLines ? $0 - generatedPreambleLines : 1 }
         return CodeModeToolError(
             code: "JS_SYNTAX_ERROR",
             message: message,
-            line: adjustedLine,
-            column: snapshot?.column
+            line: adjustedLine
         )
     }
 
@@ -1375,12 +1405,12 @@ final class BridgeRuntime: @unchecked Sendable {
 
     /// A line or column from an exception object, or nil if it is not one.
     ///
-    /// The exception is not always JavaScriptCore's own: user code is spliced
-    /// into an `(async function(){ … })()` wrapper, so a script can close it
-    /// early and throw an arbitrary object at top level. `NSNumber.intValue`
-    /// saturates `-Infinity` to `Int.min`, and the line adjustment below then
-    /// overflowed — `throw { line: -Infinity }` crashed the host. Only a positive
-    /// whole number in a plausible range is accepted.
+    /// The exception is not necessarily JavaScriptCore's own — until scripts
+    /// were compiled on their own (see `compileSource`), one could throw an
+    /// arbitrary object straight to the host. `NSNumber.intValue` saturates
+    /// `-Infinity` to `Int.min`, and the line adjustment then overflowed:
+    /// `throw { line: -Infinity }` crashed the host. Only a positive whole
+    /// number in a plausible range is accepted.
     private static func numericProperty(in exception: JSValue, names: [String]) -> Int? {
         for name in names {
             guard let number = exception.forProperty(name)?.toNumber() else {
@@ -1393,13 +1423,6 @@ final class BridgeRuntime: @unchecked Sendable {
             return Int(value)
         }
         return nil
-    }
-
-    private func indented(_ code: String, prefix: String) -> String {
-        code
-            .split(separator: "\n", omittingEmptySubsequences: false)
-            .map { prefix + $0 }
-            .joined(separator: "\n")
     }
 
     private func normalizedOptionalString(_ value: String?) -> String? {

@@ -660,56 +660,72 @@ import Testing
         }
     }
 
-    // MARK: - Script-controlled exception objects
+    // MARK: - Compiling scripts apart from the harness
 
-    @Test func anInjectedTopLevelThrowCannotCrashTheHostThroughItsLineNumber() async throws {
-        // User code is spliced into `(async function(){ … })()`, so a script can
-        // close the wrapper early and throw an arbitrary object at top level. The
-        // host read its `line` through `NSNumber.intValue`, which saturates
-        // -Infinity to Int.min, and the line adjustment overflowed: a crash,
-        // reachable with no capabilities. Pre-existing on main.
-        let lines = ["-Infinity", "Infinity", "1e300", "-1e300", "NaN", "-5", "2.5", "'abc'", "null"]
-        for line in lines {
+    @Test func aScriptCannotCloseItsWrapperAndRunAtTopLevel() async throws {
+        // User code used to be spliced into `(async function(){ … })()`, so a
+        // script could close the wrapper and run at top level, outside the
+        // harness. Throwing `{ line: -Infinity }` from there crashed the host.
+        // Compiled on its own, each of these is just a syntax error.
+        let breakouts = [
+            "return 1; })(); throw { line: -Infinity, message: 'x' }; (async function(){",
+            "return 1; })(); console.log('escaped'); (async function(){",
+            "return 1 }; console.log('escaped'); async function g(){",
+        ]
+        for code in breakouts {
             let (tools, sandbox) = try makeTools()
             defer { cleanup(sandbox) }
-            let observed = try await execute(
-                tools,
-                request: JavaScriptExecutionRequest(
-                    code: "return 1; })(); throw { line: \(line), column: \(line), message: 'x' }; (async function(){",
-                    allowedCapabilities: []
-                )
-            )
-            let error = try #require(observed.error, "line \(line)")
-            if let reported = error.line {
-                #expect(reported >= 1, "line \(line)")
-            }
-            if let column = error.column {
-                #expect(column >= 1, "column \(line)")
-            }
+            let observed = try await execute(tools, request: JavaScriptExecutionRequest(code: code, allowedCapabilities: []))
+            #expect(observed.error?.code == "JS_SYNTAX_ERROR", "\(code)")
+            #expect(observed.result == nil, "\(code)")
         }
     }
 
-    @Test func searchSurvivesAnInjectedTopLevelThrow() async throws {
+    @Test func aSearchCannotCloseItsWrapperAndRunAtTopLevel() async throws {
         let (tools, sandbox) = try makeTools()
         defer { cleanup(sandbox) }
         do {
             _ = try await tools.searchJavaScriptAPI(
                 JavaScriptAPISearchRequest(code: "async () => 1)); throw { line: -Infinity }; ((async () => 1")
             )
+            Issue.record("Expected JS_SYNTAX_ERROR")
         } catch let error as CodeModeToolError {
-            if let line = error.line { #expect(line >= 1) }
+            #expect(error.code == "JS_SYNTAX_ERROR")
         }
     }
 
-    @Test func realSyntaxErrorsStillReportTheirLine() async throws {
+    @Test func aTrailingLineCommentDoesNotSwallowTheHarness() async throws {
         let (tools, sandbox) = try makeTools()
         defer { cleanup(sandbox) }
-        // The validation must not throw away JavaScriptCore's own line numbers.
-        let observed = try await execute(
-            tools,
-            request: JavaScriptExecutionRequest(code: "const a = 1;\nconst b = ;\nreturn a;", allowedCapabilities: [])
-        )
-        #expect(observed.error?.code == "JS_SYNTAX_ERROR")
-        #expect(observed.error?.line == 2)
+        let observed = try await execute(tools, request: JavaScriptExecutionRequest(code: "return 7 // done", allowedCapabilities: []))
+        #expect(observed.error == nil)
+        #expect(observed.result?.output == .number(7))
+
+        let found = try await tools.searchJavaScriptAPI(JavaScriptAPISearchRequest(code: "async () => 7 // done"))
+        #expect(found.result == .number(7))
+    }
+
+    @Test func syntaxErrorsReportTheScriptsOwnLine() async throws {
+        for (code, line) in [("const b = ;", 1), ("const a = 1;\nconst b = ;\nreturn a;", 2)] {
+            let (tools, sandbox) = try makeTools()
+            defer { cleanup(sandbox) }
+            let observed = try await execute(tools, request: JavaScriptExecutionRequest(code: code, allowedCapabilities: []))
+            #expect(observed.error?.code == "JS_SYNTAX_ERROR")
+            #expect(observed.error?.line == line, "\(code)")
+            // JavaScriptCore reports the column of the compile call, not the error.
+            #expect(observed.error?.column == nil)
+        }
+
+        let (tools, sandbox) = try makeTools()
+        defer { cleanup(sandbox) }
+        do {
+            _ = try await tools.searchJavaScriptAPI(
+                JavaScriptAPISearchRequest(code: "async () => {\n    const value = ;\n}")
+            )
+            Issue.record("Expected JS_SYNTAX_ERROR")
+        } catch let error as CodeModeToolError {
+            #expect(error.code == "JS_SYNTAX_ERROR")
+            #expect(error.line == 2)
+        }
     }
 }

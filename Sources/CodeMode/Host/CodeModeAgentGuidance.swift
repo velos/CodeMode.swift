@@ -105,8 +105,8 @@ public enum CodeModeAgentGuidance {
     a count, a summary, the three matching records — not the raw collection you \
     read. A large return value is truncated, and the data you did not need cost \
     you context on the way through.
-    4. Repair from the structured error. It names the capability, the line and \
-    column, and what to change; the suggestions tell you when a retry cannot help.
+    4. Repair from the structured error. It names the capability, the line, and \
+    what to change; the suggestions tell you when a retry cannot help.
     """
 
     private static let workedExample = """
