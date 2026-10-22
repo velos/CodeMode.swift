@@ -38,7 +38,7 @@
       "live-activities",
       "host-adapter"
     ],
-    "title" : "End Live Activity"
+    "title" : "end"
   },
   {
     "allowedStringValues" : {
@@ -74,7 +74,7 @@
       "live-activities",
       "host-adapter"
     ],
-    "title" : "List Live Activities"
+    "title" : "list"
   },
   {
     "allowedStringValues" : {
@@ -107,7 +107,7 @@
       "live-activities",
       "push-token"
     ],
-    "title" : "Read Live Activity push token"
+    "title" : "getPushToken"
   },
   {
     "allowedStringValues" : {
@@ -151,7 +151,7 @@
       "live-activities",
       "host-adapter"
     ],
-    "title" : "Start Live Activity"
+    "title" : "start"
   },
   {
     "allowedStringValues" : {
@@ -192,7 +192,7 @@
       "live-activities",
       "host-adapter"
     ],
-    "title" : "Update Live Activity"
+    "title" : "update"
   },
   {
     "allowedStringValues" : {
@@ -228,7 +228,7 @@
       "alarms",
       "schedule"
     ],
-    "title" : "Cancel scheduled alarms"
+    "title" : "cancel"
   },
   {
     "allowedStringValues" : {
@@ -261,7 +261,7 @@
       "permission",
       "alarms"
     ],
-    "title" : "Request AlarmKit permission"
+    "title" : "requestPermission"
   },
   {
     "allowedStringValues" : {
@@ -294,7 +294,7 @@
       "alarms",
       "schedule"
     ],
-    "title" : "List scheduled alarms"
+    "title" : "list"
   },
   {
     "allowedStringValues" : {
@@ -335,7 +335,7 @@
       "alarms",
       "schedule"
     ],
-    "title" : "Schedule AlarmKit alarm"
+    "title" : "schedule"
   },
   {
     "allowedStringValues" : {
@@ -371,7 +371,7 @@
       "donation",
       "host-adapter"
     ],
-    "title" : "Donate host App Intent action"
+    "title" : "donate"
   },
   {
     "allowedStringValues" : {
@@ -412,7 +412,7 @@
       "inbox",
       "events"
     ],
-    "title" : "Read App Intent handoff inbox"
+    "title" : "listHandoffs"
   },
   {
     "allowedStringValues" : {
@@ -449,7 +449,7 @@
       "actions",
       "host-adapter"
     ],
-    "title" : "List host App Intent adapters"
+    "title" : "list"
   },
   {
     "allowedStringValues" : {
@@ -485,7 +485,7 @@
       "open",
       "host-adapter"
     ],
-    "title" : "Open host App Intent surface"
+    "title" : "open"
   },
   {
     "allowedStringValues" : {
@@ -524,7 +524,7 @@
       "actions",
       "host-adapter"
     ],
-    "title" : "Run host App Intent adapter"
+    "title" : "run"
   },
   {
     "allowedStringValues" : {
@@ -567,7 +567,7 @@
       "browser",
       "system-ui"
     ],
-    "title" : "Authenticate with system web UI"
+    "title" : "webAuthenticate"
   },
   {
     "allowedStringValues" : {
@@ -610,7 +610,7 @@
       "schedule",
       "delete"
     ],
-    "title" : "Delete calendar event"
+    "title" : "deleteEvent"
   },
   {
     "allowedStringValues" : {
@@ -655,7 +655,7 @@
       "eventkit",
       "schedule"
     ],
-    "title" : "Read calendar events"
+    "title" : "listEvents"
   },
   {
     "allowedStringValues" : {
@@ -702,7 +702,7 @@
       "system-ui",
       "picker"
     ],
-    "title" : "Pick calendar with system UI"
+    "title" : "pickCalendar"
   },
   {
     "allowedStringValues" : {
@@ -744,7 +744,7 @@
       "system-ui",
       "details"
     ],
-    "title" : "Present calendar event details"
+    "title" : "presentEvent"
   },
   {
     "allowedStringValues" : {
@@ -793,7 +793,7 @@
       "system-ui",
       "picker"
     ],
-    "title" : "Present calendar event editor"
+    "title" : "presentNewEvent"
   },
   {
     "allowedStringValues" : {
@@ -857,7 +857,7 @@
       "eventkit",
       "schedule"
     ],
-    "title" : "Create or update calendar event"
+    "title" : "createEvent"
   },
   {
     "allowedStringValues" : {
@@ -935,7 +935,7 @@
       "system-ui",
       "artifact"
     ],
-    "title" : "Capture photo or video with camera UI"
+    "title" : "capture"
   },
   {
     "allowedStringValues" : {
@@ -1010,7 +1010,7 @@
       "visionkit",
       "system-ui"
     ],
-    "title" : "Scan text or barcodes with camera UI"
+    "title" : "scanData"
   },
   {
     "allowedStringValues" : {
@@ -1044,7 +1044,7 @@
       "sync",
       "account"
     ],
-    "title" : "Read CloudKit account status"
+    "title" : "getAccountStatus"
   },
   {
     "allowedStringValues" : {
@@ -1090,7 +1090,7 @@
       "database",
       "delete"
     ],
-    "title" : "Delete CloudKit record"
+    "title" : "deleteRecord"
   },
   {
     "allowedStringValues" : {
@@ -1145,7 +1145,7 @@
       "database",
       "write"
     ],
-    "title" : "Save CloudKit record"
+    "title" : "saveRecord"
   },
   {
     "allowedStringValues" : {
@@ -1203,7 +1203,7 @@
       "database",
       "query"
     ],
-    "title" : "Query CloudKit records"
+    "title" : "queryRecords"
   },
   {
     "allowedStringValues" : {
@@ -1264,7 +1264,7 @@
       "subscription",
       "inbox"
     ],
-    "title" : "Save CloudKit subscription"
+    "title" : "subscribe"
   },
   {
     "allowedStringValues" : {
@@ -1305,7 +1305,7 @@
       "inbox",
       "events"
     ],
-    "title" : "Read CloudKit subscription inbox"
+    "title" : "listEvents"
   },
   {
     "allowedStringValues" : {
@@ -1341,7 +1341,7 @@
       "address-book",
       "people"
     ],
-    "title" : "Read contacts"
+    "title" : "list"
   },
   {
     "allowedStringValues" : {
@@ -1376,7 +1376,7 @@
       "search",
       "people"
     ],
-    "title" : "Search contacts"
+    "title" : "search"
   },
   {
     "allowedStringValues" : {
@@ -1419,7 +1419,7 @@
       "system-ui",
       "picker"
     ],
-    "title" : "Pick contacts with system UI"
+    "title" : "pick"
   },
   {
     "allowedStringValues" : {
@@ -1464,7 +1464,7 @@
       "system-ui",
       "details"
     ],
-    "title" : "Present contact card"
+    "title" : "presentContact"
   },
   {
     "allowedStringValues" : {
@@ -1513,7 +1513,7 @@
       "system-ui",
       "create"
     ],
-    "title" : "Present new contact editor"
+    "title" : "presentNewContact"
   },
   {
     "allowedStringValues" : {
@@ -1558,7 +1558,7 @@
       "export",
       "save"
     ],
-    "title" : "Export documents with system UI"
+    "title" : "export"
   },
   {
     "allowedStringValues" : {
@@ -1601,7 +1601,7 @@
       "open-in",
       "handoff"
     ],
-    "title" : "Open document in another app"
+    "title" : "openIn"
   },
   {
     "allowedStringValues" : {
@@ -1645,7 +1645,7 @@
       "picker",
       "artifact"
     ],
-    "title" : "Pick documents with system UI"
+    "title" : "pick"
   },
   {
     "allowedStringValues" : {
@@ -1683,7 +1683,7 @@
       "system-ui",
       "artifact"
     ],
-    "title" : "Scan documents with system UI"
+    "title" : "scan"
   },
   {
     "allowedStringValues" : {
@@ -1728,7 +1728,7 @@
       "llm",
       "structured-output"
     ],
-    "title" : "Extract structured data with Foundation Models"
+    "title" : "extract"
   },
   {
     "allowedStringValues" : {
@@ -1776,7 +1776,7 @@
       "llm",
       "generation"
     ],
-    "title" : "Generate text with Foundation Models"
+    "title" : "generate"
   },
   {
     "allowedStringValues" : {
@@ -1810,7 +1810,7 @@
       "llm",
       "availability"
     ],
-    "title" : "Read Foundation Models availability"
+    "title" : "getStatus"
   },
   {
     "allowedStringValues" : {
@@ -1844,7 +1844,7 @@
       "io",
       "fs"
     ],
-    "title" : "Check path access"
+    "title" : "access"
   },
   {
     "allowedStringValues" : {
@@ -1886,7 +1886,7 @@
       "io",
       "fs"
     ],
-    "title" : "Copy file"
+    "title" : "copy"
   },
   {
     "allowedStringValues" : {
@@ -1922,7 +1922,7 @@
       "io",
       "fs"
     ],
-    "title" : "Delete file"
+    "title" : "delete"
   },
   {
     "allowedStringValues" : {
@@ -1955,7 +1955,7 @@
       "io",
       "fs"
     ],
-    "title" : "Check path exists"
+    "title" : "exists"
   },
   {
     "allowedStringValues" : {
@@ -1989,7 +1989,7 @@
       "io",
       "fs"
     ],
-    "title" : "List directory"
+    "title" : "list"
   },
   {
     "allowedStringValues" : {
@@ -2025,7 +2025,7 @@
       "io",
       "fs"
     ],
-    "title" : "Create directory"
+    "title" : "mkdir"
   },
   {
     "allowedStringValues" : {
@@ -2067,7 +2067,7 @@
       "io",
       "fs"
     ],
-    "title" : "Move file"
+    "title" : "move"
   },
   {
     "allowedStringValues" : {
@@ -2107,7 +2107,7 @@
       "io",
       "fs"
     ],
-    "title" : "Read file"
+    "title" : "read"
   },
   {
     "allowedStringValues" : {
@@ -2141,7 +2141,7 @@
       "io",
       "fs"
     ],
-    "title" : "Stat path"
+    "title" : "stat"
   },
   {
     "allowedStringValues" : {
@@ -2184,7 +2184,7 @@
       "io",
       "fs"
     ],
-    "title" : "Write file"
+    "title" : "write"
   },
   {
     "allowedStringValues" : {
@@ -2220,7 +2220,7 @@
       "health",
       "permission"
     ],
-    "title" : "Request HealthKit permission"
+    "title" : "requestPermission"
   },
   {
     "allowedStringValues" : {
@@ -2264,7 +2264,7 @@
       "health",
       "query"
     ],
-    "title" : "Read HealthKit samples"
+    "title" : "read"
   },
   {
     "allowedStringValues" : {
@@ -2308,7 +2308,7 @@
       "health",
       "write"
     ],
-    "title" : "Write HealthKit quantity sample"
+    "title" : "write"
   },
   {
     "allowedStringValues" : {
@@ -2344,7 +2344,7 @@
       "iot",
       "devices"
     ],
-    "title" : "Read HomeKit graph"
+    "title" : "list"
   },
   {
     "allowedStringValues" : {
@@ -2386,7 +2386,7 @@
       "devices",
       "control"
     ],
-    "title" : "Write HomeKit characteristic"
+    "title" : "writeCharacteristic"
   },
   {
     "allowedStringValues" : {
@@ -2419,7 +2419,7 @@
       "token",
       "keychain"
     ],
-    "title" : "Delete Keychain value"
+    "title" : "delete"
   },
   {
     "allowedStringValues" : {
@@ -2452,7 +2452,7 @@
       "token",
       "keychain"
     ],
-    "title" : "Read Keychain value"
+    "title" : "get"
   },
   {
     "allowedStringValues" : {
@@ -2487,7 +2487,7 @@
       "token",
       "keychain"
     ],
-    "title" : "Write Keychain value"
+    "title" : "set"
   },
   {
     "allowedStringValues" : {
@@ -2519,7 +2519,7 @@
       "location",
       "permission"
     ],
-    "title" : "Request location permission"
+    "title" : "requestPermission"
   },
   {
     "allowedStringValues" : {
@@ -2553,7 +2553,7 @@
       "permission",
       "geospatial"
     ],
-    "title" : "Read location state or coordinates"
+    "title" : "getCurrentPosition"
   },
   {
     "allowedStringValues" : {
@@ -2608,7 +2608,7 @@
       "system-ui",
       "share"
     ],
-    "title" : "Compose mail with system UI"
+    "title" : "compose"
   },
   {
     "allowedStringValues" : {
@@ -2647,7 +2647,7 @@
       "geocode",
       "location"
     ],
-    "title" : "Geocode address"
+    "title" : "geocode"
   },
   {
     "allowedStringValues" : {
@@ -2701,7 +2701,7 @@
       "open",
       "directions"
     ],
-    "title" : "Open Maps"
+    "title" : "open"
   },
   {
     "allowedStringValues" : {
@@ -2740,7 +2740,7 @@
       "reverse-geocode",
       "location"
     ],
-    "title" : "Reverse geocode coordinates"
+    "title" : "reverseGeocode"
   },
   {
     "allowedStringValues" : {
@@ -2790,7 +2790,7 @@
       "directions",
       "route"
     ],
-    "title" : "Estimate route"
+    "title" : "routeEstimate"
   },
   {
     "allowedStringValues" : {
@@ -2832,7 +2832,7 @@
       "local-search",
       "places"
     ],
-    "title" : "Search local map items"
+    "title" : "search"
   },
   {
     "allowedStringValues" : {
@@ -2870,7 +2870,7 @@
       "avfoundation",
       "thumbnail"
     ],
-    "title" : "Extract video frame"
+    "title" : "extractFrame"
   },
   {
     "allowedStringValues" : {
@@ -2903,7 +2903,7 @@
       "avfoundation",
       "metadata"
     ],
-    "title" : "Read media metadata"
+    "title" : "metadata"
   },
   {
     "allowedStringValues" : {
@@ -2941,7 +2941,7 @@
       "avfoundation",
       "transcode"
     ],
-    "title" : "Transcode media"
+    "title" : "transcode"
   },
   {
     "allowedStringValues" : {
@@ -2988,7 +2988,7 @@
       "system-ui",
       "share"
     ],
-    "title" : "Compose message with system UI"
+    "title" : "compose"
   },
   {
     "allowedStringValues" : {
@@ -3027,7 +3027,7 @@
       "catalog",
       "details"
     ],
-    "title" : "Read Music catalog details"
+    "title" : "getDetails"
   },
   {
     "allowedStringValues" : {
@@ -3069,7 +3069,7 @@
       "catalog",
       "search"
     ],
-    "title" : "Search Music catalog"
+    "title" : "search"
   },
   {
     "allowedStringValues" : {
@@ -3105,7 +3105,7 @@
       "musickit",
       "library"
     ],
-    "title" : "Read Music library"
+    "title" : "readLibrary"
   },
   {
     "allowedStringValues" : {
@@ -3138,7 +3138,7 @@
       "musickit",
       "permission"
     ],
-    "title" : "Request Music permission"
+    "title" : "requestPermission"
   },
   {
     "allowedStringValues" : {
@@ -3191,7 +3191,7 @@
       "playback",
       "queue"
     ],
-    "title" : "Control Music playback"
+    "title" : "play"
   },
   {
     "allowedStringValues" : {
@@ -3237,7 +3237,7 @@
       "playlist",
       "write"
     ],
-    "title" : "Write Music playlist"
+    "title" : "writePlaylist"
   },
   {
     "allowedStringValues" : {
@@ -3271,7 +3271,7 @@
       "subscription",
       "catalog"
     ],
-    "title" : "Read Music subscription status"
+    "title" : "getSubscriptionStatus"
   },
   {
     "allowedStringValues" : {
@@ -3358,7 +3358,7 @@
       "categories",
       "actions"
     ],
-    "title" : "Set notification categories"
+    "title" : "setCategories"
   },
   {
     "allowedStringValues" : {
@@ -3395,7 +3395,7 @@
       "delivered",
       "delete"
     ],
-    "title" : "Delete delivered local notifications"
+    "title" : "removeDelivered"
   },
   {
     "allowedStringValues" : {
@@ -3428,7 +3428,7 @@
       "local",
       "delivered"
     ],
-    "title" : "List delivered local notifications"
+    "title" : "listDelivered"
   },
   {
     "allowedStringValues" : {
@@ -3464,7 +3464,7 @@
       "local",
       "schedule"
     ],
-    "title" : "Delete pending local notifications"
+    "title" : "cancelPending"
   },
   {
     "allowedStringValues" : {
@@ -3497,7 +3497,7 @@
       "local",
       "schedule"
     ],
-    "title" : "List pending local notifications"
+    "title" : "listPending"
   },
   {
     "allowedStringValues" : {
@@ -3529,7 +3529,7 @@
       "notifications",
       "permission"
     ],
-    "title" : "Request notification permission"
+    "title" : "requestPermission"
   },
   {
     "allowedStringValues" : {
@@ -3563,7 +3563,7 @@
       "remote",
       "registration"
     ],
-    "title" : "Register for remote notifications"
+    "title" : "registerRemote"
   },
   {
     "allowedStringValues" : {
@@ -3597,7 +3597,7 @@
       "remote",
       "token"
     ],
-    "title" : "Read APNs device token"
+    "title" : "getRemoteToken"
   },
   {
     "allowedStringValues" : {
@@ -3641,7 +3641,7 @@
       "inbox",
       "events"
     ],
-    "title" : "Read notification response inbox"
+    "title" : "listResponses"
   },
   {
     "allowedStringValues" : {
@@ -3706,7 +3706,7 @@
       "local",
       "schedule"
     ],
-    "title" : "Schedule local notification"
+    "title" : "schedule"
   },
   {
     "allowedStringValues" : {
@@ -3740,7 +3740,7 @@
       "settings",
       "permission"
     ],
-    "title" : "Read notification settings"
+    "title" : "getSettings"
   },
   {
     "allowedStringValues" : {
@@ -3780,7 +3780,7 @@
       "system-ui",
       "safety"
     ],
-    "title" : "Present Apple Pay request"
+    "title" : "presentPayment"
   },
   {
     "allowedStringValues" : {
@@ -3814,7 +3814,7 @@
       "payments",
       "safety"
     ],
-    "title" : "Read Apple Pay status"
+    "title" : "canMakePayments"
   },
   {
     "allowedStringValues" : {
@@ -3851,7 +3851,7 @@
       "add",
       "system-ui"
     ],
-    "title" : "Add Wallet pass"
+    "title" : "addPass"
   },
   {
     "allowedStringValues" : {
@@ -3887,7 +3887,7 @@
       "passes",
       "system-ui"
     ],
-    "title" : "Present Wallet pass"
+    "title" : "presentPass"
   },
   {
     "allowedStringValues" : {
@@ -3927,7 +3927,7 @@
       "passes",
       "read"
     ],
-    "title" : "List Wallet passes"
+    "title" : "listPasses"
   },
   {
     "allowedStringValues" : {
@@ -3960,7 +3960,7 @@
       "wallet",
       "passes"
     ],
-    "title" : "Read Wallet status"
+    "title" : "getStatus"
   },
   {
     "allowedStringValues" : {
@@ -3995,7 +3995,7 @@
       "photo-library",
       "artifact"
     ],
-    "title" : "Export photo library asset"
+    "title" : "export"
   },
   {
     "allowedStringValues" : {
@@ -4036,7 +4036,7 @@
       "photo-library",
       "media"
     ],
-    "title" : "List photo library assets"
+    "title" : "list"
   },
   {
     "allowedStringValues" : {
@@ -4085,7 +4085,7 @@
       "picker",
       "artifact"
     ],
-    "title" : "Pick photos with system UI"
+    "title" : "pick"
   },
   {
     "allowedStringValues" : {
@@ -4120,7 +4120,7 @@
       "permission",
       "picker"
     ],
-    "title" : "Present limited Photos picker"
+    "title" : "presentLimitedLibraryPicker"
   },
   {
     "allowedStringValues" : {
@@ -4173,7 +4173,7 @@
       "system-ui",
       "export"
     ],
-    "title" : "Present print UI"
+    "title" : "present"
   },
   {
     "allowedStringValues" : {
@@ -4213,7 +4213,7 @@
       "documents",
       "system-ui"
     ],
-    "title" : "Preview files with Quick Look"
+    "title" : "preview"
   },
   {
     "allowedStringValues" : {
@@ -4247,7 +4247,7 @@
       "task",
       "delete"
     ],
-    "title" : "Delete reminder"
+    "title" : "deleteReminder"
   },
   {
     "allowedStringValues" : {
@@ -4295,7 +4295,7 @@
       "eventkit",
       "task"
     ],
-    "title" : "Read reminders"
+    "title" : "listReminders"
   },
   {
     "allowedStringValues" : {
@@ -4355,7 +4355,7 @@
       "eventkit",
       "task"
     ],
-    "title" : "Create or update reminder"
+    "title" : "createReminder"
   },
   {
     "allowedStringValues" : {
@@ -4388,7 +4388,7 @@
       "permissions",
       "system-ui"
     ],
-    "title" : "Open app settings"
+    "title" : "open"
   },
   {
     "allowedStringValues" : {
@@ -4439,7 +4439,7 @@
       "export",
       "system-ui"
     ],
-    "title" : "Present share sheet"
+    "title" : "present"
   },
   {
     "allowedStringValues" : {
@@ -4483,7 +4483,7 @@
       "transcription",
       "audio"
     ],
-    "title" : "Transcribe audio file"
+    "title" : "transcribeFile"
   },
   {
     "allowedStringValues" : {
@@ -4530,7 +4530,7 @@
       "audio",
       "microphone"
     ],
-    "title" : "Transcribe microphone audio"
+    "title" : "transcribeMicrophone"
   },
   {
     "allowedStringValues" : {
@@ -4563,7 +4563,7 @@
       "permission",
       "transcription"
     ],
-    "title" : "Request speech recognition permission"
+    "title" : "requestPermission"
   },
   {
     "allowedStringValues" : {
@@ -4596,7 +4596,7 @@
       "permission",
       "transcription"
     ],
-    "title" : "Read speech recognition permission status"
+    "title" : "getStatus"
   },
   {
     "allowedStringValues" : {
@@ -4629,7 +4629,7 @@
       "commerce",
       "entitlements"
     ],
-    "title" : "Read StoreKit entitlements"
+    "title" : "listEntitlements"
   },
   {
     "allowedStringValues" : {
@@ -4662,7 +4662,7 @@
       "commerce",
       "products"
     ],
-    "title" : "Read StoreKit products"
+    "title" : "listProducts"
   },
   {
     "allowedStringValues" : {
@@ -4701,7 +4701,7 @@
       "purchase",
       "safety"
     ],
-    "title" : "Purchase StoreKit product"
+    "title" : "purchase"
   },
   {
     "allowedStringValues" : {
@@ -4735,7 +4735,7 @@
       "restore",
       "safety"
     ],
-    "title" : "Restore StoreKit purchases"
+    "title" : "restore"
   },
   {
     "allowedStringValues" : {
@@ -4776,7 +4776,7 @@
       "inbox",
       "events"
     ],
-    "title" : "Read StoreKit transaction inbox"
+    "title" : "listTransactions"
   },
   {
     "allowedStringValues" : {
@@ -4828,7 +4828,7 @@
       "dialog",
       "system-ui"
     ],
-    "title" : "Present alert with custom buttons"
+    "title" : "presentAlert"
   },
   {
     "allowedStringValues" : {
@@ -4874,7 +4874,7 @@
       "input",
       "system-ui"
     ],
-    "title" : "Present prompt with text fields"
+    "title" : "presentPrompt"
   },
   {
     "allowedStringValues" : {
@@ -4912,7 +4912,7 @@
       "image-analysis",
       "ml"
     ],
-    "title" : "Analyze image with Vision"
+    "title" : "analyzeImage"
   },
   {
     "allowedStringValues" : {
@@ -4948,7 +4948,7 @@
       "forecast",
       "weatherkit"
     ],
-    "title" : "Read WeatherKit weather"
+    "title" : "getCurrentWeather"
   },
   {
     "allowedStringValues" : {
@@ -4987,6 +4987,6 @@
       "browser",
       "system-ui"
     ],
-    "title" : "Present web page with system UI"
+    "title" : "present"
   }
 ]

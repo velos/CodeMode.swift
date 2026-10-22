@@ -11,7 +11,6 @@ enum CloudKitDatabase: String, CodeModeStringEnum {
 
 @BuiltInCodeMode(.cloudKitAccountStatus, path: "apple.cloudkit.getAccountStatus")
 struct CloudKitAccountStatusTool: BuiltInCodeModeTool {
-    static let codeModeTitle = "Read CloudKit account status"
     static let codeModeSummary = "Read iCloud account availability for CloudKit-backed agent state."
     static let codeModeTags = ["cloudkit", "icloud", "sync", "account"]
     static let codeModeExample = "await apple.cloudkit.getAccountStatus({ containerIdentifier: 'iCloud.com.example.app' })"
@@ -32,7 +31,6 @@ struct CloudKitAccountStatusTool: BuiltInCodeModeTool {
 
 @BuiltInCodeMode(.cloudKitRecordsQuery, path: "apple.cloudkit.queryRecords")
 struct CloudKitRecordsQueryTool: BuiltInCodeModeTool {
-    static let codeModeTitle = "Query CloudKit records"
     static let codeModeSummary = "Query records from a private/shared/public CloudKit database for synced agent state."
     static let codeModeTags = ["cloudkit", "icloud", "database", "query"]
     static let codeModeExample = "await apple.cloudkit.queryRecords({ database: 'private', recordType: 'Task', limit: 20 })"
@@ -67,7 +65,6 @@ struct CloudKitRecordsQueryTool: BuiltInCodeModeTool {
 
 @BuiltInCodeMode(.cloudKitRecordSave, path: "apple.cloudkit.saveRecord")
 struct CloudKitRecordSaveTool: BuiltInCodeModeTool {
-    static let codeModeTitle = "Save CloudKit record"
     static let codeModeSummary = "Create or update a CloudKit record in a private/shared/public database."
     static let codeModeTags = ["cloudkit", "icloud", "database", "write"]
     static let codeModeExample = "await apple.cloudkit.saveRecord({ database: 'private', recordType: 'Task', recordName: 'task-1', fields: { title: 'Review' } })"
@@ -100,7 +97,6 @@ struct CloudKitRecordSaveTool: BuiltInCodeModeTool {
 
 @BuiltInCodeMode(.cloudKitRecordDelete, path: "apple.cloudkit.deleteRecord")
 struct CloudKitRecordDeleteTool: BuiltInCodeModeTool {
-    static let codeModeTitle = "Delete CloudKit record"
     static let codeModeSummary = "Delete a CloudKit record by recordName from a configured database."
     static let codeModeTags = ["cloudkit", "icloud", "database", "delete"]
     static let codeModeExample = "await apple.cloudkit.deleteRecord({ database: 'private', recordName: 'task-1' })"
@@ -127,7 +123,6 @@ struct CloudKitRecordDeleteTool: BuiltInCodeModeTool {
 
 @BuiltInCodeMode(.cloudKitSubscriptionSave, path: "apple.cloudkit.subscribe")
 struct CloudKitSubscriptionSaveTool: BuiltInCodeModeTool {
-    static let codeModeTitle = "Save CloudKit subscription"
     static let codeModeSummary = "Register a bounded CloudKit query subscription so the host can enqueue subscription events later."
     static let codeModeTags = ["cloudkit", "icloud", "subscription", "inbox"]
     static let codeModeExample = "await apple.cloudkit.subscribe({ subscriptionID: 'tasks', database: 'private', recordType: 'Task' })"
@@ -164,7 +159,6 @@ struct CloudKitSubscriptionSaveTool: BuiltInCodeModeTool {
 
 @BuiltInCodeMode(.cloudKitSubscriptionEventsRead, path: "apple.cloudkit.listEvents")
 struct CloudKitSubscriptionEventsReadTool: BuiltInCodeModeTool {
-    static let codeModeTitle = "Read CloudKit subscription inbox"
     static let codeModeSummary = "Read bounded CloudKit subscription events previously received by the host."
     static let codeModeTags = ["cloudkit", "icloud", "subscription", "inbox", "events"]
     static let codeModeExample = "await apple.cloudkit.listEvents({ subscriptionID: 'tasks', limit: 20 })"
@@ -191,7 +185,6 @@ struct CloudKitSubscriptionEventsReadTool: BuiltInCodeModeTool {
 
 @BuiltInCodeMode(.notificationsRemoteRegister, path: "apple.notifications.registerRemote")
 struct NotificationsRemoteRegisterTool: BuiltInCodeModeTool {
-    static let codeModeTitle = "Register for remote notifications"
     static let codeModeSummary = "Ask the host app to register with APNs and record the client device-token lifecycle."
     static let codeModeTags = ["notifications", "apns", "remote", "registration"]
     static let codeModeExample = "await apple.notifications.registerRemote()"
@@ -212,7 +205,6 @@ struct NotificationsRemoteRegisterTool: BuiltInCodeModeTool {
 
 @BuiltInCodeMode(.notificationsRemoteTokenRead, path: "apple.notifications.getRemoteToken")
 struct NotificationsRemoteTokenReadTool: BuiltInCodeModeTool {
-    static let codeModeTitle = "Read APNs device token"
     static let codeModeSummary = "Read the latest APNs device token captured by the host app."
     static let codeModeTags = ["notifications", "apns", "remote", "token"]
     static let codeModeExample = "await apple.notifications.getRemoteToken()"
@@ -231,7 +223,6 @@ struct NotificationsRemoteTokenReadTool: BuiltInCodeModeTool {
 
 @BuiltInCodeMode(.notificationsSettingsRead, path: "apple.notifications.getSettings")
 struct NotificationsSettingsReadTool: BuiltInCodeModeTool {
-    static let codeModeTitle = "Read notification settings"
     static let codeModeSummary = "Read UserNotifications/APNs client settings exposed by the host."
     static let codeModeTags = ["notifications", "apns", "settings", "permission"]
     static let codeModeExample = "await apple.notifications.getSettings()"
@@ -250,7 +241,6 @@ struct NotificationsSettingsReadTool: BuiltInCodeModeTool {
 
 @BuiltInCodeMode(.notificationsCategoriesSet, path: "apple.notifications.setCategories")
 struct NotificationsCategoriesSetTool: BuiltInCodeModeTool {
-    static let codeModeTitle = "Set notification categories"
     static let codeModeSummary = "Register host-approved notification categories and actions for push/local response handling."
     static let codeModeTags = ["notifications", "apns", "categories", "actions"]
     static let codeModeExample = "await apple.notifications.setCategories({ categories: [{ identifier: 'task', actions: [{ identifier: 'done', title: 'Done' }] }] })"
@@ -271,7 +261,6 @@ struct NotificationsCategoriesSetTool: BuiltInCodeModeTool {
 
 @BuiltInCodeMode(.notificationsResponsesRead, path: "apple.notifications.listResponses")
 struct NotificationsResponsesReadTool: BuiltInCodeModeTool {
-    static let codeModeTitle = "Read notification response inbox"
     static let codeModeSummary = "Read bounded notification action/open responses captured by the host for later agent handling."
     static let codeModeTags = ["notifications", "apns", "response", "inbox", "events"]
     static let codeModeExample = "await apple.notifications.listResponses({ limit: 20 })"
@@ -300,7 +289,6 @@ struct NotificationsResponsesReadTool: BuiltInCodeModeTool {
 
 @BuiltInCodeMode(.speechPermissionRequest, path: "apple.speech.requestPermission")
 struct SpeechPermissionRequestTool: BuiltInCodeModeTool {
-    static let codeModeTitle = "Request speech recognition permission"
     static let codeModeSummary = "Trigger the Speech recognition permission prompt."
     static let codeModeTags = ["speech", "permission", "transcription"]
     static let codeModeExample = "await apple.speech.requestPermission()"
@@ -317,7 +305,6 @@ struct SpeechPermissionRequestTool: BuiltInCodeModeTool {
 
 @BuiltInCodeMode(.speechStatus, path: "apple.speech.getStatus")
 struct SpeechStatusTool: BuiltInCodeModeTool {
-    static let codeModeTitle = "Read speech recognition permission status"
     static let codeModeSummary = "Read Speech recognition permission status without starting capture."
     static let codeModeTags = ["speech", "permission", "transcription"]
     static let codeModeExample = "await apple.speech.getStatus()"
@@ -334,7 +321,6 @@ struct SpeechStatusTool: BuiltInCodeModeTool {
 
 @BuiltInCodeMode(.speechFileTranscribe, path: "apple.speech.transcribeFile")
 struct SpeechFileTranscribeTool: BuiltInCodeModeTool {
-    static let codeModeTitle = "Transcribe audio file"
     static let codeModeSummary = "Transcribe a sandbox audio file through the host Speech adapter."
     static let codeModeTags = ["speech", "transcription", "audio"]
     static let codeModeExample = "await apple.speech.transcribeFile({ path: 'tmp:meeting.m4a', locale: 'en-US', timeoutMs: 60000 })"
@@ -364,7 +350,6 @@ struct SpeechFileTranscribeTool: BuiltInCodeModeTool {
 
 @BuiltInCodeMode(.speechMicrophoneTranscribe, path: "apple.speech.transcribeMicrophone")
 struct SpeechMicrophoneTranscribeTool: BuiltInCodeModeTool {
-    static let codeModeTitle = "Transcribe microphone audio"
     static let codeModeSummary = "Run live microphone transcription through a host-mediated session with an explicit timeout."
     static let codeModeTags = ["speech", "transcription", "audio", "microphone"]
     static let codeModeExample = "await apple.speech.transcribeMicrophone({ locale: 'en-US', timeoutMs: 15000 })"

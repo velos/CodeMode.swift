@@ -18,7 +18,6 @@ enum MapsTransportType: String, CodeModeStringEnum {
 
 @BuiltInCodeMode(.appIntentsList, path: "apple.appIntents.list")
 struct AppIntentsListTool: BuiltInCodeModeTool {
-    static let codeModeTitle = "List host App Intent adapters"
     static let codeModeSummary = "List host-registered App Intents or Shortcuts actions exposed to CodeMode."
     static let codeModeTags = ["appintents", "shortcuts", "actions", "host-adapter"]
     static let codeModeExample = "await apple.appIntents.list()"
@@ -41,7 +40,6 @@ struct AppIntentsListTool: BuiltInCodeModeTool {
 
 @BuiltInCodeMode(.appIntentsRun, path: "apple.appIntents.run")
 struct AppIntentsRunTool: BuiltInCodeModeTool {
-    static let codeModeTitle = "Run host App Intent adapter"
     static let codeModeSummary = "Run a host-registered App Intent adapter with structured parameters."
     static let codeModeTags = ["appintents", "shortcuts", "actions", "host-adapter"]
     static let codeModeExample = "await apple.appIntents.run({ identifier: 'createNote', parameters: { title: 'Draft' } })"
@@ -66,7 +64,6 @@ struct AppIntentsRunTool: BuiltInCodeModeTool {
 
 @BuiltInCodeMode(.appIntentsDonate, path: "apple.appIntents.donate")
 struct AppIntentsDonateTool: BuiltInCodeModeTool {
-    static let codeModeTitle = "Donate host App Intent action"
     static let codeModeSummary = "Ask the host to donate a supported action to Shortcuts/Siri suggestions where feasible."
     static let codeModeTags = ["appintents", "shortcuts", "donation", "host-adapter"]
     static let codeModeExample = "await apple.appIntents.donate({ identifier: 'createNote', parameters: { title: 'Draft' } })"
@@ -89,7 +86,6 @@ struct AppIntentsDonateTool: BuiltInCodeModeTool {
 
 @BuiltInCodeMode(.appIntentsOpen, path: "apple.appIntents.open")
 struct AppIntentsOpenTool: BuiltInCodeModeTool {
-    static let codeModeTitle = "Open host App Intent surface"
     static let codeModeSummary = "Open a host-provided App Intent, Shortcuts, or app surface for user-mediated continuation."
     static let codeModeTags = ["appintents", "shortcuts", "open", "host-adapter"]
     static let codeModeExample = "await apple.appIntents.open({ identifier: 'showTask', parameters: { id: 'task-1' } })"
@@ -112,7 +108,6 @@ struct AppIntentsOpenTool: BuiltInCodeModeTool {
 
 @BuiltInCodeMode(.appIntentsHandoffsRead, path: "apple.appIntents.listHandoffs")
 struct AppIntentsHandoffsReadTool: BuiltInCodeModeTool {
-    static let codeModeTitle = "Read App Intent handoff inbox"
     static let codeModeSummary = "Read bounded App Intent handoff events captured by the host app."
     static let codeModeTags = ["appintents", "shortcuts", "handoff", "inbox", "events"]
     static let codeModeExample = "await apple.appIntents.listHandoffs({ limit: 20 })"
@@ -139,7 +134,6 @@ struct AppIntentsHandoffsReadTool: BuiltInCodeModeTool {
 
 @BuiltInCodeMode(.foundationModelsStatus, path: "apple.foundationModels.getStatus")
 struct FoundationModelsStatusTool: BuiltInCodeModeTool {
-    static let codeModeTitle = "Read Foundation Models availability"
     static let codeModeSummary = "Read host Foundation Models availability/status before attempting local generation."
     static let codeModeTags = ["foundationmodels", "apple-intelligence", "llm", "availability"]
     static let codeModeExample = "await apple.foundationModels.getStatus()"
@@ -158,7 +152,6 @@ struct FoundationModelsStatusTool: BuiltInCodeModeTool {
 
 @BuiltInCodeMode(.foundationModelsGenerate, path: "apple.foundationModels.generate")
 struct FoundationModelsGenerateTool: BuiltInCodeModeTool {
-    static let codeModeTitle = "Generate text with Foundation Models"
     static let codeModeSummary = "Generate text locally through the host Foundation Models adapter when available."
     static let codeModeTags = ["foundationmodels", "apple-intelligence", "llm", "generation"]
     static let codeModeExample = "await apple.foundationModels.generate({ prompt: 'Summarize this note', maxTokens: 200 })"
@@ -191,7 +184,6 @@ struct FoundationModelsGenerateTool: BuiltInCodeModeTool {
 
 @BuiltInCodeMode(.foundationModelsExtract, path: "apple.foundationModels.extract")
 struct FoundationModelsExtractTool: BuiltInCodeModeTool {
-    static let codeModeTitle = "Extract structured data with Foundation Models"
     static let codeModeSummary = "Run host-defined structured extraction or classification with Foundation Models."
     static let codeModeTags = ["foundationmodels", "apple-intelligence", "llm", "structured-output"]
     static let codeModeExample = "await apple.foundationModels.extract({ input: text, schemaIdentifier: 'todo' })"
@@ -222,7 +214,6 @@ struct FoundationModelsExtractTool: BuiltInCodeModeTool {
 
 @BuiltInCodeMode(.activityList, path: "apple.activity.list")
 struct ActivityListTool: BuiltInCodeModeTool {
-    static let codeModeTitle = "List Live Activities"
     static let codeModeSummary = "List host-registered ActivityKit Live Activities visible to CodeMode."
     static let codeModeTags = ["activitykit", "live-activities", "host-adapter"]
     static let codeModeExample = "await apple.activity.list()"
@@ -245,7 +236,6 @@ struct ActivityListTool: BuiltInCodeModeTool {
 
 @BuiltInCodeMode(.activityStart, path: "apple.activity.start")
 struct ActivityStartTool: BuiltInCodeModeTool {
-    static let codeModeTitle = "Start Live Activity"
     static let codeModeSummary = "Start a host-registered ActivityKit Live Activity adapter."
     static let codeModeTags = ["activitykit", "live-activities", "host-adapter"]
     static let codeModeExample = "await apple.activity.start({ activityType: 'delivery', attributes: {}, contentState: {} })"
@@ -274,7 +264,6 @@ struct ActivityStartTool: BuiltInCodeModeTool {
 
 @BuiltInCodeMode(.activityUpdate, path: "apple.activity.update")
 struct ActivityUpdateTool: BuiltInCodeModeTool {
-    static let codeModeTitle = "Update Live Activity"
     static let codeModeSummary = "Update an existing host-registered Live Activity content state."
     static let codeModeTags = ["activitykit", "live-activities", "host-adapter"]
     static let codeModeExample = "await apple.activity.update({ identifier: 'activity-1', contentState: { progress: 0.7 } })"
@@ -301,7 +290,6 @@ struct ActivityUpdateTool: BuiltInCodeModeTool {
 
 @BuiltInCodeMode(.activityEnd, path: "apple.activity.end")
 struct ActivityEndTool: BuiltInCodeModeTool {
-    static let codeModeTitle = "End Live Activity"
     static let codeModeSummary = "End a host-registered Live Activity, optionally with final content state."
     static let codeModeTags = ["activitykit", "live-activities", "host-adapter"]
     static let codeModeExample = "await apple.activity.end({ identifier: 'activity-1', dismissalPolicy: 'immediate' })"
@@ -326,7 +314,6 @@ struct ActivityEndTool: BuiltInCodeModeTool {
 
 @BuiltInCodeMode(.activityPushTokenRead, path: "apple.activity.getPushToken")
 struct ActivityPushTokenReadTool: BuiltInCodeModeTool {
-    static let codeModeTitle = "Read Live Activity push token"
     static let codeModeSummary = "Read a Live Activity push token when the host adapter supports push updates."
     static let codeModeTags = ["activitykit", "live-activities", "push-token"]
     static let codeModeExample = "await apple.activity.getPushToken({ identifier: 'activity-1' })"
@@ -349,7 +336,6 @@ struct ActivityPushTokenReadTool: BuiltInCodeModeTool {
 
 @BuiltInCodeMode(.mapsGeocode, path: "apple.maps.geocode")
 struct MapsGeocodeTool: BuiltInCodeModeTool {
-    static let codeModeTitle = "Geocode address"
     static let codeModeSummary = "Resolve an address or place text to coordinate candidates through MapKit."
     static let codeModeTags = ["maps", "mapkit", "geocode", "location"]
     static let codeModeExample = "await apple.maps.geocode({ address: '1 Infinite Loop, Cupertino', limit: 3 })"
@@ -374,7 +360,6 @@ struct MapsGeocodeTool: BuiltInCodeModeTool {
 
 @BuiltInCodeMode(.mapsReverseGeocode, path: "apple.maps.reverseGeocode")
 struct MapsReverseGeocodeTool: BuiltInCodeModeTool {
-    static let codeModeTitle = "Reverse geocode coordinates"
     static let codeModeSummary = "Resolve latitude/longitude into address candidates through MapKit."
     static let codeModeTags = ["maps", "mapkit", "reverse-geocode", "location"]
     static let codeModeExample = "await apple.maps.reverseGeocode({ latitude: 37.3318, longitude: -122.0312 })"
@@ -399,7 +384,6 @@ struct MapsReverseGeocodeTool: BuiltInCodeModeTool {
 
 @BuiltInCodeMode(.mapsSearch, path: "apple.maps.search")
 struct MapsSearchTool: BuiltInCodeModeTool {
-    static let codeModeTitle = "Search local map items"
     static let codeModeSummary = "Search for local businesses, addresses, or points of interest through MapKit."
     static let codeModeTags = ["maps", "mapkit", "local-search", "places"]
     static let codeModeExample = "await apple.maps.search({ query: 'coffee near me', limit: 5 })"
@@ -426,7 +410,6 @@ struct MapsSearchTool: BuiltInCodeModeTool {
 
 @BuiltInCodeMode(.mapsRouteEstimate, path: "apple.maps.routeEstimate")
 struct MapsRouteEstimateTool: BuiltInCodeModeTool {
-    static let codeModeTitle = "Estimate route"
     static let codeModeSummary = "Estimate route distance and travel time between two coordinates or map items."
     static let codeModeTags = ["maps", "mapkit", "directions", "route"]
     static let codeModeExample = "await apple.maps.routeEstimate({ origin: { latitude: 37.33, longitude: -122.03 }, destination: { latitude: 37.77, longitude: -122.42 }, transportType: 'automobile' })"
@@ -455,7 +438,6 @@ struct MapsRouteEstimateTool: BuiltInCodeModeTool {
 
 @BuiltInCodeMode(.mapsOpen, path: "apple.maps.open")
 struct MapsOpenTool: BuiltInCodeModeTool {
-    static let codeModeTitle = "Open Maps"
     static let codeModeSummary = "Open Apple Maps with coordinates, a query, URL, or directions in a user-mediated handoff."
     static let codeModeTags = ["maps", "mapkit", "open", "directions"]
     static let codeModeExample = "await apple.maps.open({ query: 'Apple Park' })"

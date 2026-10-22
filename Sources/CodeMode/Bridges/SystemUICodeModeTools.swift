@@ -66,7 +66,6 @@ enum AlertPreferredStyle: String, CodeModeStringEnum {
 
 @BuiltInCodeMode(.shareUIPresent, path: "apple.share.present")
 struct ShareUIPresentTool: BuiltInCodeModeTool {
-    static let codeModeTitle = "Present share sheet"
     static let codeModeSummary = "Present system share sheet for text, URLs, and sandbox file artifacts."
     static let codeModeTags = ["share", "export", "system-ui"]
     static let codeModeExample = "await apple.share.present({ text: 'Report ready', paths: ['tmp:report.pdf'] })"
@@ -99,7 +98,6 @@ struct ShareUIPresentTool: BuiltInCodeModeTool {
 
 @BuiltInCodeMode(.quickLookUIPreview, path: "apple.quicklook.preview")
 struct QuickLookUIPreviewTool: BuiltInCodeModeTool {
-    static let codeModeTitle = "Preview files with Quick Look"
     static let codeModeSummary = "Present Quick Look preview UI for one or more sandbox file artifacts."
     static let codeModeTags = ["quicklook", "preview", "documents", "system-ui"]
     static let codeModeExample = "await apple.quicklook.preview({ path: 'tmp:report.pdf' })"
@@ -126,7 +124,6 @@ struct QuickLookUIPreviewTool: BuiltInCodeModeTool {
 
 @BuiltInCodeMode(.cameraUICapture, path: "apple.camera.capture")
 struct CameraUICaptureTool: BuiltInCodeModeTool {
-    static let codeModeTitle = "Capture photo or video with camera UI"
     static let codeModeSummary = "Present system camera UI and export captured media into the sandbox artifact store."
     static let codeModeTags = ["camera", "capture", "photos", "system-ui", "artifact"]
     static let codeModeExample = "await apple.camera.capture({ mediaType: 'image', outputDirectory: 'tmp:camera' })"
@@ -161,7 +158,6 @@ struct CameraUICaptureTool: BuiltInCodeModeTool {
 
 @BuiltInCodeMode(.cameraUIScanData, path: "apple.camera.scanData")
 struct CameraUIScanDataTool: BuiltInCodeModeTool {
-    static let codeModeTitle = "Scan text or barcodes with camera UI"
     static let codeModeSummary = "Present VisionKit live data scanner UI and return recognized text or barcode payloads."
     static let codeModeTags = ["camera", "scan", "barcode", "text", "visionkit", "system-ui"]
     static let codeModeExample = "await apple.camera.scanData({ mode: 'barcode', returnsOnFirstResult: true })"
@@ -204,7 +200,6 @@ struct CameraUIScanDataTool: BuiltInCodeModeTool {
 
 @BuiltInCodeMode(.mailUICompose, path: "apple.mail.compose")
 struct MailUIComposeTool: BuiltInCodeModeTool {
-    static let codeModeTitle = "Compose mail with system UI"
     static let codeModeSummary = "Present system mail compose UI with optional recipients, body, and sandbox file attachments."
     static let codeModeTags = ["mail", "compose", "system-ui", "share"]
     static let codeModeExample = "await apple.mail.compose({ to: ['alex@example.com'], subject: 'Report', body: 'Attached.', attachments: [{ path: 'tmp:report.pdf' }] })"
@@ -239,7 +234,6 @@ struct MailUIComposeTool: BuiltInCodeModeTool {
 
 @BuiltInCodeMode(.messagesUICompose, path: "apple.messages.compose")
 struct MessagesUIComposeTool: BuiltInCodeModeTool {
-    static let codeModeTitle = "Compose message with system UI"
     static let codeModeSummary = "Present system Messages compose UI with optional recipients, body, and sandbox file attachments."
     static let codeModeTags = ["messages", "sms", "compose", "system-ui", "share"]
     static let codeModeExample = "await apple.messages.compose({ recipients: ['4085551212'], body: 'Report ready' })"
@@ -268,7 +262,6 @@ struct MessagesUIComposeTool: BuiltInCodeModeTool {
 
 @BuiltInCodeMode(.printUIPresent, path: "apple.print.present")
 struct PrintUIPresentTool: BuiltInCodeModeTool {
-    static let codeModeTitle = "Present print UI"
     static let codeModeSummary = "Present the system print sheet for one or more sandbox files."
     static let codeModeTags = ["print", "documents", "system-ui", "export"]
     static let codeModeExample = "await apple.print.present({ path: 'tmp:report.pdf', jobName: 'Report' })"
@@ -301,7 +294,6 @@ struct PrintUIPresentTool: BuiltInCodeModeTool {
 
 @BuiltInCodeMode(.webUIPresent, path: "apple.web.present")
 struct WebUIPresentTool: BuiltInCodeModeTool {
-    static let codeModeTitle = "Present web page with system UI"
     static let codeModeSummary = "Present an HTTP(S) URL with the system Safari view controller."
     static let codeModeTags = ["web", "safari", "browser", "system-ui"]
     static let codeModeExample = "await apple.web.present({ url: 'https://example.com' })"
@@ -326,7 +318,6 @@ struct WebUIPresentTool: BuiltInCodeModeTool {
 
 @BuiltInCodeMode(.authUIWebAuthenticate, path: "apple.auth.webAuthenticate")
 struct AuthUIWebAuthenticateTool: BuiltInCodeModeTool {
-    static let codeModeTitle = "Authenticate with system web UI"
     static let codeModeSummary = "Start an ASWebAuthenticationSession for OAuth-style browser authentication. Runs in a private browser session by default and the URL must satisfy the host's network access policy."
     static let codeModeTags = ["auth", "oauth", "web", "browser", "system-ui"]
     static let codeModeExample = "await apple.auth.webAuthenticate({ url: 'https://example.com/oauth', callbackURLScheme: 'myapp' })"
@@ -355,7 +346,6 @@ struct AuthUIWebAuthenticateTool: BuiltInCodeModeTool {
 
 @BuiltInCodeMode(.uiAlertPresent, path: "apple.ui.presentAlert")
 struct UIAlertPresentTool: BuiltInCodeModeTool {
-    static let codeModeTitle = "Present alert with custom buttons"
     static let codeModeSummary = "Present a system alert or action sheet and return the button the user selects."
     static let codeModeTags = ["ui", "alert", "dialog", "system-ui"]
     static let codeModeExample = "await apple.ui.presentAlert({ title: 'Delete draft?', message: 'This cannot be undone.', buttons: [{ id: 'cancel', title: 'Cancel', style: 'cancel' }, { id: 'delete', title: 'Delete', style: 'destructive' }] })"
@@ -386,7 +376,6 @@ struct UIAlertPresentTool: BuiltInCodeModeTool {
 
 @BuiltInCodeMode(.uiPromptPresent, path: "apple.ui.presentPrompt")
 struct UIPromptPresentTool: BuiltInCodeModeTool {
-    static let codeModeTitle = "Present prompt with text fields"
     static let codeModeSummary = "Present a system alert with one or more text fields and custom buttons."
     static let codeModeTags = ["ui", "alert", "prompt", "input", "system-ui"]
     static let codeModeExample = "await apple.ui.presentPrompt({ title: 'Name', fields: [{ id: 'name', placeholder: 'Name' }], buttons: [{ id: 'cancel', title: 'Cancel', style: 'cancel' }, { id: 'ok', title: 'OK' }] })"
@@ -415,7 +404,6 @@ struct UIPromptPresentTool: BuiltInCodeModeTool {
 
 @BuiltInCodeMode(.settingsUIOpen, path: "apple.settings.open")
 struct SettingsUIOpenTool: BuiltInCodeModeTool {
-    static let codeModeTitle = "Open app settings"
     static let codeModeSummary = "Open the host app's Settings page so the user can recover denied permissions."
     static let codeModeTags = ["settings", "permissions", "system-ui"]
     static let codeModeExample = "await apple.settings.open()"

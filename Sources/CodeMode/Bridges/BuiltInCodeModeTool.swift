@@ -62,9 +62,8 @@ protocol BuiltInCodeModeTool: Sendable {
     static var codeModeCapability: CapabilityID { get }
     static var codeModePath: String { get }
     /// Additional JavaScript names routed to this tool (same handler and
-    /// metadata), e.g. `apple.calendar.updateEvent` alongside `createEvent`.
+    /// metadata).
     static var codeModeAliasPaths: [String] { get }
-    static var codeModeTitle: String { get }
     static var codeModeSummary: String { get }
     static var codeModeTags: [String] { get }
     static var codeModeExample: String { get }
@@ -99,7 +98,7 @@ extension CapabilityRegistration {
             jsNames: [Tool.codeModePath] + Tool.codeModeAliasPaths,
             descriptor: CapabilityDescriptor(
                 id: Tool.codeModeCapability,
-                title: Tool.codeModeTitle,
+                title: Tool.codeModePath.split(separator: ".").last.map(String.init) ?? Tool.codeModePath,
                 summary: Tool.codeModeSummary,
                 tags: Tool.codeModeTags,
                 example: Tool.codeModeExample,

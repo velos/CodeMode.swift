@@ -36,7 +36,6 @@ private struct KeychainReadTool: BuiltInCodeModeTool {
 
     static let codeModeCapability: CapabilityID = .keychainRead
     static let codeModePath = "apple.keychain.get"
-    static let codeModeTitle = "Read Keychain value"
     static let codeModeSummary = "Read a string value from app-scoped Keychain storage."
     static let codeModeTags = ["security", "token", "keychain"]
     static let codeModeExample = "await apple.keychain.get({ key: 'auth_token' })"
@@ -64,7 +63,6 @@ private struct KeychainWriteTool: BuiltInCodeModeTool {
 
     static let codeModeCapability: CapabilityID = .keychainWrite
     static let codeModePath = "apple.keychain.set"
-    static let codeModeTitle = "Write Keychain value"
     static let codeModeSummary = "Store or update a string value in app-scoped Keychain storage."
     static let codeModeTags = ["security", "token", "keychain"]
     static let codeModeExample = "await apple.keychain.set({ key: 'auth_token', value: token })"
@@ -99,7 +97,6 @@ private struct KeychainDeleteTool: BuiltInCodeModeTool {
 
     static let codeModeCapability: CapabilityID = .keychainDelete
     static let codeModePath = "apple.keychain.delete"
-    static let codeModeTitle = "Delete Keychain value"
     static let codeModeSummary = "Delete an app-scoped Keychain value."
     static let codeModeTags = ["security", "token", "keychain"]
     static let codeModeExample = "await apple.keychain.delete({ key: 'auth_token' })"
@@ -127,7 +124,6 @@ private struct LocationReadTool: BuiltInCodeModeTool {
     static let codeModeCapability: CapabilityID = .locationRead
     static let codeModePath = "apple.location.getCurrentPosition"
     static let codeModeAliasPaths = ["apple.location.getPermissionStatus"]
-    static let codeModeTitle = "Read location state or coordinates"
     static let codeModeSummary = "Read location permission status or current coordinates."
     static let codeModeTags = ["location", "permission", "geospatial"]
     static let codeModeExample = "await apple.location.getCurrentPosition()"
@@ -160,7 +156,6 @@ private struct LocationPermissionRequestTool: BuiltInCodeModeTool {
 
     static let codeModeCapability: CapabilityID = .locationPermissionRequest
     static let codeModePath = "apple.location.requestPermission"
-    static let codeModeTitle = "Request location permission"
     static let codeModeSummary = "Trigger location when-in-use permission request flow."
     static let codeModeTags = ["location", "permission"]
     static let codeModeExample = "await apple.location.requestPermission()"
@@ -186,7 +181,6 @@ private struct WeatherReadTool: BuiltInCodeModeTool {
 
     static let codeModeCapability: CapabilityID = .weatherRead
     static let codeModePath = "apple.weather.getCurrentWeather"
-    static let codeModeTitle = "Read WeatherKit weather"
     static let codeModeSummary = "Fetch current weather for a latitude/longitude pair."
     static let codeModeTags = ["weather", "forecast", "weatherkit"]
     static let codeModeExample = "await apple.weather.getCurrentWeather({ latitude: 37.77, longitude: -122.41 })"

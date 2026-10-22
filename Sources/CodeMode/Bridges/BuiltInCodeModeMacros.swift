@@ -2,7 +2,7 @@ import Foundation
 
 /// Generates the mechanical members of a `BuiltInCodeModeTool` — the identity
 /// statics, `codeModeArguments`, and `decode(arguments:)` — from the nested
-/// `Arguments` struct. Curated metadata (title, summary, tags, example,
+/// `Arguments` struct. Curated metadata (summary, tags, example,
 /// permissions, result summary) and `call(arguments:context:)` stay
 /// hand-written.
 ///
