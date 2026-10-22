@@ -19,15 +19,14 @@ import Testing
     }
 
     do {
-        _ = try registry.invoke("calendar.write", arguments: [:], context: context)
+        _ = try registry.invoke("calendar.write", arguments: ["title": .string("T"), "start": .string("2026-02-22T16:00:00Z"), "end": .string("2026-02-22T17:00:00Z")], context: context)
         Issue.record("Expected permission denial for calendar.write")
     } catch {
         #expect(requireBridgeErrorCode(error) == "PERMISSION_DENIED")
     }
 
     do {
-        _ = try registry.invoke("calendar.write", arguments: [
-            "operation": .string("update"),
+        _ = try registry.invoke("calendar.write", jsName: "apple.calendar.updateEvent", arguments: [
             "identifier": .string("event-1"),
             "title": .string("Updated"),
         ], context: context)
@@ -58,7 +57,7 @@ import Testing
     }
 
     do {
-        _ = try registry.invoke("reminders.write", arguments: [:], context: context)
+        _ = try registry.invoke("reminders.write", arguments: ["title": .string("T")], context: context)
         Issue.record("Expected permission denial for reminders.write")
     } catch {
         #expect(requireBridgeErrorCode(error) == "PERMISSION_DENIED")
@@ -104,7 +103,7 @@ func executeCalendarWriteUsesWriteOnlyPermissionPath(initialStatus: PermissionSt
         tools,
         request: JavaScriptExecutionRequest(
             code: """
-            await apple.calendar.createEvent({});
+            await apple.calendar.createEvent({ title: '', start: '2026-02-22T16:00:00Z', end: '2026-02-22T17:00:00Z' });
             return { ok: true };
             """,
             allowedCapabilities: [.calendarWrite]
@@ -113,7 +112,7 @@ func executeCalendarWriteUsesWriteOnlyPermissionPath(initialStatus: PermissionSt
 
     #if canImport(EventKit)
     #expect(observed.error?.code == "INVALID_ARGUMENTS")
-    #expect(observed.error?.message == "calendar.write create requires title/start/end ISO8601")
+    #expect(observed.error?.message == "calendar.write title cannot be empty")
     #else
     #expect(observed.error?.code == "UNSUPPORTED_PLATFORM")
     #endif
@@ -160,7 +159,7 @@ import EventKit
     // every neighbouring field was nil-coalesced.
     #expect(event.calendar == nil)
 
-    let json = try #require(EventKitBridge.eventJSONForTesting(event).objectValue)
+    let json = try #require(EventKitBridge.eventJSON(event).objectValue)
     #expect(json.string("title") == "Orphaned")
     #expect(json.string("calendarIdentifier") == "")
     #expect(json.string("calendarTitle") == "")
@@ -172,7 +171,7 @@ import EventKit
     let reminder = EKReminder(eventStore: store)
 
     // `EKReminder.title` is `String!`.
-    let json = try #require(EventKitBridge.reminderJSONForTesting(reminder).objectValue)
+    let json = try #require(EventKitBridge.reminderJSON(reminder).objectValue)
     #expect(json.string("title") == "")
     #expect(json.string("calendarIdentifier") == "")
     #expect(json.bool("isCompleted") == false)
@@ -180,21 +179,20 @@ import EventKit
 #endif
 
 @Test func eventKitOmittedArgumentsUseDeclaredDefaults() throws {
-    let bridge = EventKitBridge()
-    let events = try CalendarListEventsTool(eventKit: bridge).decode(arguments: [:])
+    let events = try CalendarListEventsTool().decode(arguments: [:])
     #expect(events.limit == 50)
     #expect(events.start == nil)
     #expect(events.end == nil)
-    let reminders = try RemindersListTool(eventKit: bridge).decode(arguments: [:])
+    let reminders = try RemindersListTool().decode(arguments: [:])
     #expect(reminders.limit == 50)
     #expect(reminders.includeCompleted == false)
-    let deletion = try CalendarDeleteEventTool(eventKit: bridge).decode(arguments: ["identifier": .string("E1")])
+    let deletion = try CalendarDeleteEventTool().decode(arguments: ["identifier": .string("E1")])
     #expect(deletion.span == .thisEvent)
 
-    let overrides = try RemindersListTool(eventKit: bridge).decode(arguments: ["limit": .number(3), "includeCompleted": .bool(true)])
+    let overrides = try RemindersListTool().decode(arguments: ["limit": .number(3), "includeCompleted": .bool(true)])
     #expect(overrides.limit == 3)
     #expect(overrides.includeCompleted)
-    let blank = try CalendarListEventsTool(eventKit: bridge).decode(arguments: ["start": .string("  "), "end": .string("")])
+    let blank = try CalendarListEventsTool().decode(arguments: ["start": .string("  "), "end": .string("")])
     #expect(blank.start == nil)
     #expect(blank.end == nil)
 }
@@ -219,36 +217,27 @@ func eventKitReadDateErrorsRetainScriptMessages(capability: String, argument: St
 }
 
 @Test(arguments: [
-    (nil, nil, PermissionKind.calendarWriteOnly),
-    (nil, "E1", .calendar),
-    (nil, "", .calendar),
-    ("create", "E1", .calendarWriteOnly),
-    ("update", nil, .calendar),
-    ("UPDATE", "E1", .calendar),
+    ("apple.calendar.createEvent", PermissionKind.calendarWriteOnly),
+    ("apple.calendar.updateEvent", .calendar),
 ])
-func eventKitWriteSelectsPermissionFromOperation(operation: String?, identifier: String?, expected: PermissionKind) throws {
-    let registry = CapabilityRegistry(registrations: DefaultCapabilityLoader.loadAllRegistrations())
-    let (context, sandbox) = try makeInvocationContext(permissionBroker: FixedPermissionBroker(statuses: [
+func eventKitWritesRequireTheirOwnStaticPermissions(helper: String, expected: PermissionKind) async throws {
+    let (tools, sandbox) = try makeTools(permissionBroker: FixedPermissionBroker(statuses: [
         .calendar: .denied, .calendarWriteOnly: .denied,
     ]))
     defer { cleanup(sandbox) }
-    var arguments: [String: JSONValue] = [:]
-    arguments["operation"] = operation.map(JSONValue.string)
-    arguments["identifier"] = identifier.map(JSONValue.string)
-    do {
-        _ = try registry.invoke("calendar.write", arguments: arguments, context: context)
-        Issue.record("Expected operation-specific permission denial")
-    } catch let error as BridgeError {
-        #expect(error.diagnosticCode == "PERMISSION_DENIED")
-        #expect(error.localizedDescription == "Permission denied: \(expected.rawValue)")
-        #expect(context.allPermissionEvents().map(\.permission) == [expected])
-    }
+    let args = helper.hasSuffix("createEvent")
+        ? "{ title: 'T', start: '2026-02-22T16:00:00Z', end: '2026-02-22T17:00:00Z' }"
+        : "{ identifier: 'E1', notes: null }"
+    let observed = try await execute(tools, request: JavaScriptExecutionRequest(
+        code: "await \(helper)(\(args));", allowedCapabilities: [.calendarWrite]
+    ))
+    #expect(observed.error?.code == "PERMISSION_DENIED")
+    #expect(observed.error?.message == "Permission denied: \(expected.rawValue)")
 }
 
 #if canImport(EventKit)
 @Test func eventUpdatePatchDistinguishesNullFromOmission() throws {
-    let bridge = EventKitBridge()
-    let tool = CalendarWriteEventTool(eventKit: bridge)
+    let tool = CalendarUpdateEventTool()
     let store = EKEventStore()
     let event = EKEvent(eventStore: store)
     event.title = "Keep title"
@@ -264,7 +253,7 @@ func eventKitWriteSelectsPermissionFromOperation(operation: String?, identifier:
     let originalEnd = event.endDate
 
     let omitted = try tool.decode(arguments: ["identifier": .string("E1")])
-    try bridge.applyEventPatch(arguments: omitted, to: event, in: store)
+    try omitted.apply(to: event, in: store)
     #expect(event.notes == "Keep notes")
     #expect(event.location == "Keep location")
     #expect(event.url?.absoluteString == "https://example.com")
@@ -276,17 +265,30 @@ func eventKitWriteSelectsPermissionFromOperation(operation: String?, identifier:
         "identifier": .string("E1"), "notes": .null, "location": .null,
         "url": .null, "isAllDay": .null,
     ])
-    try bridge.applyEventPatch(arguments: cleared, to: event, in: store)
+    try cleared.apply(to: event, in: store)
     #expect(event.notes == nil)
     #expect(event.location == nil)
     #expect(event.url == nil)
     #expect(event.isAllDay == false)
     #expect(event.title == "Keep title")
+
+    let updated = try tool.decode(arguments: [
+        "identifier": .string("E1"), "title": .string("New title"),
+        "start": .string("2026-02-22T16:00:00Z"), "end": .string("2026-02-22T17:00:00Z"),
+        "notes": .string("New notes"), "location": .string("New location"),
+        "url": .string("https://example.org"),
+    ])
+    try updated.apply(to: event, in: store)
+    #expect(event.title == "New title")
+    #expect(event.startDate == CodeModeDate.parse("2026-02-22T16:00:00Z"))
+    #expect(event.endDate == CodeModeDate.parse("2026-02-22T17:00:00Z"))
+    #expect(event.notes == "New notes")
+    #expect(event.location == "New location")
+    #expect(event.url?.absoluteString == "https://example.org")
 }
 
 @Test func reminderUpdatePatchDistinguishesNullFromOmission() throws {
-    let bridge = EventKitBridge()
-    let tool = RemindersWriteTool(eventKit: bridge)
+    let tool = RemindersUpdateTool()
     let store = EKEventStore()
     let reminder = EKReminder(eventStore: store)
     reminder.title = "Keep title"
@@ -298,7 +300,7 @@ func eventKitWriteSelectsPermissionFromOperation(operation: String?, identifier:
     reminder.completionDate = date
 
     let omitted = try tool.decode(arguments: ["identifier": .string("R1")])
-    try bridge.applyReminderPatch(arguments: omitted, to: reminder, in: store)
+    try omitted.apply(to: reminder, in: store)
     #expect(reminder.notes == "Keep notes")
     #expect(reminder.dueDateComponents != nil)
     #expect(reminder.isCompleted)
@@ -309,32 +311,116 @@ func eventKitWriteSelectsPermissionFromOperation(operation: String?, identifier:
         "identifier": .string("R1"), "notes": .null, "dueDate": .null,
         "isCompleted": .null, "priority": .null,
     ])
-    try bridge.applyReminderPatch(arguments: cleared, to: reminder, in: store)
+    try cleared.apply(to: reminder, in: store)
     #expect(reminder.notes == nil)
     #expect(reminder.dueDateComponents == nil)
     #expect(reminder.isCompleted == false)
     #expect(reminder.completionDate == nil)
-    #expect(reminder.priority == 7)
+    #expect(reminder.priority == 0)
     #expect(reminder.title == "Keep title")
+
+    let updated = try tool.decode(arguments: [
+        "identifier": .string("R1"), "title": .string("New title"), "notes": .string("New notes"),
+        "dueDate": .string("2026-02-22T16:00:00Z"), "isCompleted": .bool(true), "priority": .number(9),
+    ])
+    try updated.apply(to: reminder, in: store)
+    #expect(reminder.title == "New title")
+    #expect(reminder.notes == "New notes")
+    #expect(reminder.dueDateComponents?.date == CodeModeDate.parse("2026-02-22T16:00:00Z"))
+    #expect(reminder.isCompleted)
+    #expect(reminder.completionDate != nil)
+    #expect(reminder.priority == 9)
 }
 
 @Test(arguments: ["start", "end", "dueDate"])
-func eventKitWriteDateErrorsRetainTheirOperationSpecificMessages(argument: String) throws {
-    let bridge = EventKitBridge()
+func eventKitWriteDateErrorsUseStandardRepairableMessages(argument: String) throws {
     let store = EKEventStore()
     do {
         if argument == "dueDate" {
-            let decoded = try RemindersWriteTool(eventKit: bridge).decode(arguments: [argument: .string("soon")])
-            try bridge.applyReminderPatch(arguments: decoded, to: EKReminder(eventStore: store), in: store)
+            let decoded = try RemindersUpdateTool().decode(arguments: ["identifier": .string("ID"), argument: .string("soon")])
+            try decoded.apply(to: EKReminder(eventStore: store), in: store)
         } else {
-            let decoded = try CalendarWriteEventTool(eventKit: bridge).decode(arguments: [argument: .string("soon")])
-            try bridge.applyEventPatch(arguments: decoded, to: EKEvent(eventStore: store), in: store)
+            let decoded = try CalendarUpdateEventTool().decode(arguments: ["identifier": .string("ID"), argument: .string("soon")])
+            try decoded.apply(to: EKEvent(eventStore: store), in: store)
         }
         Issue.record("Expected an invalid patch date")
     } catch let error as BridgeError {
         let capability = argument == "dueDate" ? "reminders.write" : "calendar.write"
         #expect(error.diagnosticCode == "INVALID_ARGUMENTS")
-        #expect(error.localizedDescription == "\(capability) \(argument) must be ISO8601 when provided")
+        #expect(error.localizedDescription == "\(capability) could not parse '\(argument)' as an ISO 8601 timestamp: \"soon\". Use a form like 2026-07-24T10:00:00Z.")
+    }
+}
+#endif
+
+@Test(arguments: ["apple.calendar.updateEvent", "apple.reminders.updateReminder", "apple.reminders.completeReminder"])
+func writeHelpersRequireIdentifiersBeforePermissions(helper: String) async throws {
+    let (tools, sandbox) = try makeTools(permissionBroker: FixedPermissionBroker(statuses: [
+        .calendar: .denied, .calendarWriteOnly: .denied, .reminders: .denied,
+    ]))
+    defer { cleanup(sandbox) }
+    let observed = try await execute(tools, request: JavaScriptExecutionRequest(
+        code: "await \(helper)({ title: 'T', start: '2026-02-22T16:00:00Z', end: '2026-02-22T17:00:00Z' });",
+        allowedCapabilities: [.calendarWrite, .remindersWrite]
+    ))
+    #expect(observed.error?.code == "INVALID_ARGUMENTS")
+    #expect(observed.error?.message.contains("missing required arguments: identifier") == true)
+}
+
+@Test func completeReminderDefaultsToCompletedAndAllowsReopening() throws {
+    let tool = RemindersCompleteTool()
+    #expect(try tool.decode(arguments: ["identifier": .string("R1")]).isCompleted)
+    #expect(try tool.decode(arguments: ["identifier": .string("R1"), "isCompleted": .bool(false)]).isCompleted == false)
+}
+
+@Test(arguments: [
+    ("apple.calendar.updateEvent", "title"),
+    ("apple.calendar.updateEvent", "start"),
+    ("apple.calendar.updateEvent", "end"),
+    ("apple.calendar.updateEvent", "calendarIdentifier"),
+    ("apple.reminders.updateReminder", "title"),
+])
+func updateFieldsThatCannotBeClearedRejectNullInJavaScript(helper: String, field: String) async throws {
+    let (tools, sandbox) = try makeTools(permissionBroker: FixedPermissionBroker(statuses: [
+        .calendar: .denied, .reminders: .denied,
+    ]))
+    defer { cleanup(sandbox) }
+    let observed = try await execute(tools, request: JavaScriptExecutionRequest(
+        code: "await \(helper)({ identifier: 'ID', \(field): null });",
+        allowedCapabilities: [.calendarWrite, .remindersWrite]
+    ))
+    let capability = helper.contains("calendar") ? "calendar.write" : "reminders.write"
+    #expect(observed.error?.code == "INVALID_ARGUMENTS")
+    #expect(observed.error?.message == "\(capability) expected '\(field)' as string, received null")
+    #expect(observed.error?.permissionEvents.isEmpty == true)
+    let reference = try #require(tools.capabilities().first { $0.jsNames.contains(helper) })
+    #expect(!reference.nullableArguments.contains(field))
+    #expect(reference.dts.contains("\(field)?: string;"))
+    #expect(!reference.dts.contains("\(field)?: string | null;"))
+}
+
+#if canImport(EventKit)
+@Test(arguments: ["calendar", "reminders"])
+func updateHelpersRequireAChangeAndCountPlainOptionalFields(family: String) async throws {
+    let (tools, sandbox) = try makeTools(permissionBroker: FixedPermissionBroker(statuses: [
+        .calendar: .granted, .reminders: .granted,
+    ]))
+    defer { cleanup(sandbox) }
+    let isCalendar = family == "calendar"
+    let helper = isCalendar ? "apple.calendar.updateEvent" : "apple.reminders.updateReminder"
+    let identifier = isCalendar ? "E1" : "R1"
+    let item = isCalendar ? "event" : "reminder"
+    for title in ["", ", title: 'T'"] {
+        let observed = try await execute(tools, request: JavaScriptExecutionRequest(
+            code: "await \(helper)({ identifier: '\(identifier)'\(title) });",
+            allowedCapabilities: [.calendarWrite, .remindersWrite]
+        ))
+        #expect(observed.error?.code == "INVALID_ARGUMENTS")
+        // These identifiers cannot resolve to native items. A title-only update
+        // must pass change detection and reach lookup, without saving anything.
+        let expected = title.isEmpty
+            ? "\(family).write update requires at least one patch field"
+            : "\(family).write could not find \(item) identifier \(identifier)"
+        #expect(observed.error?.message == expected)
     }
 }
 #endif

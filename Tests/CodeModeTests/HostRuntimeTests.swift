@@ -179,18 +179,26 @@ import Testing
         JavaScriptAPISearchRequest(
             code: """
             async () => {
-                return api.byCapability["calendar.write"];
+                return {
+                    create: api.byCapability["calendar.write"],
+                    update: api.byJSName["apple.calendar.updateEvent"],
+                    writes: api.references.filter(ref => ref.capability === "calendar.write")
+                };
             }
             """
         )
     )
 
     let result = try #require(response.result?.objectValue)
-    #expect(result.string("capability") == CapabilityID.calendarWrite.rawValue)
-    #expect(result.array("optionalArguments")?.contains(.string("title")) == true)
-    #expect(result.array("optionalArguments")?.contains(.string("start")) == true)
-    #expect(result.array("optionalArguments")?.contains(.string("end")) == true)
-    #expect(result.array("jsNames")?.contains(.string("apple.calendar.updateEvent")) == true)
+    let create = try #require(result["create"]?.objectValue)
+    let update = try #require(result["update"]?.objectValue)
+    #expect(create.string("capability") == CapabilityID.calendarWrite.rawValue)
+    #expect(create.array("requiredArguments") == [.string("title"), .string("start"), .string("end")])
+    #expect(create.array("jsNames") == [.string("apple.calendar.createEvent")])
+    #expect(update.array("requiredArguments") == [.string("identifier")])
+    #expect(update.array("jsNames") == [.string("apple.calendar.updateEvent")])
+    #expect(update.array("nullableArguments")?.contains(.string("notes")) == true)
+    #expect(result.array("writes")?.count == 2)
 }
 
 @Test func searchReturnsProjectedResults() async throws {
@@ -754,4 +762,26 @@ import Testing
     let observed = await observe(call)
     #expect(observed.result == nil)
     #expect(observed.error?.code == "CANCELLED")
+}
+
+@Test(arguments: [false, true])
+func updateEventFailuresSuggestTheCalledHelper(rethrowWithoutSuggestions: Bool) async throws {
+    let (tools, sandbox) = try makeTools()
+    defer { cleanup(sandbox) }
+    let code = rethrowWithoutSuggestions ? """
+        try { await apple.calendar.updateEvent({ title: 'T' }); }
+        catch (error) {
+            throw { code: error.code, message: error.message, capability: error.capability,
+                    functionName: 'apple.calendar.updateEvent' };
+        }
+        """ : "await apple.calendar.updateEvent({ title: 'T' });"
+    let observed = try await execute(tools, request: JavaScriptExecutionRequest(
+        code: code, allowedCapabilities: [.calendarWrite]
+    ))
+    let error = try #require(observed.error)
+    #expect(error.code == "INVALID_ARGUMENTS")
+    #expect(error.message == "calendar.write missing required arguments: identifier")
+    #expect(error.suggestions.contains("Required arguments: identifier:string"))
+    #expect(error.suggestions.contains("Example: await apple.calendar.updateEvent({ identifier: 'EVENT_ID', notes: null })"))
+    #expect(!error.suggestions.contains { $0.contains("createEvent") || $0.contains("Required arguments: title") })
 }

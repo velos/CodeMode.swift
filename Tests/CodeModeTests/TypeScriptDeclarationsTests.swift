@@ -271,6 +271,7 @@ private func reference(
     let legacy = #"{"capability":"fs.read","capabilityKey":"fs.read","builtInCapability":"fs.read","jsNames":["apple.fs.read"],"summary":"Read a file.","tags":[],"example":"","requiredArguments":["path"],"optionalArguments":[],"argumentTypes":{"path":"string"},"argumentHints":{},"argumentConstraints":{"allowedStringValues":{}},"resultSummary":"Object."}"#
     let decoded = try JSONDecoder().decode(JavaScriptAPIReference.self, from: Data(legacy.utf8))
     #expect(decoded.capability == "fs.read")
+    #expect(decoded.nullableArguments.isEmpty)
     // Regenerated rather than left empty.
     #expect(decoded.dts.contains("read(args: {"))
     #expect(decoded.dts.contains("path: string;"))
@@ -317,7 +318,7 @@ func writeTypeDeclarationsForCompilerCheck() async throws {
     let references = tools.capabilities()
     for reference in references {
         try reference.dts.write(
-            to: fragments.appendingPathComponent("\(reference.capability).d.ts"), atomically: true, encoding: .utf8
+            to: fragments.appendingPathComponent("\(reference.jsNames.first ?? reference.capability).d.ts"), atomically: true, encoding: .utf8
         )
     }
     #expect(references.count > 100, "expected the full iOS catalog")

@@ -135,11 +135,11 @@ tool model).
   init survives only for the single networkFetch skip. The
   raw-`CodeModeRegistration` and `builtInCapability:` glue idioms are gone.
 - [ ] **Fifth metadata surface found during migration:** the hand-written JS
-  function table in `RuntimeJavaScript.swift` (e.g. `completeReminder` injects
-  `operation: 'complete', isCompleted: true`). Untouched by Phase 3; candidate
-  for generation from registrations as a follow-up.
-- [ ] Unify permission ownership — `calendarRead` checks in both registry and
-  bridge; `calendarWrite` checks only in the bridge.
+  function table in `RuntimeJavaScript.swift`. EventKit now uses independent
+  registration-generated bindings, with no hidden `operation` injection;
+  generating the remaining families is still a follow-up.
+- [ ] Unify permission ownership across the remaining bridge families.
+  EventKit requirements are now declared statically and enforced by the registry.
 - [x] Decide the fate of `Tools/CodeModeAuthoring` — resolved 2026-07-11: owner
   approved swift-syntax in the core graph; the package is folded into the root
   package as the `CodeModeAuthoring` product and its `CodeModeMacros` plugin now
@@ -277,10 +277,10 @@ Done: the concrete drift found while generating declarations is fixed (keychain
 object/positional, `fs.promises.rename`/`copyFile` options, location argument
 pass-through, tool-description calling conventions).
 - [ ] `RuntimeJavaScript.bootstrap` is still ~250 hand-written lines that can
-  drift from the catalog again. Wrappers that inject hidden arguments
-  (`createEvent` forces `operation: 'create'`) still cannot be expressed in
-  catalog metadata, so the generated `.d.ts` advertises an argument the wrapper
-  overrides.
+  drift from the catalog again. EventKit's create/update/complete helpers now
+  have separate typed registrations and matching declarations; their hidden
+  `operation` injection is resolved. Migrate the remaining hand-written
+  families to registration-generated bindings.
 
 ### #13 — provider ergonomics + MCP
 Done: catalog unfrozen (post-init `register(provider:)` works and stays in sync),

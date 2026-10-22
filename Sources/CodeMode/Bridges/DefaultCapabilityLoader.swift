@@ -42,7 +42,6 @@ struct DefaultCapabilityRegistrationBuilder {
     let keychain: KeychainBridge
     let location: LocationBridge
     let weather: WeatherBridge
-    let eventKit: EventKitBridge
     let contacts: ContactsBridge
     let photos: PhotosBridge
     let vision: VisionBridge
@@ -85,7 +84,6 @@ struct DefaultCapabilityRegistrationBuilder {
         self.keychain = KeychainBridge()
         self.location = LocationBridge()
         self.weather = WeatherBridge()
-        self.eventKit = EventKitBridge()
         self.contacts = ContactsBridge()
         self.photos = PhotosBridge()
         self.vision = VisionBridge()

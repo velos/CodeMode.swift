@@ -100,6 +100,7 @@ public struct JavaScriptAPIReference: Sendable, Codable, Equatable {
     public var requiredArguments: [String]
     public var optionalArguments: [String]
     public var argumentTypes: [String: CapabilityArgumentType]
+    public var nullableArguments: [String]
     public var argumentHints: [String: String]
     public var argumentConstraints: CapabilityArgumentConstraints
     public var resultSummary: String
@@ -119,6 +120,7 @@ public struct JavaScriptAPIReference: Sendable, Codable, Equatable {
         requiredArguments: [String],
         optionalArguments: [String],
         argumentTypes: [String: CapabilityArgumentType],
+        nullableArguments: [String] = [],
         argumentHints: [String: String],
         argumentConstraints: CapabilityArgumentConstraints = .none,
         resultSummary: String,
@@ -134,6 +136,7 @@ public struct JavaScriptAPIReference: Sendable, Codable, Equatable {
         self.requiredArguments = requiredArguments
         self.optionalArguments = optionalArguments
         self.argumentTypes = argumentTypes
+        self.nullableArguments = nullableArguments
         self.argumentHints = argumentHints
         self.argumentConstraints = argumentConstraints
         self.resultSummary = resultSummary
@@ -143,7 +146,7 @@ public struct JavaScriptAPIReference: Sendable, Codable, Equatable {
     private enum CodingKeys: String, CodingKey {
         case capability, capabilityKey, builtInCapability, jsNames, summary, tags, example
         case requiredArguments, optionalArguments, argumentTypes, argumentHints
-        case argumentConstraints, resultSummary, dts
+        case nullableArguments, argumentConstraints, resultSummary, dts
     }
 
     /// `dts` is optional on the way in. References encoded before it existed —
@@ -162,6 +165,7 @@ public struct JavaScriptAPIReference: Sendable, Codable, Equatable {
         self.requiredArguments = try container.decode([String].self, forKey: .requiredArguments)
         self.optionalArguments = try container.decode([String].self, forKey: .optionalArguments)
         self.argumentTypes = try container.decode([String: CapabilityArgumentType].self, forKey: .argumentTypes)
+        self.nullableArguments = try container.decodeIfPresent([String].self, forKey: .nullableArguments) ?? []
         self.argumentHints = try container.decode([String: String].self, forKey: .argumentHints)
         self.argumentConstraints = try container.decode(CapabilityArgumentConstraints.self, forKey: .argumentConstraints)
         self.resultSummary = try container.decode(String.self, forKey: .resultSummary)

@@ -16,13 +16,14 @@ import Foundation
 /// defaults): omission uses the initializer, and catalog hints advertise it.
 /// Dynamic defaults belong in `call` and use optional properties.
 ///
-/// An unannotated `var providedArguments: Set<String>` receives the supplied
-/// keys, so patch tools can distinguish omission from explicit null without
-/// retaining raw values. A trailing unannotated `var raw: [String: JSONValue]`
+/// `Patch<T>` arguments distinguish omission, null, and a decoded value. Tools
+/// with Patch fields get `static hasChanges(_:)`, which checks their Patch and
+/// optional fields and skips required and defaulted fields. A
+/// trailing unannotated `var raw: [String: JSONValue]`
 /// receives the full argument dictionary with constrained values canonicalized
 /// — the passthrough transitional tools use while bridges consume raw
 /// dictionaries.
-@attached(member, names: named(codeModeCapability), named(codeModePath), named(codeModeAliasPaths), named(codeModeArguments), named(decode))
+@attached(member, names: named(codeModeCapability), named(codeModePath), named(codeModeAliasPaths), named(codeModeArguments), named(decode), named(hasChanges))
 macro BuiltInCodeMode(
     _ capability: CapabilityID,
     path: String,

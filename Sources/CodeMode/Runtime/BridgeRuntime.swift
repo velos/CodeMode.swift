@@ -307,7 +307,7 @@ final class BridgeRuntime: @unchecked Sendable {
         invocationContext: BridgeInvocationContext,
         lastException: LockedBox<JavaScriptExceptionSnapshot?>
     ) throws {
-        let invokeBlock: @convention(block) (String, String) -> String = { capability, payload in
+        let invokeBlock: @convention(block) (String, String, String) -> String = { capability, payload, jsName in
             do {
                 try invocationContext.checkCancellation()
                 let data = Data(payload.utf8)
@@ -316,7 +316,7 @@ final class BridgeRuntime: @unchecked Sendable {
                     throw BridgeError.invalidRequest("Bridge payload must be a JSON object")
                 }
 
-                let result = try self.registry.invoke(capability, arguments: parsed, context: invocationContext)
+                let result = try self.registry.invoke(capability, jsName: jsName.isEmpty ? nil : jsName, arguments: parsed, context: invocationContext)
                 try invocationContext.checkCancellation()
                 invocationContext.log(.debug, message: "Capability executed: \(capability)")
                 invocationContext.auditLogger.log(AuditEvent(capability: capability, message: "success"))
@@ -335,6 +335,7 @@ final class BridgeRuntime: @unchecked Sendable {
                     for: bridgeError,
                     capability: capabilityID,
                     capabilityKey: capabilityKey,
+                    jsName: jsName.isEmpty ? nil : jsName,
                     invocationContext: invocationContext
                 )
                 invocationContext.recordCapabilityFailure(capability: capability, code: errorPayload.code)
@@ -347,6 +348,7 @@ final class BridgeRuntime: @unchecked Sendable {
                         "code": .string(errorPayload.code),
                         "message": .string(errorPayload.message),
                         "capability": .string(capabilityKey.rawValue),
+                        "functionName": jsName.isEmpty ? .null : .string(jsName),
                         "suggestions": .array(errorPayload.suggestions.map { .string($0) }),
                     ]),
                 ])
@@ -1001,17 +1003,20 @@ final class BridgeRuntime: @unchecked Sendable {
         for error: BridgeError,
         capability: CapabilityID?,
         capabilityKey: CodeModeCapabilityKey?,
+        jsName: String? = nil,
         invocationContext: BridgeInvocationContext? = nil
     ) -> CodeModeToolError {
         let (message, suggestions) = enrichedBridgeFailure(
             for: error,
             capability: capability,
             capabilityKey: capabilityKey,
+            jsName: jsName,
             invocationContext: invocationContext
         )
         return CodeModeToolError(
             code: error.diagnosticCode,
             message: message,
+            functionName: jsName,
             capability: capability,
             capabilityKey: capabilityKey,
             suggestions: suggestions
@@ -1033,7 +1038,7 @@ final class BridgeRuntime: @unchecked Sendable {
 
         if isToolFailureCode(code) {
             let suggestions = payload.suggestions.isEmpty
-                ? bridgeSuggestions(for: payload.capability, capabilityKey: payload.capabilityKey)
+                ? bridgeSuggestions(for: payload.capability, capabilityKey: payload.capabilityKey, jsName: payload.functionName)
                 : payload.suggestions
             return CodeModeToolError(
                 code: code,
@@ -1189,9 +1194,11 @@ final class BridgeRuntime: @unchecked Sendable {
         bridgeSuggestions(for: capability, capabilityKey: capability?.codeModeKey)
     }
 
-    private func bridgeSuggestions(for capability: CapabilityID?, capabilityKey: CodeModeCapabilityKey?) -> [String] {
+    private func bridgeSuggestions(for capability: CapabilityID?, capabilityKey: CodeModeCapabilityKey?, jsName: String? = nil) -> [String] {
         let reference: JavaScriptAPIReference?
-        if let capability {
+        if let jsName, let namedReference = catalog.reference(forJavaScriptName: jsName) {
+            reference = namedReference
+        } else if let capability {
             reference = catalog.reference(for: capability)
         } else if let capabilityKey {
             reference = catalog.reference(for: capabilityKey)
@@ -1217,6 +1224,7 @@ final class BridgeRuntime: @unchecked Sendable {
         for error: BridgeError,
         capability: CapabilityID?,
         capabilityKey: CodeModeCapabilityKey?,
+        jsName: String? = nil,
         invocationContext: BridgeInvocationContext? = nil
     ) -> (String, [String]) {
         // A host-withheld denial reads the same whichever allowlist it came from,
@@ -1244,12 +1252,12 @@ final class BridgeRuntime: @unchecked Sendable {
             suggestions = [
                 "Add \"\(capability.rawValue)\" to allowedCapabilities and retry.",
                 "Built-in capabilities are granted only by allowedCapabilities; listing one in allowedCapabilityKeys has no effect.",
-            ] + bridgeSuggestions(for: capability, capabilityKey: capability.codeModeKey)
+            ] + bridgeSuggestions(for: capability, capabilityKey: capability.codeModeKey, jsName: jsName)
         case let .capabilityKeyDenied(capabilityKey):
             suggestions = [
                 "Add \"\(capabilityKey.rawValue)\" to allowedCapabilityKeys and retry.",
                 "Custom provider capabilities are not enabled by allowedCapabilities.",
-            ] + bridgeSuggestions(for: nil, capabilityKey: capabilityKey)
+            ] + bridgeSuggestions(for: nil, capabilityKey: capabilityKey, jsName: jsName)
         case let .permissionDenied(permission):
             suggestions = permissionDeniedSuggestions(for: permission)
         case .customPermissionDenied:
@@ -1269,7 +1277,7 @@ final class BridgeRuntime: @unchecked Sendable {
                 "Only public HTTP(S) destinations permitted by CodeModeConfiguration.networkAccessPolicy are reachable.",
             ]
         default:
-            suggestions = bridgeSuggestions(for: capability, capabilityKey: capabilityKey)
+            suggestions = bridgeSuggestions(for: capability, capabilityKey: capabilityKey, jsName: jsName)
         }
 
         return (error.localizedDescription, suggestions)

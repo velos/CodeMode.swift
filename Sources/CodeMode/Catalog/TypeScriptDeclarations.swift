@@ -228,7 +228,7 @@ public enum TypeScriptDeclarations {
                         type: TypeScriptDeclarations.tsType(
                             for: reference.argumentTypes[path] ?? .any,
                             allowedValues: reference.argumentConstraints.allowedStringValues[path]
-                        ),
+                        ) + (reference.nullableArguments.contains(path) ? " | null" : ""),
                         // A nested path is optional unless the exact path is
                         // listed as required.
                         optional: required.contains(path) == false,

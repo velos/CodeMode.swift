@@ -282,8 +282,8 @@ private func builtInTestMacros() -> [String: Macro.Type] {
             static let codeModePath: String = "apple.calendar.listEvents"
 
             static let codeModeArguments: [BuiltInToolArgument] = [
-                BuiltInToolArgument("start", .string, hint: "Start timestamp."),
-                BuiltInToolArgument("end", .string, optional: true, hint: "End timestamp."),
+                BuiltInToolArgument("start", .string, hint: "Start timestamp. ISO 8601 timestamp."),
+                BuiltInToolArgument("end", .string, optional: true, hint: "End timestamp. ISO 8601 timestamp."),
             ]
 
             func decode(arguments: [String: JSONValue]) throws -> Arguments {
@@ -341,23 +341,30 @@ func builtInCodeModeExpansionDiagnosesUnsupportedDefaults(type: String, initiali
     )
 }
 
-@Test func builtInCodeModeExpansionTracksSuppliedFieldsWithoutRawValues() {
+@Test func builtInCodeModeExpansionDetectsPatchAndOptionalChanges() {
     assertMacroExpansion(
         """
         @BuiltInCodeMode(.calendarWrite, path: "apple.calendar.updateEvent")
         struct PatchTool: BuiltInCodeModeTool {
             struct Arguments: Sendable {
-                var providedArguments: Set<String>
+                @ToolParam("Identifier.")
+                var identifier: String
                 @ToolParam("Notes patch.")
-                var notes: String?
+                var notes: Patch<String>
+                @ToolParam("Time zone.")
+                var timeZone: String?
+                @ToolParam("Limit.")
+                var limit: Int = 50
             }
         }
         """,
         expandedSource: """
         struct PatchTool: BuiltInCodeModeTool {
             struct Arguments: Sendable {
-                var providedArguments: Set<String>
-                var notes: String?
+                var identifier: String
+                var notes: Patch<String>
+                var timeZone: String?
+                var limit: Int = 50
             }
 
             static let codeModeCapability: CapabilityID = .calendarWrite
@@ -365,12 +372,24 @@ func builtInCodeModeExpansionDiagnosesUnsupportedDefaults(type: String, initiali
             static let codeModePath: String = "apple.calendar.updateEvent"
 
             static let codeModeArguments: [BuiltInToolArgument] = [
-                BuiltInToolArgument("notes", .string, optional: true, hint: "Notes patch."),
+                BuiltInToolArgument("identifier", .string, hint: "Identifier."),
+                BuiltInToolArgument("notes", .string, optional: true, nullable: true, hint: "Notes patch."),
+                BuiltInToolArgument("timeZone", .string, optional: true, hint: "Time zone."),
+                BuiltInToolArgument("limit", .number, optional: true, hint: "Limit.", defaultValue: .number(Double(50))),
             ]
 
             func decode(arguments: [String: JSONValue]) throws -> Arguments {
-                let notes = try CodeModeArgumentDecoder.optional("notes", as: String.self, in: arguments)
-                return Arguments(providedArguments: Set(arguments.keys), notes: notes)
+                let identifier = try CodeModeArgumentDecoder.require("identifier", as: String.self, in: arguments)
+                let notes: Patch<String> = try Patch.decode(arguments["notes"]) {
+                    try CodeModeArgumentDecoder.optional("notes", as: String.self, in: arguments)
+                }
+                let timeZone = try CodeModeArgumentDecoder.optional("timeZone", as: String.self, in: arguments)
+                let limit = try CodeModeArgumentDecoder.optional("limit", as: Int.self, in: arguments) ?? 50
+                return Arguments(identifier: identifier, notes: notes, timeZone: timeZone, limit: limit)
+            }
+
+            static func hasChanges(_ arguments: Arguments) -> Bool {
+                !arguments.notes.isUnchanged || arguments.timeZone != nil
             }
         }
         """,

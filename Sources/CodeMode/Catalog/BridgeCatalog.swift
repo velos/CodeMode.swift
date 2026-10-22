@@ -17,6 +17,7 @@ final class BridgeCatalog: @unchecked Sendable {
     private struct Snapshot {
         var generation: Int
         var references: [JavaScriptAPIReference]
+        var referencesByJSName: [String: JavaScriptAPIReference]
         var referencesByCapability: [CodeModeCapabilityKey: JavaScriptAPIReference]
         var searchCatalog: JSONValue
         var allJavaScriptNames: [String]
@@ -46,7 +47,7 @@ final class BridgeCatalog: @unchecked Sendable {
 
     private static func makeSnapshot(registry: CapabilityRegistry) -> Snapshot {
         let generation = registry.generation
-        let functions = registry.allRegisteredFunctions().sorted { $0.catalogCapability < $1.catalogCapability }
+        let functions = registry.allRegisteredFunctions().sorted { ($0.catalogCapability, $0.jsNames.first ?? "") < ($1.catalogCapability, $1.jsNames.first ?? "") }
         let references = functions.map(Self.reference(from:))
 
         var byJSName: [String: JavaScriptAPIReference] = [:]
@@ -59,6 +60,7 @@ final class BridgeCatalog: @unchecked Sendable {
         return Snapshot(
             generation: generation,
             references: references,
+            referencesByJSName: byJSName,
             referencesByCapability: Dictionary(references.map { ($0.capabilityKey, $0) }, uniquingKeysWith: { first, _ in first }),
             searchCatalog: Self.jsonValue(
                 from: SearchCatalogPayload(
@@ -77,6 +79,10 @@ final class BridgeCatalog: @unchecked Sendable {
 
     func reference(for capabilityKey: CodeModeCapabilityKey) -> JavaScriptAPIReference? {
         current().referencesByCapability[capabilityKey]
+    }
+
+    func reference(forJavaScriptName jsName: String) -> JavaScriptAPIReference? {
+        current().referencesByJSName[jsName]
     }
 
     func allReferences() -> [JavaScriptAPIReference] {
@@ -151,6 +157,7 @@ final class BridgeCatalog: @unchecked Sendable {
             requiredArguments: function.requiredArguments,
             optionalArguments: function.optionalArguments,
             argumentTypes: function.argumentTypes,
+            nullableArguments: function.nullableArguments,
             argumentHints: function.argumentHints,
             argumentConstraints: function.argumentConstraints,
             resultSummary: function.resultSummary

@@ -72,6 +72,7 @@ public enum CodeModeAgentToolDescriptions {
           requiredArguments: string[];
           optionalArguments: string[];
           argumentTypes: Record<string, string>;
+          nullableArguments: string[];
           argumentHints: Record<string, string>;
           argumentConstraints: { allowedStringValues: Record<string, string[]> };
           resultSummary: string;
@@ -80,6 +81,8 @@ public enum CodeModeAgentToolDescriptions {
 
         declare const api: {
           references: JavaScriptAPIReference[];
+          // First helper when several share a capability; use byJSName or
+          // references.filter(ref => ref.capability === id) to select others.
           byCapability: Record<string, JavaScriptAPIReference>;
           byJSName: Record<string, JavaScriptAPIReference>;
         };

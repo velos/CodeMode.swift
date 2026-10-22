@@ -21,6 +21,9 @@
     "jsNames" : [
       "apple.activity.end"
     ],
+    "nullableArguments" : [
+
+    ],
     "optionalArguments" : [
       "contentState",
       "dismissalPolicy"
@@ -57,6 +60,9 @@
     "jsNames" : [
       "apple.activity.list"
     ],
+    "nullableArguments" : [
+
+    ],
     "optionalArguments" : [
       "activityType",
       "limit"
@@ -90,6 +96,9 @@
     "id" : "activity.pushToken.read",
     "jsNames" : [
       "apple.activity.getPushToken"
+    ],
+    "nullableArguments" : [
+
     ],
     "optionalArguments" : [
 
@@ -131,6 +140,9 @@
     "id" : "activity.start",
     "jsNames" : [
       "apple.activity.start"
+    ],
+    "nullableArguments" : [
+
     ],
     "optionalArguments" : [
       "contentState",
@@ -174,6 +186,9 @@
     "jsNames" : [
       "apple.activity.update"
     ],
+    "nullableArguments" : [
+
+    ],
     "optionalArguments" : [
       "alert",
       "staleDate"
@@ -211,6 +226,9 @@
     "jsNames" : [
       "ios.alarm.cancel"
     ],
+    "nullableArguments" : [
+
+    ],
     "optionalArguments" : [
       "identifier",
       "identifiers"
@@ -245,6 +263,9 @@
     "jsNames" : [
       "ios.alarm.requestPermission"
     ],
+    "nullableArguments" : [
+
+    ],
     "optionalArguments" : [
 
     ],
@@ -277,6 +298,9 @@
     "id" : "alarm.read",
     "jsNames" : [
       "ios.alarm.list"
+    ],
+    "nullableArguments" : [
+
     ],
     "optionalArguments" : [
       "limit"
@@ -317,6 +341,9 @@
     "jsNames" : [
       "ios.alarm.schedule"
     ],
+    "nullableArguments" : [
+
+    ],
     "optionalArguments" : [
       "identifier",
       "secondsFromNow",
@@ -353,6 +380,9 @@
     "id" : "appintents.donate",
     "jsNames" : [
       "apple.appIntents.donate"
+    ],
+    "nullableArguments" : [
+
     ],
     "optionalArguments" : [
       "parameters"
@@ -391,6 +421,9 @@
     "id" : "appintents.handoffs.read",
     "jsNames" : [
       "apple.appIntents.listHandoffs"
+    ],
+    "nullableArguments" : [
+
     ],
     "optionalArguments" : [
       "identifier",
@@ -431,6 +464,9 @@
     "jsNames" : [
       "apple.appIntents.list"
     ],
+    "nullableArguments" : [
+
+    ],
     "optionalArguments" : [
       "domain",
       "limit"
@@ -467,6 +503,9 @@
     "id" : "appintents.open",
     "jsNames" : [
       "apple.appIntents.open"
+    ],
+    "nullableArguments" : [
+
     ],
     "optionalArguments" : [
       "parameters"
@@ -505,6 +544,9 @@
     "id" : "appintents.run",
     "jsNames" : [
       "apple.appIntents.run"
+    ],
+    "nullableArguments" : [
+
     ],
     "optionalArguments" : [
       "parameters",
@@ -547,6 +589,9 @@
     "jsNames" : [
       "apple.auth.webAuthenticate"
     ],
+    "nullableArguments" : [
+
+    ],
     "optionalArguments" : [
       "callbackURLScheme",
       "prefersEphemeralSession",
@@ -582,7 +627,7 @@
     },
     "argumentHints" : {
       "identifier" : "EventKit eventIdentifier from apple.calendar.listEvents.",
-      "span" : "thisEvent or futureEvents for recurring events. Default: \"thisEvent\"."
+      "span" : "Scope for recurring events. Default: \"thisEvent\"."
     },
     "argumentTypes" : {
       "identifier" : "string",
@@ -592,6 +637,9 @@
     "id" : "calendar.delete",
     "jsNames" : [
       "apple.calendar.deleteEvent"
+    ],
+    "nullableArguments" : [
+
     ],
     "optionalArguments" : [
       "span"
@@ -617,11 +665,11 @@
 
     },
     "argumentHints" : {
-      "calendarIdentifier" : "Optional EventKit calendarIdentifier to restrict results.",
-      "calendarIdentifiers" : "Optional array of EventKit calendarIdentifier strings to restrict results.",
-      "end" : "ISO8601 timestamp; defaults to start + 14 days.",
+      "calendarIdentifier" : "EventKit calendarIdentifier to restrict results.",
+      "calendarIdentifiers" : "EventKit calendarIdentifier strings to restrict results.",
+      "end" : "Range end; uses start + 14 days when omitted. ISO 8601 timestamp.",
       "limit" : "Max number of items. Default: 50.",
-      "start" : "ISO8601 timestamp; defaults to now."
+      "start" : "Range start; uses now when omitted. ISO 8601 timestamp."
     },
     "argumentTypes" : {
       "calendarIdentifier" : "string",
@@ -634,6 +682,9 @@
     "id" : "calendar.read",
     "jsNames" : [
       "apple.calendar.listEvents"
+    ],
+    "nullableArguments" : [
+
     ],
     "optionalArguments" : [
       "start",
@@ -669,9 +720,9 @@
       ]
     },
     "argumentHints" : {
-      "displayStyle" : "writable (default) or all.",
-      "selectionStyle" : "single (default) or multiple.",
-      "timeoutMs" : "Optional timeout for waiting on user selection."
+      "displayStyle" : "Calendars to display; uses writable when omitted.",
+      "selectionStyle" : "Calendar selection style; uses single when omitted.",
+      "timeoutMs" : "Timeout in milliseconds for waiting on user selection."
     },
     "argumentTypes" : {
       "displayStyle" : "string",
@@ -682,6 +733,9 @@
     "id" : "calendar.ui.pickCalendar",
     "jsNames" : [
       "apple.calendar.pickCalendar"
+    ],
+    "nullableArguments" : [
+
     ],
     "optionalArguments" : [
       "selectionStyle",
@@ -709,10 +763,10 @@
 
     },
     "argumentHints" : {
-      "allowsCalendarPreview" : "Whether the UI may show calendar day previews; default true.",
-      "allowsEditing" : "Whether the user can edit from the detail UI; default false.",
+      "allowsCalendarPreview" : "Whether the UI may show calendar day previews; uses true when omitted.",
+      "allowsEditing" : "Whether the user can edit from the detail UI; uses false when omitted.",
       "identifier" : "EventKit eventIdentifier from apple.calendar.listEvents.",
-      "timeoutMs" : "Optional timeout for waiting on dismissal."
+      "timeoutMs" : "Timeout in milliseconds for waiting on dismissal."
     },
     "argumentTypes" : {
       "allowsCalendarPreview" : "bool",
@@ -724,6 +778,9 @@
     "id" : "calendar.ui.presentEvent",
     "jsNames" : [
       "apple.calendar.presentEvent"
+    ],
+    "nullableArguments" : [
+
     ],
     "optionalArguments" : [
       "allowsEditing",
@@ -751,12 +808,12 @@
 
     },
     "argumentHints" : {
-      "end" : "Optional ISO8601 end timestamp.",
-      "location" : "Optional location string.",
-      "notes" : "Optional event notes\/body text.",
-      "start" : "Optional ISO8601 start timestamp.",
-      "timeoutMs" : "Optional timeout for waiting on user save\/cancel.",
-      "title" : "Optional event title shown in the editor."
+      "end" : "ISO 8601 end timestamp.",
+      "location" : "Location string.",
+      "notes" : "Event notes\/body text.",
+      "start" : "ISO 8601 start timestamp.",
+      "timeoutMs" : "Timeout in milliseconds for waiting on user save\/cancel.",
+      "title" : "Event title shown in the editor."
     },
     "argumentTypes" : {
       "end" : "string",
@@ -770,6 +827,9 @@
     "id" : "calendar.ui.presentNewEvent",
     "jsNames" : [
       "apple.calendar.presentNewEvent"
+    ],
+    "nullableArguments" : [
+
     ],
     "optionalArguments" : [
       "title",
@@ -797,22 +857,74 @@
   },
   {
     "allowedStringValues" : {
-      "operation" : [
-        "create",
-        "update"
-      ]
+
     },
     "argumentHints" : {
-      "calendarIdentifier" : "Optional destination EventKit calendarIdentifier.",
-      "end" : "ISO8601 end timestamp.",
-      "identifier" : "EventKit eventIdentifier to update. Updates require full calendar access at runtime.",
+      "calendarIdentifier" : "Destination EventKit calendarIdentifier.",
+      "end" : "Event end. ISO 8601 timestamp.",
       "isAllDay" : "Whether the event is all-day.",
-      "location" : "Optional location string.",
-      "notes" : "Optional notes\/body string.",
-      "operation" : "create (default without identifier) or update (default with identifier).",
-      "start" : "ISO8601 start timestamp.",
-      "title" : "Event title string.",
-      "url" : "Optional absolute URL string attached to the event."
+      "location" : "Event location.",
+      "notes" : "Notes\/body text.",
+      "start" : "Event start. ISO 8601 timestamp.",
+      "title" : "Event title.",
+      "url" : "Absolute URL attached to the event."
+    },
+    "argumentTypes" : {
+      "calendarIdentifier" : "string",
+      "end" : "string",
+      "isAllDay" : "bool",
+      "location" : "string",
+      "notes" : "string",
+      "start" : "string",
+      "title" : "string",
+      "url" : "string"
+    },
+    "example" : "await apple.calendar.createEvent({ title: 'Standup', start: '2026-02-22T16:00:00Z', end: '2026-02-22T16:15:00Z' })",
+    "id" : "calendar.write",
+    "jsNames" : [
+      "apple.calendar.createEvent"
+    ],
+    "nullableArguments" : [
+
+    ],
+    "optionalArguments" : [
+      "notes",
+      "location",
+      "url",
+      "isAllDay",
+      "calendarIdentifier"
+    ],
+    "requiredArguments" : [
+      "title",
+      "start",
+      "end"
+    ],
+    "requiredPermissions" : [
+      "calendar.writeOnly"
+    ],
+    "resultSummary" : "Object with identifier\/title\/startDate\/endDate\/notes\/calendarIdentifier\/calendarTitle\/location\/url\/isAllDay.",
+    "summary" : "Create a calendar event.",
+    "tags" : [
+      "calendar",
+      "eventkit",
+      "schedule"
+    ],
+    "title" : "createEvent"
+  },
+  {
+    "allowedStringValues" : {
+
+    },
+    "argumentHints" : {
+      "calendarIdentifier" : "Destination EventKit calendarIdentifier.",
+      "end" : "Event end. ISO 8601 timestamp.",
+      "identifier" : "EventKit eventIdentifier to update.",
+      "isAllDay" : "Whether the event is all-day.",
+      "location" : "Event location.",
+      "notes" : "Notes\/body text.",
+      "start" : "Event start. ISO 8601 timestamp.",
+      "title" : "Event title.",
+      "url" : "Absolute URL attached to the event."
     },
     "argumentTypes" : {
       "calendarIdentifier" : "string",
@@ -821,20 +933,22 @@
       "isAllDay" : "bool",
       "location" : "string",
       "notes" : "string",
-      "operation" : "string",
       "start" : "string",
       "title" : "string",
       "url" : "string"
     },
-    "example" : "await apple.calendar.createEvent({ title: 'Standup', start: '2026-02-22T16:00:00Z', end: '2026-02-22T16:15:00Z' })",
+    "example" : "await apple.calendar.updateEvent({ identifier: 'EVENT_ID', notes: null })",
     "id" : "calendar.write",
     "jsNames" : [
-      "apple.calendar.createEvent",
       "apple.calendar.updateEvent"
     ],
+    "nullableArguments" : [
+      "notes",
+      "location",
+      "url",
+      "isAllDay"
+    ],
     "optionalArguments" : [
-      "operation",
-      "identifier",
       "title",
       "start",
       "end",
@@ -845,19 +959,19 @@
       "calendarIdentifier"
     ],
     "requiredArguments" : [
-
+      "identifier"
     ],
     "requiredPermissions" : [
-
+      "calendar"
     ],
     "resultSummary" : "Object with identifier\/title\/startDate\/endDate\/notes\/calendarIdentifier\/calendarTitle\/location\/url\/isAllDay.",
-    "summary" : "Create a calendar event or patch an existing event by identifier.",
+    "summary" : "Patch an existing event by identifier.",
     "tags" : [
       "calendar",
       "eventkit",
       "schedule"
     ],
-    "title" : "createEvent"
+    "title" : "updateEvent"
   },
   {
     "allowedStringValues" : {
@@ -909,6 +1023,9 @@
     "id" : "camera.ui.capture",
     "jsNames" : [
       "apple.camera.capture"
+    ],
+    "nullableArguments" : [
+
     ],
     "optionalArguments" : [
       "mediaType",
@@ -981,6 +1098,9 @@
     "jsNames" : [
       "apple.camera.scanData"
     ],
+    "nullableArguments" : [
+
+    ],
     "optionalArguments" : [
       "mode",
       "recognizedDataTypes",
@@ -1027,6 +1147,9 @@
     "jsNames" : [
       "apple.cloudkit.getAccountStatus"
     ],
+    "nullableArguments" : [
+
+    ],
     "optionalArguments" : [
       "containerIdentifier"
     ],
@@ -1070,6 +1193,9 @@
     "id" : "cloudkit.record.delete",
     "jsNames" : [
       "apple.cloudkit.deleteRecord"
+    ],
+    "nullableArguments" : [
+
     ],
     "optionalArguments" : [
       "database",
@@ -1122,6 +1248,9 @@
     "id" : "cloudkit.record.save",
     "jsNames" : [
       "apple.cloudkit.saveRecord"
+    ],
+    "nullableArguments" : [
+
     ],
     "optionalArguments" : [
       "recordName",
@@ -1179,6 +1308,9 @@
     "id" : "cloudkit.records.query",
     "jsNames" : [
       "apple.cloudkit.queryRecords"
+    ],
+    "nullableArguments" : [
+
     ],
     "optionalArguments" : [
       "database",
@@ -1240,6 +1372,9 @@
     "jsNames" : [
       "apple.cloudkit.subscribe"
     ],
+    "nullableArguments" : [
+
+    ],
     "optionalArguments" : [
       "database",
       "containerIdentifier",
@@ -1285,6 +1420,9 @@
     "jsNames" : [
       "apple.cloudkit.listEvents"
     ],
+    "nullableArguments" : [
+
+    ],
     "optionalArguments" : [
       "subscriptionID",
       "limit",
@@ -1324,6 +1462,9 @@
     "jsNames" : [
       "apple.contacts.list"
     ],
+    "nullableArguments" : [
+
+    ],
     "optionalArguments" : [
       "limit",
       "identifiers"
@@ -1359,6 +1500,9 @@
     "id" : "contacts.search",
     "jsNames" : [
       "apple.contacts.search"
+    ],
+    "nullableArguments" : [
+
     ],
     "optionalArguments" : [
       "limit"
@@ -1399,6 +1543,9 @@
     "id" : "contacts.ui.pick",
     "jsNames" : [
       "apple.contacts.pick"
+    ],
+    "nullableArguments" : [
+
     ],
     "optionalArguments" : [
       "mode",
@@ -1443,6 +1590,9 @@
     "id" : "contacts.ui.presentContact",
     "jsNames" : [
       "apple.contacts.presentContact"
+    ],
+    "nullableArguments" : [
+
     ],
     "optionalArguments" : [
       "allowsEditing",
@@ -1491,6 +1641,9 @@
     "jsNames" : [
       "apple.contacts.presentNewContact"
     ],
+    "nullableArguments" : [
+
+    ],
     "optionalArguments" : [
       "givenName",
       "familyName",
@@ -1537,6 +1690,9 @@
       "apple.documents.export",
       "apple.documents.save"
     ],
+    "nullableArguments" : [
+
+    ],
     "optionalArguments" : [
       "path",
       "paths",
@@ -1581,6 +1737,9 @@
     "jsNames" : [
       "apple.documents.openIn"
     ],
+    "nullableArguments" : [
+
+    ],
     "optionalArguments" : [
       "name",
       "uti",
@@ -1624,6 +1783,9 @@
     "jsNames" : [
       "apple.documents.pick"
     ],
+    "nullableArguments" : [
+
+    ],
     "optionalArguments" : [
       "contentTypes",
       "allowMultiple",
@@ -1663,6 +1825,9 @@
     "id" : "documents.ui.scan",
     "jsNames" : [
       "apple.documents.scan"
+    ],
+    "nullableArguments" : [
+
     ],
     "optionalArguments" : [
       "outputDirectory",
@@ -1707,6 +1872,9 @@
     "id" : "foundationModels.extract",
     "jsNames" : [
       "apple.foundationModels.extract"
+    ],
+    "nullableArguments" : [
+
     ],
     "optionalArguments" : [
       "schema",
@@ -1755,6 +1923,9 @@
     "jsNames" : [
       "apple.foundationModels.generate"
     ],
+    "nullableArguments" : [
+
+    ],
     "optionalArguments" : [
       "instructions",
       "temperature",
@@ -1793,6 +1964,9 @@
     "jsNames" : [
       "apple.foundationModels.getStatus"
     ],
+    "nullableArguments" : [
+
+    ],
     "optionalArguments" : [
 
     ],
@@ -1827,6 +2001,9 @@
     "jsNames" : [
       "apple.fs.access",
       "fs.promises.access"
+    ],
+    "nullableArguments" : [
+
     ],
     "optionalArguments" : [
 
@@ -1868,6 +2045,9 @@
       "apple.fs.copy",
       "fs.promises.copyFile"
     ],
+    "nullableArguments" : [
+
+    ],
     "optionalArguments" : [
       "overwrite",
       "recursive"
@@ -1906,6 +2086,9 @@
       "apple.fs.delete",
       "fs.promises.rm"
     ],
+    "nullableArguments" : [
+
+    ],
     "optionalArguments" : [
       "recursive"
     ],
@@ -1938,6 +2121,9 @@
     "id" : "fs.exists",
     "jsNames" : [
       "apple.fs.exists"
+    ],
+    "nullableArguments" : [
+
     ],
     "optionalArguments" : [
 
@@ -1972,6 +2158,9 @@
     "jsNames" : [
       "apple.fs.list",
       "fs.promises.readdir"
+    ],
+    "nullableArguments" : [
+
     ],
     "optionalArguments" : [
 
@@ -2008,6 +2197,9 @@
     "jsNames" : [
       "apple.fs.mkdir",
       "fs.promises.mkdir"
+    ],
+    "nullableArguments" : [
+
     ],
     "optionalArguments" : [
       "recursive"
@@ -2048,6 +2240,9 @@
     "jsNames" : [
       "apple.fs.move",
       "fs.promises.rename"
+    ],
+    "nullableArguments" : [
+
     ],
     "optionalArguments" : [
       "overwrite",
@@ -2091,6 +2286,9 @@
       "apple.fs.read",
       "fs.promises.readFile"
     ],
+    "nullableArguments" : [
+
+    ],
     "optionalArguments" : [
       "encoding"
     ],
@@ -2124,6 +2322,9 @@
     "jsNames" : [
       "apple.fs.stat",
       "fs.promises.stat"
+    ],
+    "nullableArguments" : [
+
     ],
     "optionalArguments" : [
 
@@ -2167,6 +2368,9 @@
       "apple.fs.write",
       "fs.promises.writeFile"
     ],
+    "nullableArguments" : [
+
+    ],
     "optionalArguments" : [
       "data",
       "encoding"
@@ -2202,6 +2406,9 @@
     "id" : "health.permission.request",
     "jsNames" : [
       "apple.health.requestPermission"
+    ],
+    "nullableArguments" : [
+
     ],
     "optionalArguments" : [
       "readTypes",
@@ -2244,6 +2451,9 @@
     "id" : "health.read",
     "jsNames" : [
       "apple.health.read"
+    ],
+    "nullableArguments" : [
+
     ],
     "optionalArguments" : [
       "start",
@@ -2289,6 +2499,9 @@
     "jsNames" : [
       "apple.health.write"
     ],
+    "nullableArguments" : [
+
+    ],
     "optionalArguments" : [
       "unit",
       "start",
@@ -2326,6 +2539,9 @@
     "id" : "home.read",
     "jsNames" : [
       "apple.home.list"
+    ],
+    "nullableArguments" : [
+
     ],
     "optionalArguments" : [
       "includeCharacteristics",
@@ -2367,6 +2583,9 @@
     "jsNames" : [
       "apple.home.writeCharacteristic"
     ],
+    "nullableArguments" : [
+
+    ],
     "optionalArguments" : [
       "serviceType"
     ],
@@ -2403,6 +2622,9 @@
     "jsNames" : [
       "apple.keychain.delete"
     ],
+    "nullableArguments" : [
+
+    ],
     "optionalArguments" : [
 
     ],
@@ -2435,6 +2657,9 @@
     "id" : "keychain.read",
     "jsNames" : [
       "apple.keychain.get"
+    ],
+    "nullableArguments" : [
+
     ],
     "optionalArguments" : [
 
@@ -2471,6 +2696,9 @@
     "jsNames" : [
       "apple.keychain.set"
     ],
+    "nullableArguments" : [
+
+    ],
     "optionalArguments" : [
       "value"
     ],
@@ -2504,6 +2732,9 @@
     "jsNames" : [
       "apple.location.requestPermission"
     ],
+    "nullableArguments" : [
+
+    ],
     "optionalArguments" : [
 
     ],
@@ -2536,6 +2767,9 @@
     "jsNames" : [
       "apple.location.getCurrentPosition",
       "apple.location.getPermissionStatus"
+    ],
+    "nullableArguments" : [
+
     ],
     "optionalArguments" : [
       "mode"
@@ -2584,6 +2818,9 @@
     "jsNames" : [
       "apple.mail.compose"
     ],
+    "nullableArguments" : [
+
+    ],
     "optionalArguments" : [
       "to",
       "cc",
@@ -2628,6 +2865,9 @@
     "id" : "maps.geocode",
     "jsNames" : [
       "apple.maps.geocode"
+    ],
+    "nullableArguments" : [
+
     ],
     "optionalArguments" : [
       "region",
@@ -2679,6 +2919,9 @@
     "jsNames" : [
       "apple.maps.open"
     ],
+    "nullableArguments" : [
+
+    ],
     "optionalArguments" : [
       "query",
       "url",
@@ -2721,6 +2964,9 @@
     "id" : "maps.reverseGeocode",
     "jsNames" : [
       "apple.maps.reverseGeocode"
+    ],
+    "nullableArguments" : [
+
     ],
     "optionalArguments" : [
       "locale"
@@ -2770,6 +3016,9 @@
     "jsNames" : [
       "apple.maps.routeEstimate"
     ],
+    "nullableArguments" : [
+
+    ],
     "optionalArguments" : [
       "transportType",
       "departureDate",
@@ -2813,6 +3062,9 @@
     "jsNames" : [
       "apple.maps.search"
     ],
+    "nullableArguments" : [
+
+    ],
     "optionalArguments" : [
       "region",
       "resultTypes",
@@ -2853,6 +3105,9 @@
     "jsNames" : [
       "apple.media.extractFrame"
     ],
+    "nullableArguments" : [
+
+    ],
     "optionalArguments" : [
       "timeMs",
       "outputPath"
@@ -2886,6 +3141,9 @@
     "id" : "media.metadata.read",
     "jsNames" : [
       "apple.media.metadata"
+    ],
+    "nullableArguments" : [
+
     ],
     "optionalArguments" : [
 
@@ -2923,6 +3181,9 @@
     "id" : "media.transcode",
     "jsNames" : [
       "apple.media.transcode"
+    ],
+    "nullableArguments" : [
+
     ],
     "optionalArguments" : [
       "outputPath",
@@ -2965,6 +3226,9 @@
     "id" : "messages.ui.compose",
     "jsNames" : [
       "apple.messages.compose"
+    ],
+    "nullableArguments" : [
+
     ],
     "optionalArguments" : [
       "recipients",
@@ -3009,6 +3273,9 @@
     "jsNames" : [
       "apple.music.getDetails"
     ],
+    "nullableArguments" : [
+
+    ],
     "optionalArguments" : [
       "type",
       "countryCode"
@@ -3050,6 +3317,9 @@
     "jsNames" : [
       "apple.music.search"
     ],
+    "nullableArguments" : [
+
+    ],
     "optionalArguments" : [
       "types",
       "limit",
@@ -3088,6 +3358,9 @@
     "jsNames" : [
       "apple.music.readLibrary"
     ],
+    "nullableArguments" : [
+
+    ],
     "optionalArguments" : [
       "type",
       "limit"
@@ -3121,6 +3394,9 @@
     "id" : "music.permission.request",
     "jsNames" : [
       "apple.music.requestPermission"
+    ],
+    "nullableArguments" : [
+
     ],
     "optionalArguments" : [
 
@@ -3171,6 +3447,9 @@
     "jsNames" : [
       "apple.music.play"
     ],
+    "nullableArguments" : [
+
+    ],
     "optionalArguments" : [
       "catalogID",
       "libraryID",
@@ -3216,6 +3495,9 @@
     "jsNames" : [
       "apple.music.writePlaylist"
     ],
+    "nullableArguments" : [
+
+    ],
     "optionalArguments" : [
       "playlistID",
       "catalogIDs",
@@ -3253,6 +3535,9 @@
     "id" : "music.subscription.status",
     "jsNames" : [
       "apple.music.getSubscriptionStatus"
+    ],
+    "nullableArguments" : [
+
     ],
     "optionalArguments" : [
 
@@ -3303,6 +3588,9 @@
     "jsNames" : [
       "fetch"
     ],
+    "nullableArguments" : [
+
+    ],
     "optionalArguments" : [
       "options.method",
       "options.headers",
@@ -3341,6 +3629,9 @@
     "jsNames" : [
       "apple.notifications.setCategories"
     ],
+    "nullableArguments" : [
+
+    ],
     "optionalArguments" : [
 
     ],
@@ -3377,6 +3668,9 @@
     "jsNames" : [
       "apple.notifications.removeDelivered"
     ],
+    "nullableArguments" : [
+
+    ],
     "optionalArguments" : [
       "identifier",
       "identifiers"
@@ -3411,6 +3705,9 @@
     "id" : "notifications.delivered.read",
     "jsNames" : [
       "apple.notifications.listDelivered"
+    ],
+    "nullableArguments" : [
+
     ],
     "optionalArguments" : [
       "limit"
@@ -3447,6 +3744,9 @@
     "jsNames" : [
       "apple.notifications.cancelPending"
     ],
+    "nullableArguments" : [
+
+    ],
     "optionalArguments" : [
       "identifier",
       "identifiers"
@@ -3481,6 +3781,9 @@
     "jsNames" : [
       "apple.notifications.listPending"
     ],
+    "nullableArguments" : [
+
+    ],
     "optionalArguments" : [
       "limit"
     ],
@@ -3514,6 +3817,9 @@
     "jsNames" : [
       "apple.notifications.requestPermission"
     ],
+    "nullableArguments" : [
+
+    ],
     "optionalArguments" : [
 
     ],
@@ -3545,6 +3851,9 @@
     "id" : "notifications.remote.register",
     "jsNames" : [
       "apple.notifications.registerRemote"
+    ],
+    "nullableArguments" : [
+
     ],
     "optionalArguments" : [
       "types"
@@ -3579,6 +3888,9 @@
     "id" : "notifications.remote.token.read",
     "jsNames" : [
       "apple.notifications.getRemoteToken"
+    ],
+    "nullableArguments" : [
+
     ],
     "optionalArguments" : [
 
@@ -3619,6 +3931,9 @@
     "id" : "notifications.responses.read",
     "jsNames" : [
       "apple.notifications.listResponses"
+    ],
+    "nullableArguments" : [
+
     ],
     "optionalArguments" : [
       "limit",
@@ -3680,6 +3995,9 @@
     "jsNames" : [
       "apple.notifications.schedule"
     ],
+    "nullableArguments" : [
+
+    ],
     "optionalArguments" : [
       "identifier",
       "subtitle",
@@ -3723,6 +4041,9 @@
     "jsNames" : [
       "apple.notifications.getSettings"
     ],
+    "nullableArguments" : [
+
+    ],
     "optionalArguments" : [
 
     ],
@@ -3761,6 +4082,9 @@
     "jsNames" : [
       "apple.wallet.presentPayment"
     ],
+    "nullableArguments" : [
+
+    ],
     "optionalArguments" : [
       "timeoutMs"
     ],
@@ -3796,6 +4120,9 @@
     "id" : "passkit.applePay.status",
     "jsNames" : [
       "apple.wallet.canMakePayments"
+    ],
+    "nullableArguments" : [
+
     ],
     "optionalArguments" : [
       "networks"
@@ -3833,6 +4160,9 @@
     "jsNames" : [
       "apple.wallet.addPass"
     ],
+    "nullableArguments" : [
+
+    ],
     "optionalArguments" : [
       "timeoutMs"
     ],
@@ -3869,6 +4199,9 @@
     "id" : "passkit.pass.present",
     "jsNames" : [
       "apple.wallet.presentPass"
+    ],
+    "nullableArguments" : [
+
     ],
     "optionalArguments" : [
       "timeoutMs"
@@ -3908,6 +4241,9 @@
     "jsNames" : [
       "apple.wallet.listPasses"
     ],
+    "nullableArguments" : [
+
+    ],
     "optionalArguments" : [
       "passTypeIdentifier",
       "serialNumber",
@@ -3944,6 +4280,9 @@
     "jsNames" : [
       "apple.wallet.getStatus"
     ],
+    "nullableArguments" : [
+
+    ],
     "optionalArguments" : [
 
     ],
@@ -3978,6 +4317,9 @@
     "id" : "photos.export",
     "jsNames" : [
       "apple.photos.export"
+    ],
+    "nullableArguments" : [
+
     ],
     "optionalArguments" : [
       "outputPath"
@@ -4018,6 +4360,9 @@
     "id" : "photos.read",
     "jsNames" : [
       "apple.photos.list"
+    ],
+    "nullableArguments" : [
+
     ],
     "optionalArguments" : [
       "mediaType",
@@ -4064,6 +4409,9 @@
     "jsNames" : [
       "apple.photos.pick"
     ],
+    "nullableArguments" : [
+
+    ],
     "optionalArguments" : [
       "mediaType",
       "limit",
@@ -4101,6 +4449,9 @@
     "id" : "photos.ui.presentLimitedLibraryPicker",
     "jsNames" : [
       "apple.photos.presentLimitedLibraryPicker"
+    ],
+    "nullableArguments" : [
+
     ],
     "optionalArguments" : [
       "timeoutMs"
@@ -4151,6 +4502,9 @@
     "jsNames" : [
       "apple.print.present"
     ],
+    "nullableArguments" : [
+
+    ],
     "optionalArguments" : [
       "path",
       "paths",
@@ -4194,6 +4548,9 @@
     "jsNames" : [
       "apple.quicklook.preview"
     ],
+    "nullableArguments" : [
+
+    ],
     "optionalArguments" : [
       "path",
       "paths",
@@ -4230,6 +4587,9 @@
     "jsNames" : [
       "apple.reminders.deleteReminder"
     ],
+    "nullableArguments" : [
+
+    ],
     "optionalArguments" : [
 
     ],
@@ -4254,12 +4614,12 @@
 
     },
     "argumentHints" : {
-      "calendarIdentifier" : "Optional EventKit reminder calendarIdentifier to restrict results.",
-      "calendarIdentifiers" : "Optional array of EventKit reminder calendarIdentifier strings to restrict results.",
-      "end" : "Optional ISO8601 due-date upper bound.",
+      "calendarIdentifier" : "EventKit reminder calendarIdentifier to restrict results.",
+      "calendarIdentifiers" : "EventKit reminder calendarIdentifier strings to restrict results.",
+      "end" : "Due-date upper bound. ISO 8601 timestamp.",
       "includeCompleted" : "Whether completed reminders are included. Default: false.",
       "limit" : "Max number of reminder items. Default: 50.",
-      "start" : "Optional ISO8601 due-date lower bound."
+      "start" : "Due-date lower bound. ISO 8601 timestamp."
     },
     "argumentTypes" : {
       "calendarIdentifier" : "string",
@@ -4273,6 +4633,9 @@
     "id" : "reminders.read",
     "jsNames" : [
       "apple.reminders.listReminders"
+    ],
+    "nullableArguments" : [
+
     ],
     "optionalArguments" : [
       "start",
@@ -4299,21 +4662,104 @@
   },
   {
     "allowedStringValues" : {
-      "operation" : [
-        "create",
-        "update",
-        "complete"
-      ]
+
     },
     "argumentHints" : {
-      "calendarIdentifier" : "Optional destination EventKit reminders calendarIdentifier.",
-      "dueDate" : "Optional ISO8601 due date timestamp.",
-      "identifier" : "EventKit calendarItemIdentifier to update or complete.",
-      "isCompleted" : "Completion state for update or completeReminder; default true for completeReminder.",
-      "notes" : "Optional reminder notes.",
-      "operation" : "create (default without identifier), update, or complete.",
+      "identifier" : "EventKit calendarItemIdentifier to complete.",
+      "isCompleted" : "Completion state. Default: true."
+    },
+    "argumentTypes" : {
+      "identifier" : "string",
+      "isCompleted" : "bool"
+    },
+    "example" : "await apple.reminders.completeReminder({ identifier: 'REMINDER_ID' })",
+    "id" : "reminders.write",
+    "jsNames" : [
+      "apple.reminders.completeReminder"
+    ],
+    "nullableArguments" : [
+
+    ],
+    "optionalArguments" : [
+      "isCompleted"
+    ],
+    "requiredArguments" : [
+      "identifier"
+    ],
+    "requiredPermissions" : [
+      "reminders"
+    ],
+    "resultSummary" : "Object with identifier\/title\/isCompleted\/dueDate\/completionDate\/notes\/priority\/calendarIdentifier\/calendarTitle.",
+    "summary" : "Set an existing reminder's completion state.",
+    "tags" : [
+      "reminders",
+      "eventkit",
+      "task"
+    ],
+    "title" : "completeReminder"
+  },
+  {
+    "allowedStringValues" : {
+
+    },
+    "argumentHints" : {
+      "calendarIdentifier" : "Destination EventKit reminders calendarIdentifier.",
+      "dueDate" : "Reminder due date. ISO 8601 timestamp.",
+      "isCompleted" : "Completion state.",
+      "notes" : "Reminder notes.",
       "priority" : "EventKit reminder priority integer.",
-      "title" : "Reminder title string."
+      "title" : "Reminder title."
+    },
+    "argumentTypes" : {
+      "calendarIdentifier" : "string",
+      "dueDate" : "string",
+      "isCompleted" : "bool",
+      "notes" : "string",
+      "priority" : "number",
+      "title" : "string"
+    },
+    "example" : "await apple.reminders.createReminder({ title: 'Buy batteries', dueDate: '2026-02-22T18:00:00Z' })",
+    "id" : "reminders.write",
+    "jsNames" : [
+      "apple.reminders.createReminder"
+    ],
+    "nullableArguments" : [
+
+    ],
+    "optionalArguments" : [
+      "dueDate",
+      "notes",
+      "isCompleted",
+      "priority",
+      "calendarIdentifier"
+    ],
+    "requiredArguments" : [
+      "title"
+    ],
+    "requiredPermissions" : [
+      "reminders"
+    ],
+    "resultSummary" : "Object with identifier\/title\/isCompleted\/dueDate\/completionDate\/notes\/priority\/calendarIdentifier\/calendarTitle.",
+    "summary" : "Create a reminder.",
+    "tags" : [
+      "reminders",
+      "eventkit",
+      "task"
+    ],
+    "title" : "createReminder"
+  },
+  {
+    "allowedStringValues" : {
+
+    },
+    "argumentHints" : {
+      "calendarIdentifier" : "Destination EventKit reminders calendarIdentifier.",
+      "dueDate" : "Reminder due date. ISO 8601 timestamp.",
+      "identifier" : "EventKit calendarItemIdentifier to update.",
+      "isCompleted" : "Completion state.",
+      "notes" : "Reminder notes.",
+      "priority" : "EventKit reminder priority integer.",
+      "title" : "Reminder title."
     },
     "argumentTypes" : {
       "calendarIdentifier" : "string",
@@ -4321,20 +4767,22 @@
       "identifier" : "string",
       "isCompleted" : "bool",
       "notes" : "string",
-      "operation" : "string",
       "priority" : "number",
       "title" : "string"
     },
-    "example" : "await apple.reminders.createReminder({ title: 'Buy batteries', dueDate: '2026-02-22T18:00:00Z' })",
+    "example" : "await apple.reminders.updateReminder({ identifier: 'REMINDER_ID', dueDate: null })",
     "id" : "reminders.write",
     "jsNames" : [
-      "apple.reminders.createReminder",
-      "apple.reminders.updateReminder",
-      "apple.reminders.completeReminder"
+      "apple.reminders.updateReminder"
+    ],
+    "nullableArguments" : [
+      "dueDate",
+      "notes",
+      "isCompleted",
+      "priority",
+      "calendarIdentifier"
     ],
     "optionalArguments" : [
-      "operation",
-      "identifier",
       "title",
       "dueDate",
       "notes",
@@ -4343,19 +4791,19 @@
       "calendarIdentifier"
     ],
     "requiredArguments" : [
-
+      "identifier"
     ],
     "requiredPermissions" : [
       "reminders"
     ],
     "resultSummary" : "Object with identifier\/title\/isCompleted\/dueDate\/completionDate\/notes\/priority\/calendarIdentifier\/calendarTitle.",
-    "summary" : "Create a reminder or patch an existing reminder by identifier.",
+    "summary" : "Patch an existing reminder by identifier.",
     "tags" : [
       "reminders",
       "eventkit",
       "task"
     ],
-    "title" : "createReminder"
+    "title" : "updateReminder"
   },
   {
     "allowedStringValues" : {
@@ -4371,6 +4819,9 @@
     "id" : "settings.ui.open",
     "jsNames" : [
       "apple.settings.open"
+    ],
+    "nullableArguments" : [
+
     ],
     "optionalArguments" : [
       "timeoutMs"
@@ -4416,6 +4867,9 @@
     "id" : "share.ui.present",
     "jsNames" : [
       "apple.share.present"
+    ],
+    "nullableArguments" : [
+
     ],
     "optionalArguments" : [
       "text",
@@ -4464,6 +4918,9 @@
     "jsNames" : [
       "apple.speech.transcribeFile"
     ],
+    "nullableArguments" : [
+
+    ],
     "optionalArguments" : [
       "locale",
       "timeoutMs",
@@ -4508,6 +4965,9 @@
     "jsNames" : [
       "apple.speech.transcribeMicrophone"
     ],
+    "nullableArguments" : [
+
+    ],
     "optionalArguments" : [
       "locale",
       "timeoutMs",
@@ -4547,6 +5007,9 @@
     "jsNames" : [
       "apple.speech.requestPermission"
     ],
+    "nullableArguments" : [
+
+    ],
     "optionalArguments" : [
 
     ],
@@ -4579,6 +5042,9 @@
     "id" : "speech.status",
     "jsNames" : [
       "apple.speech.getStatus"
+    ],
+    "nullableArguments" : [
+
     ],
     "optionalArguments" : [
 
@@ -4613,6 +5079,9 @@
     "jsNames" : [
       "apple.storekit.listEntitlements"
     ],
+    "nullableArguments" : [
+
+    ],
     "optionalArguments" : [
 
     ],
@@ -4645,6 +5114,9 @@
     "id" : "storekit.products.read",
     "jsNames" : [
       "apple.storekit.listProducts"
+    ],
+    "nullableArguments" : [
+
     ],
     "optionalArguments" : [
 
@@ -4683,6 +5155,9 @@
     "jsNames" : [
       "apple.storekit.purchase"
     ],
+    "nullableArguments" : [
+
+    ],
     "optionalArguments" : [
       "appAccountToken"
     ],
@@ -4717,6 +5192,9 @@
     "id" : "storekit.restore",
     "jsNames" : [
       "apple.storekit.restore"
+    ],
+    "nullableArguments" : [
+
     ],
     "optionalArguments" : [
 
@@ -4755,6 +5233,9 @@
     "id" : "storekit.transactions.read",
     "jsNames" : [
       "apple.storekit.listTransactions"
+    ],
+    "nullableArguments" : [
+
     ],
     "optionalArguments" : [
       "limit",
@@ -4807,6 +5288,9 @@
     "jsNames" : [
       "apple.ui.presentAlert"
     ],
+    "nullableArguments" : [
+
+    ],
     "optionalArguments" : [
       "title",
       "message",
@@ -4853,6 +5337,9 @@
     "jsNames" : [
       "apple.ui.presentPrompt"
     ],
+    "nullableArguments" : [
+
+    ],
     "optionalArguments" : [
       "title",
       "message",
@@ -4895,6 +5382,9 @@
     "jsNames" : [
       "apple.vision.analyzeImage"
     ],
+    "nullableArguments" : [
+
+    ],
     "optionalArguments" : [
       "features",
       "maxResults"
@@ -4930,6 +5420,9 @@
     "id" : "weather.read",
     "jsNames" : [
       "apple.weather.getCurrentWeather"
+    ],
+    "nullableArguments" : [
+
     ],
     "optionalArguments" : [
 
@@ -4968,6 +5461,9 @@
     "id" : "web.ui.present",
     "jsNames" : [
       "apple.web.present"
+    ],
+    "nullableArguments" : [
+
     ],
     "optionalArguments" : [
       "entersReaderIfAvailable",

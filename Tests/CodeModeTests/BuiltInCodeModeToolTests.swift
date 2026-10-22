@@ -3,7 +3,7 @@ import Testing
 @testable import CodeMode
 
 @Test func macroGeneratedDecodeCanonicalizesConstrainedValues() throws {
-    let tool = CalendarDeleteEventTool(eventKit: EventKitBridge())
+    let tool = CalendarDeleteEventTool()
 
     let decoded = try tool.decode(arguments: [
         "identifier": .string("E1"),
@@ -14,7 +14,7 @@ import Testing
 }
 
 @Test func macroGeneratedDecodeRejectsMissingRequiredAndUnknownConstrainedValues() {
-    let tool = CalendarDeleteEventTool(eventKit: EventKitBridge())
+    let tool = CalendarDeleteEventTool()
 
     #expect(throws: (any Error).self) {
         _ = try tool.decode(arguments: ["span": .string("thisEvent")])
@@ -27,26 +27,6 @@ import Testing
     }
 }
 
-@Test func macroGeneratedMetadataMatchesHandWrittenBaseline() throws {
-    // The EventKit domain was first migrated with hand-written metadata and
-    // then converted to @BuiltInCodeMode; pin the identity pieces so a macro
-    // regression cannot silently change the advertised surface.
-    let registration = try #require(
-        DefaultCapabilityLoader.loadAllRegistrations().first { $0.descriptor.id == .remindersWrite }
-    )
-    #expect(registration.jsNames == [
-        "apple.reminders.createReminder",
-        "apple.reminders.updateReminder",
-        "apple.reminders.completeReminder",
-    ])
-    #expect(registration.descriptor.requiredPermissions == [.reminders])
-    #expect(registration.descriptor.requiredArguments.isEmpty)
-    #expect(registration.descriptor.optionalArguments.first == "operation")
-    #expect(registration.descriptor.argumentTypes["priority"] == .number)
-    #expect(registration.descriptor.argumentConstraints.allowedStringValues["operation"] == ["create", "update", "complete"])
-    #expect(registration.descriptor.argumentHints["identifier"] == "EventKit calendarItemIdentifier to update or complete.")
-}
-
 private enum DefaultFixtureMode: String, CodeModeStringEnum {
     case selected = "wire-value"
     static let codeModeAliases: [String: Self] = ["alias": .selected]
@@ -56,7 +36,6 @@ private enum DefaultFixtureMode: String, CodeModeStringEnum {
 // type inference failures or incorrect advertised defaults.
 @BuiltInCodeMode(.calendarRead, path: "apple.calendar.defaultFixture")
 private struct DefaultFixtureTool: BuiltInCodeModeTool {
-    static let codeModeTitle = "Defaults fixture"
     static let codeModeSummary = "Exercise generated decoding."
     static let codeModeTags: [String] = []
     static let codeModeExample = ""
@@ -137,20 +116,6 @@ private struct DefaultFixtureTool: BuiltInCodeModeTool {
     }
 }
 
-@Test func invalidDynamicPermissionArgumentsFailBeforeRequestingAccess() throws {
-    let tool = CalendarWriteEventTool(eventKit: EventKitBridge())
-    let (context, sandbox) = try makeInvocationContext(permissionBroker: FixedPermissionBroker(
-        statuses: [.calendarWriteOnly: .notDetermined], requestStatuses: [.calendarWriteOnly: .granted]
-    ))
-    defer { cleanup(sandbox) }
-    // Exercise the generated handler directly: registry validation already
-    // rejects this, but argument-dependent hooks must remain safe on their own.
-    #expect(throws: CodeModeFunctionError.invalidArguments("Argument operation must be one of create, update")) {
-        _ = try CapabilityRegistration(tool: tool).handler(["operation": .string("invalid")], context)
-    }
-    #expect(context.allPermissionEvents().isEmpty)
-}
-
 @Test func resolvingWriteOnlyStatusDoesNotChangeItsMeaningUntilRequired() throws {
     let (context, sandbox) = try makeInvocationContext(permissionBroker: FixedPermissionBroker(statuses: [
         .calendarWriteOnly: .writeOnly, .calendar: .writeOnly,
@@ -201,4 +166,94 @@ func permissionRequestHelpersReportDenialWithoutBeingPrechecked(capability: Capa
     let result = try registry.invoke(CapabilityID.speechStatus.rawValue, arguments: [:], context: context)
     #expect(result.objectValue?.string("status") == "notDetermined")
     #expect(context.allPermissionEvents().map(\.status) == [.notDetermined])
+}
+
+@Test func migratedToolHintsOnlyExplainWhatTypesCannot() throws {
+    let bridges = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+        .appendingPathComponent("Sources/CodeMode/Bridges")
+    let tool = try Regex(#"(?s)@BuiltInCodeMode\(.*?(?=@BuiltInCodeMode|\z)"#)
+    let hint = try Regex(#"@ToolParam\("([^"]*)"\)"#)
+    var checked = 0
+    for file in try FileManager.default.contentsOfDirectory(at: bridges, includingPropertiesForKeys: nil) where file.pathExtension == "swift" {
+        let source = try String(contentsOf: file, encoding: .utf8)
+        for match in source.matches(of: tool) {
+            let definition = String(match.output[0].substring!)
+            if definition.contains("var raw:") { continue }
+            for annotation in definition.matches(of: hint) {
+                let text = String(annotation.output[1].substring!)
+                #expect(!text.hasPrefix("Optional"), "\(file.lastPathComponent): \(text)")
+                #expect(!text.lowercased().contains("default"), "\(file.lastPathComponent): \(text)")
+                #expect(!text.contains("ISO8601"), "\(file.lastPathComponent): \(text)")
+                checked += 1
+            }
+        }
+    }
+    #expect(checked > 30)
+}
+
+@BuiltInCodeMode(.calendarRead, path: "apple.calendar.patchFixture")
+private struct PatchFixtureTool: BuiltInCodeModeTool {
+    static let codeModeSummary = "Exercise typed patches."
+    static let codeModeTags: [String] = []
+    static let codeModeExample = ""
+    static let codeModeResultSummary = "JSON value"
+    struct Arguments: Sendable {
+        @ToolParam("Mode.") var mode: Patch<DefaultFixtureMode>
+        @ToolParam("Date.") var date: Patch<Date>
+    }
+    func call(arguments: Arguments, context: BridgeInvocationContext) throws -> JSONValue {
+        switch arguments.mode {
+        case .unchanged: return .string("unchanged")
+        case .clear: return .null
+        case let .set(mode): return .string(mode.rawValue)
+        }
+    }
+}
+
+@Test func patchesDecodeThroughRegistryIncludingConstrainedNullAndDates() throws {
+    let registry = CapabilityRegistry(registrations: [CapabilityRegistration(tool: PatchFixtureTool())])
+    let (context, sandbox) = try makeInvocationContext()
+    defer { cleanup(sandbox) }
+    #expect(try registry.invoke("calendar.read", arguments: [:], context: context) == .string("unchanged"))
+    #expect(try registry.invoke("calendar.read", arguments: ["mode": .null], context: context) == .null)
+    #expect(try registry.invoke("calendar.read", arguments: ["mode": .string("ALIAS")], context: context) == .string("wire-value"))
+    let decoded = try PatchFixtureTool().decode(arguments: ["date": .string("2026-07-24T10:00:00.000Z")])
+    guard case let .set(date) = decoded.date else { Issue.record("Expected a date patch"); return }
+    #expect(date == Date(timeIntervalSince1970: 1_784_887_200))
+    #expect(throws: (any Error).self) {
+        _ = try registry.invoke("calendar.read", arguments: ["mode": .string("unknown")], context: context)
+    }
+    let reference = try #require(BridgeCatalog(registry: registry).allReferences().first)
+    #expect(reference.nullableArguments == ["mode", "date"])
+    #expect(reference.dts.contains("date?: string | null;"))
+    #expect(reference.dts.contains("mode?: \"wire-value\" | \"alias\" | null;"))
+}
+
+@BuiltInCodeMode(.calendarWrite, path: "apple.calendar.dynamicPermissionFixture")
+private struct DynamicPermissionFixtureTool: BuiltInCodeModeTool {
+    static let codeModeSummary = "Exercise permission selection after decoding."
+    static let codeModeTags: [String] = []
+    static let codeModeExample = ""
+    static let codeModeResultSummary = "JSON value"
+    struct Arguments: Sendable {
+        @ToolParam("Mode.") var mode: DefaultFixtureMode
+    }
+    func argumentDependentPermissions(for arguments: Arguments) -> [PermissionKind] { [.calendarWriteOnly] }
+    func call(arguments: Arguments, context: BridgeInvocationContext) throws -> JSONValue { .null }
+}
+
+@Test func invalidDynamicPermissionArgumentsFailBeforeRequestingAccess() throws {
+    let registration = CapabilityRegistration(tool: DynamicPermissionFixtureTool())
+    let (context, sandbox) = try makeInvocationContext(permissionBroker: FixedPermissionBroker(
+        statuses: [.calendarWriteOnly: .notDetermined], requestStatuses: [.calendarWriteOnly: .granted]
+    ))
+    defer { cleanup(sandbox) }
+    // Invoke the generated handler directly: registry validation cannot mask a
+    // regression that prompts before the generated tool decoder runs.
+    #expect(throws: CodeModeFunctionError.invalidArguments("Argument mode must be one of wire-value, alias")) {
+        _ = try registration.handler(["mode": .string("invalid")], context)
+    }
+    #expect(context.allPermissionEvents().isEmpty)
+    _ = try registration.handler(["mode": .string("alias")], context)
+    #expect(context.allPermissionEvents().contains { $0.permission == .calendarWriteOnly && $0.status == .granted })
 }

@@ -19,7 +19,8 @@ public struct ToolParamMacro: PeerMacro {
 /// Generates the mechanical members of a `BuiltInCodeModeTool` from its nested
 /// `Arguments` struct: identity statics (`codeModeCapability`, `codeModePath`,
 /// `codeModeAliasPaths`), the `codeModeArguments` metadata list, and
-/// `decode(arguments:)`. Curated metadata (title, summary, tags, example,
+/// `decode(arguments:)`. Tools with Patch fields also get `hasChanges(_:)`
+/// over their Patch and optional fields. Curated metadata (summary, tags, example,
 /// permissions, result summary) and `call(arguments:context:)` stay
 /// hand-written.
 ///
@@ -79,6 +80,18 @@ public struct BuiltInCodeModeMacro: MemberMacro {
         }
         members.append(argumentsMetadataSource(for: parsed.fields))
         members.append(decodeSource(for: parsed))
+        if parsed.fields.contains(where: \.patch) {
+            let changes = parsed.fields.compactMap { field -> String? in
+                guard field.defaultExpression == nil else { return nil }
+                if field.patch { return "!arguments.\(field.name).isUnchanged" }
+                return field.optional ? "arguments.\(field.name) != nil" : nil
+            }
+            members.append("""
+            static func hasChanges(_ arguments: Arguments) -> Bool {
+                \(changes.joined(separator: " || "))
+            }
+            """)
+        }
 
         return members.map { DeclSyntax(stringLiteral: $0) }
     }
@@ -88,7 +101,6 @@ public struct BuiltInCodeModeMacro: MemberMacro {
     private struct ParsedArguments {
         var fields: [Field]
         var hasRawPassthrough: Bool
-        var hasProvidedArguments: Bool
         var initializerLabels: [String]
     }
 
@@ -97,12 +109,13 @@ public struct BuiltInCodeModeMacro: MemberMacro {
         var swiftType: String
         var kind: FieldKind
         var optional: Bool
+        var patch: Bool
         var hint: String
         var defaultExpression: String?
         var defaultJSON: String?
     }
 
-    fileprivate enum FieldKind {
+    fileprivate enum FieldKind: Equatable {
         /// A JSON primitive or collection with a direct CapabilityArgumentType.
         case primitive(String)
         /// An unrecognized simple type, emitted through the
@@ -118,7 +131,6 @@ public struct BuiltInCodeModeMacro: MemberMacro {
         var fields: [Field] = []
         var initializerLabels: [String] = []
         var hasRawPassthrough = false
-        var hasProvidedArguments = false
         var rawIsLast = true
         var invalid = false
 
@@ -151,12 +163,6 @@ public struct BuiltInCodeModeMacro: MemberMacro {
             initializerLabels.append(name)
             let hint = toolParamHint(on: variable.attributes)
 
-            if hint == nil, name == "providedArguments", type == "Set<String>" {
-                rawIsLast = false
-                hasProvidedArguments = true
-                continue
-            }
-
             if hint == nil, name == "raw" {
                 guard type.replacingOccurrences(of: " ", with: "") == "[String:JSONValue]" else {
                     context.diagnose(BuiltInMacroDiagnostic("@BuiltInCodeMode raw passthrough must be [String: JSONValue]", node: Syntax(binding)))
@@ -179,7 +185,7 @@ public struct BuiltInCodeModeMacro: MemberMacro {
             var defaultExpression: String?
             var defaultJSON: String?
             if let initializer = binding.initializer?.value {
-                if info.optional {
+                if info.optional || info.patch {
                     context.diagnose(BuiltInMacroDiagnostic("@ToolParam optional properties cannot have initializers; resolve dynamic defaults in call", node: Syntax(initializer)))
                     invalid = true
                     continue
@@ -198,6 +204,7 @@ public struct BuiltInCodeModeMacro: MemberMacro {
                     swiftType: info.unwrappedType,
                     kind: info.kind,
                     optional: info.optional,
+                    patch: info.patch,
                     hint: hint,
                     defaultExpression: defaultExpression,
                     defaultJSON: defaultJSON
@@ -212,7 +219,7 @@ public struct BuiltInCodeModeMacro: MemberMacro {
             return nil
         }
 
-        return invalid ? nil : ParsedArguments(fields: fields, hasRawPassthrough: hasRawPassthrough, hasProvidedArguments: hasProvidedArguments, initializerLabels: initializerLabels)
+        return invalid ? nil : ParsedArguments(fields: fields, hasRawPassthrough: hasRawPassthrough, initializerLabels: initializerLabels)
     }
 
     private static func toolParamHint(on attributes: AttributeListSyntax) -> String? {
@@ -266,15 +273,17 @@ public struct BuiltInCodeModeMacro: MemberMacro {
             return "static let codeModeArguments: [BuiltInToolArgument] = []"
         }
         let entries = fields.map { field -> String in
-            let optionalPart = (field.optional || field.defaultExpression != nil) ? ", optional: true" : ""
+            let optionalPart = (field.optional || field.patch || field.defaultExpression != nil) ? ", optional: true" : ""
+            let nullablePart = field.patch ? ", nullable: true" : ""
+            let hint = field.kind == .date ? [field.hint, "ISO 8601 timestamp."].filter { !$0.isEmpty }.joined(separator: " ") : field.hint
             let defaultPart = field.defaultJSON.map { ", defaultValue: \($0)" } ?? ""
             switch field.kind {
             case .date:
-                return "BuiltInToolArgument(\(stringLiteral(field.name)), .string\(optionalPart), hint: \(stringLiteral(field.hint))\(defaultPart)),"
+                return "BuiltInToolArgument(\(stringLiteral(field.name)), .string\(optionalPart)\(nullablePart), hint: \(stringLiteral(hint))\(defaultPart)),"
             case let .primitive(argumentType):
-                return "BuiltInToolArgument(\(stringLiteral(field.name)), .\(argumentType)\(optionalPart), hint: \(stringLiteral(field.hint))\(defaultPart)),"
+                return "BuiltInToolArgument(\(stringLiteral(field.name)), .\(argumentType)\(optionalPart)\(nullablePart), hint: \(stringLiteral(hint))\(defaultPart)),"
             case .stringEnum:
-                return "BuiltInToolArgument(\(stringLiteral(field.name)), oneOf: \(field.swiftType).self\(optionalPart), hint: \(stringLiteral(field.hint))\(defaultPart)),"
+                return "BuiltInToolArgument(\(stringLiteral(field.name)), oneOf: \(field.swiftType).self\(optionalPart)\(nullablePart), hint: \(stringLiteral(hint))\(defaultPart)),"
             }
         }.joined(separator: "\n    ")
         return """
@@ -295,12 +304,18 @@ public struct BuiltInCodeModeMacro: MemberMacro {
             body.append(enumFields.isEmpty && parsed.fields.allSatisfy { $0.defaultExpression == nil } ? "let raw = arguments" : "var raw = arguments")
         }
         for field in parsed.fields {
-            let method = field.optional || field.defaultExpression != nil ? "optional" : "require"
+            let method = field.optional || field.patch || field.defaultExpression != nil ? "optional" : "require"
+            let expression: String
             if case .date = field.kind {
-                body.append("let \(field.name) = try CodeModeDate.\(method)(arguments.string(\(stringLiteral(field.name))), argument: \(stringLiteral(field.name)), capability: Self.codeModeCapability.rawValue)")
+                expression = "try CodeModeDate.\(method)(arguments.string(\(stringLiteral(field.name))), argument: \(stringLiteral(field.name)), capability: Self.codeModeCapability.rawValue)"
+            } else {
+                expression = "try CodeModeArgumentDecoder.\(method)(\(stringLiteral(field.name)), as: \(field.swiftType).self, in: arguments)"
+            }
+            if field.patch {
+                body.append("let \(field.name): Patch<\(field.swiftType)> = try Patch.decode(arguments[\(stringLiteral(field.name))]) { \(expression) }")
             } else {
                 let fallback = field.defaultExpression.map { " ?? \($0)" } ?? ""
-                body.append("let \(field.name) = try CodeModeArgumentDecoder.\(method)(\(stringLiteral(field.name)), as: \(field.swiftType).self, in: arguments)\(fallback)")
+                body.append("let \(field.name) = \(expression)\(fallback)")
             }
         }
         if parsed.hasRawPassthrough {
@@ -315,7 +330,6 @@ public struct BuiltInCodeModeMacro: MemberMacro {
 
         let initArguments = parsed.initializerLabels.map { name in
             if name == "raw", parsed.hasRawPassthrough { return "raw: raw" }
-            if name == "providedArguments", parsed.hasProvidedArguments { return "providedArguments: Set(arguments.keys)" }
             return "\(name): \(name)"
         }
         body.append(initArguments.isEmpty ? "return Arguments()" : "return Arguments(\(initArguments.joined(separator: ", ")))")
@@ -340,10 +354,15 @@ private struct BuiltInTypeInfo {
     var unwrappedType: String
     var kind: BuiltInCodeModeMacro.FieldKind
     var optional: Bool
+    var patch: Bool
 
     init(typeSyntax rawType: String) {
         let trimmed = rawType.replacingOccurrences(of: " ", with: "")
-        if trimmed.hasSuffix("?") {
+        patch = trimmed.hasPrefix("Patch<") && trimmed.hasSuffix(">")
+        if patch {
+            optional = false
+            unwrappedType = String(trimmed.dropFirst("Patch<".count).dropLast())
+        } else if trimmed.hasSuffix("?") {
             optional = true
             unwrappedType = String(trimmed.dropLast())
         } else if trimmed.hasPrefix("Optional<"), trimmed.hasSuffix(">") {

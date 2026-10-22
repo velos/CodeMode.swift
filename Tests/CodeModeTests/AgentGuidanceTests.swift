@@ -169,3 +169,74 @@ import Testing
     #expect(CodeModeAgentToolDescriptions.executeJavaScript.description.count < 4_800)
     #expect(CodeModeAgentToolDescriptions.executeJavaScript.description.contains("const results = []") == false)
 }
+
+@Test func everyCatalogExampleNamesRealHelpersAndArguments() async throws {
+    let (tools, sandbox) = try makeTools(hostPlatform: .iOS)
+    defer { cleanup(sandbox) }
+    let references = tools.capabilities()
+    let byName = Dictionary(references.flatMap { ref in ref.jsNames.map { ($0, ref) } }, uniquingKeysWith: { first, _ in first })
+    // Scan object keys at each declared level, skipping quoted strings and
+    // nested literals. Open objects (fields, parameters, etc.) own their keys;
+    // only objects with catalogued children constrain the nested names.
+    func keys(in source: Substring) throws -> [(String, Substring?)] {
+        let chars = Array(source)
+        var entries: [(String, Substring?)] = []
+        var depth = 0
+        var quote: Character?
+        var escaped = false
+        var start = 0
+        var pieces: [String] = []
+        for (index, char) in chars.enumerated() {
+            if let current = quote {
+                if escaped { escaped = false }
+                else if char == "\\" { escaped = true }
+                else if char == current { quote = nil }
+                continue
+            }
+            if char == "\"" || char == "'" || char == "`" { quote = char }
+            else if char == "{" || char == "[" || char == "(" { depth += 1 }
+            else if char == "}" || char == "]" || char == ")" { depth -= 1 }
+            else if char == ",", depth == 0 {
+                pieces.append(String(chars[start..<index]))
+                start = index + 1
+            }
+        }
+        pieces.append(String(chars[start...]))
+        for piece in pieces where !piece.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            let pair = piece.split(separator: ":", maxSplits: 1)
+            let key = String(pair[0]).trimmingCharacters(in: .whitespacesAndNewlines).trimmingCharacters(in: CharacterSet(charactersIn: "\"'"))
+            let value = pair.count == 2 ? pair[1].trimmingCharacters(in: .whitespacesAndNewlines) : ""
+            entries.append((key, value.hasPrefix("{") && value.hasSuffix("}") ? value.dropFirst().dropLast() : nil))
+        }
+        return entries
+    }
+    func check(_ body: Substring, prefix: String = "", reference: JavaScriptAPIReference, helper: String) throws {
+        let known = Set(reference.requiredArguments + reference.optionalArguments + Array(reference.argumentTypes.keys))
+        for (key, nested) in try keys(in: body) {
+            let path = prefix + key
+            #expect(known.contains(path), "\(helper) example has unknown argument '\(path)'")
+            if let nested, known.contains(where: { $0.hasPrefix(path + ".") }) {
+                try check(nested, prefix: path + ".", reference: reference, helper: helper)
+            }
+        }
+    }
+    let call = try Regex(#"^await ((?:apple|ios)\.[A-Za-z.]+|fetch)\((.*?)\)(?:\.then\(.*\))?$"#)
+    for reference in references {
+        let match = try #require(reference.example.wholeMatch(of: call), "Unparsed example: \(reference.example)")
+        let helper = String(match.output[1].substring!)
+        let target = try #require(byName[helper], "example references missing helper \(helper)")
+        let args = match.output[2].substring!.trimmingCharacters(in: .whitespacesAndNewlines)
+        if helper == "fetch" {
+            // fetch is positional; its second argument is the catalog's options
+            // object. The URL itself has no argument keys to check.
+            let positional = try Regex(#"^(['"])(.*?)\1(?:,\s*\{(.*)\})?$"#)
+            let invocation = try #require(args.wholeMatch(of: positional), "Unparsed fetch arguments: \(args)")
+            if let options = invocation.output[3].substring {
+                try check(options, prefix: "options.", reference: target, helper: helper)
+            }
+        } else if !args.isEmpty {
+            #expect(args.hasPrefix("{") && args.hasSuffix("}"), "Expected object arguments in \(reference.example)")
+            try check(args.dropFirst().dropLast(), reference: target, helper: helper)
+        }
+    }
+}
