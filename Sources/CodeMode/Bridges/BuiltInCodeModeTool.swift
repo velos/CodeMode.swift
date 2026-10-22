@@ -61,6 +61,7 @@ struct BuiltInToolArgument {
 /// migration is incremental.
 protocol BuiltInCodeModeTool: Sendable {
     associatedtype Arguments: Sendable
+    associatedtype Result: CodeModeResultDescribable
 
     static var codeModeCapability: CapabilityID { get }
     static var codeModePath: String { get }
@@ -78,10 +79,11 @@ protocol BuiltInCodeModeTool: Sendable {
     /// Additional permissions selected from decoded arguments. Static
     /// requirements are enforced by the registry before the handler runs.
     func argumentDependentPermissions(for arguments: Arguments) -> [PermissionKind]
-    func call(arguments: Arguments, context: BridgeInvocationContext) throws -> JSONValue
+    func call(arguments: Arguments, context: BridgeInvocationContext) throws -> Result
 }
 
 extension BuiltInCodeModeTool {
+    static var codeModeResultSummary: String { Result.codeModeResultSchema.summary }
     static var codeModeAliasPaths: [String] { [] }
     static var codeModeRequiredPermissions: [PermissionKind] { [] }
     func argumentDependentPermissions(for arguments: Arguments) -> [PermissionKind] { [] }
@@ -116,14 +118,15 @@ extension CapabilityRegistration {
                 argumentConstraints: allowedStringValues.isEmpty
                     ? nil
                     : CapabilityArgumentConstraints(allowedStringValues: allowedStringValues),
-                resultSummary: Tool.codeModeResultSummary
+                resultSummary: Tool.codeModeResultSummary,
+                resultSchema: Tool.Result.codeModeResultSchema == .any ? nil : Tool.Result.codeModeResultSchema
             ),
             handler: { rawArguments, context in
                 let decoded = try tool.decode(arguments: rawArguments)
                 for permission in tool.argumentDependentPermissions(for: decoded) {
                     try context.requirePermission(permission)
                 }
-                return try tool.call(arguments: decoded, context: context)
+                return try tool.call(arguments: decoded, context: context).codeModeJSONValue
             }
         )
     }

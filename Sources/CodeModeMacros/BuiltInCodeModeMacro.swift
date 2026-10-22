@@ -21,7 +21,7 @@ public struct ToolParamMacro: PeerMacro {
 /// `codeModeAliasPaths`), the `codeModeArguments` metadata list, and
 /// `decode(arguments:)`. Tools with Patch fields also get `hasChanges(_:)`
 /// over their Patch and optional fields. Curated metadata (summary, tags, example,
-/// permissions, result summary) and `call(arguments:context:)` stay
+/// permissions, optional result summary override) and `call(arguments:context:)` stay
 /// hand-written.
 ///
 /// Nonoptional scalar properties may declare literal defaults; enum

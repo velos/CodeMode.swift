@@ -9,10 +9,8 @@ import Foundation
 /// emitted as `.d.ts` — per capability for search results, and whole-surface for
 /// a system prompt.
 ///
-/// Result types are `CodeModeValue` for now: built-in tools return untyped
-/// `JSONValue` dictionaries, so a typed result would be a fiction. The prose
-/// `resultSummary` is carried in the doc comment instead, and a per-capability
-/// result schema can tighten this later without changing the shape here.
+/// Typed built-in results carry a schema; transitional tools keep the JSON
+/// fallback and their hand-written result summary.
 public enum TypeScriptDeclarations {
     /// Shared types and the runtime globals that are not catalog capabilities.
     ///
@@ -169,7 +167,9 @@ public enum TypeScriptDeclarations {
         lines.append(" * \(reference.summary)")
         lines.append(" *")
         lines.append(" * Capability: \(reference.capability)")
-        lines.append(" * Returns: \(reference.resultSummary)")
+        if reference.resultSchema == nil || reference.resultSummary != reference.resultSchema?.summary {
+            lines.append(" * Returns: \(reference.resultSummary)")
+        }
 
         let aliases = reference.jsNames.filter { $0 != canonicalName }
         if aliases.isEmpty == false {
@@ -188,13 +188,73 @@ public enum TypeScriptDeclarations {
     }
 
     private static func functionSignature(for reference: JavaScriptAPIReference) -> String {
+        let result = reference.resultSchema.map { resultType(for: $0) } ?? "CodeModeValue"
         let tree = ArgumentTree(reference: reference)
         guard tree.isEmpty == false else {
-            return "(): Promise<CodeModeValue>"
+            return "(): Promise<\(result)>"
         }
         // `args` is optional only when nothing in it is required.
         let optionalMarker = reference.requiredArguments.isEmpty ? "?" : ""
-        return "(args\(optionalMarker): \(tree.render(indent: ""))): Promise<CodeModeValue>"
+        return "(args\(optionalMarker): \(tree.render(indent: ""))): Promise<\(result)>"
+    }
+
+    /// Both declarations and derived summaries use this renderer. Summaries
+    /// omit field documentation and line breaks, while preserving the type.
+    static func resultType(for schema: CodeModeResultSchema, indent: String = "", multiline: Bool = true) -> String {
+        switch schema {
+        case .string: return "string"
+        case .number: return "number"
+        case .bool: return "boolean"
+        case .any: return "CodeModeValue"
+        case let .nullable(value):
+            return "\(resultType(for: value, indent: indent, multiline: multiline)) | null"
+        case let .array(value):
+            return "Array<\(resultType(for: value, indent: indent, multiline: multiline))>"
+        case let .dictionary(value):
+            return "{ [key: string]: \(resultType(for: value, indent: indent, multiline: multiline)) }"
+        case let .object(fields):
+            guard !fields.isEmpty else { return "{}" }
+            let inner = indent + "  "
+            let members = fields.map { field in
+                let optional: String
+                if case .nullable = field.schema { optional = "?" } else { optional = "" }
+                // Swift identifiers may be escaped or contain characters that
+                // require a quoted property name in TypeScript.
+                let name = field.name.range(of: #"^[A-Za-z_$][A-Za-z0-9_$]*$"#, options: .regularExpression) != nil
+                    ? field.name
+                    : stringLiteral(field.name)
+                let member = "\(name)\(optional): \(resultType(for: field.schema, indent: inner, multiline: multiline));"
+                guard multiline else { return member }
+                if let hint = field.hint, !hint.isEmpty {
+                    let safeHint = hint.replacingOccurrences(of: "*/", with: "* /")
+                        .components(separatedBy: .newlines).joined(separator: " ")
+                    return "\(inner)/** \(safeHint) */\n\(inner)\(member)"
+                }
+                return inner + member
+            }
+            return multiline
+                ? "{\n\(members.joined(separator: "\n"))\n\(indent)}"
+                : "{ \(members.joined(separator: " ")) }"
+        }
+    }
+
+    /// Quotes JSON/TypeScript strings without a throwing serialization step.
+    private static func stringLiteral(_ value: String) -> String {
+        let escaped = value.unicodeScalars.map { scalar -> String in
+            switch scalar {
+            case "\"": return "\\\""
+            case "\\": return "\\\\"
+            case "\n": return "\\n"
+            case "\r": return "\\r"
+            case "\t": return "\\t"
+            default:
+                if scalar.value < 0x20 || scalar.value == 0x2028 || scalar.value == 0x2029 {
+                    return String(format: "\\u%04x", scalar.value)
+                }
+                return String(scalar)
+            }
+        }.joined()
+        return "\"" + escaped + "\""
     }
 
     // MARK: - Argument tree
@@ -284,7 +344,7 @@ public enum TypeScriptDeclarations {
         if let allowedValues, allowedValues.isEmpty == false {
             // The constraint is the type: a union beats `string` plus prose the
             // model has to notice.
-            return allowedValues.map { "\"\($0)\"" }.joined(separator: " | ")
+            return allowedValues.map { stringLiteral($0) }.joined(separator: " | ")
         }
 
         switch type {

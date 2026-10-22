@@ -258,6 +258,56 @@ public protocol CodeModeJSONEncodable {
     var codeModeJSONValue: JSONValue { get }
 }
 
+/// A result whose JSON encoder and model-facing shape come from the same type.
+public protocol CodeModeResultDescribable: CodeModeJSONEncodable {
+    static var codeModeResultSchema: CodeModeResultSchema { get }
+}
+
+extension String: CodeModeResultDescribable {
+    public static var codeModeResultSchema: CodeModeResultSchema { .string }
+}
+
+extension Int: CodeModeResultDescribable {
+    public static var codeModeResultSchema: CodeModeResultSchema { .number }
+}
+
+extension Double: CodeModeResultDescribable {
+    public static var codeModeResultSchema: CodeModeResultSchema { .number }
+}
+
+extension Float: CodeModeResultDescribable {
+    public static var codeModeResultSchema: CodeModeResultSchema { .number }
+}
+
+extension Bool: CodeModeResultDescribable {
+    public static var codeModeResultSchema: CodeModeResultSchema { .bool }
+}
+
+extension Date: CodeModeJSONEncodable, CodeModeResultDescribable {
+    public var codeModeJSONValue: JSONValue { .string(ISO8601Format()) }
+    public static var codeModeResultSchema: CodeModeResultSchema { .string }
+}
+
+extension JSONValue: CodeModeResultDescribable {
+    public static var codeModeResultSchema: CodeModeResultSchema { .any }
+}
+
+extension Optional: CodeModeJSONEncodable where Wrapped: CodeModeJSONEncodable {
+    public var codeModeJSONValue: JSONValue { map(\.codeModeJSONValue) ?? .null }
+}
+
+extension Optional: CodeModeResultDescribable where Wrapped: CodeModeResultDescribable {
+    public static var codeModeResultSchema: CodeModeResultSchema { .nullable(Wrapped.codeModeResultSchema) }
+}
+
+extension Array: CodeModeResultDescribable where Element: CodeModeResultDescribable {
+    public static var codeModeResultSchema: CodeModeResultSchema { .array(Element.codeModeResultSchema) }
+}
+
+extension Dictionary: CodeModeResultDescribable where Key == String, Value: CodeModeResultDescribable {
+    public static var codeModeResultSchema: CodeModeResultSchema { .dictionary(Value.codeModeResultSchema) }
+}
+
 extension JSONValue: CodeModeJSONEncodable {
     public var codeModeJSONValue: JSONValue { self }
 }

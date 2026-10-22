@@ -50,7 +50,6 @@ struct CalendarListEventsTool: BuiltInCodeModeTool {
     static let codeModeTags = ["calendar", "eventkit", "schedule"]
     static let codeModeExample = "await apple.calendar.listEvents({ start: '2026-02-21T00:00:00Z', end: '2026-03-01T00:00:00Z' })"
     static let codeModeRequiredPermissions: [PermissionKind] = [.calendar]
-    static let codeModeResultSummary = "Array of events with identifier/title/startDate/endDate/notes/calendarIdentifier/calendarTitle/location/url/isAllDay."
 
     struct Arguments: Sendable {
         @ToolParam("Range start; uses now when omitted.")
@@ -65,7 +64,7 @@ struct CalendarListEventsTool: BuiltInCodeModeTool {
         var calendarIdentifiers: [String]?
     }
 
-    func call(arguments: Arguments, context: BridgeInvocationContext) throws -> JSONValue {
+    func call(arguments: Arguments, context: BridgeInvocationContext) throws -> [CalendarEvent] {
         #if canImport(EventKit)
         let store = EKEventStore()
         let start = arguments.start ?? Date()
@@ -83,10 +82,10 @@ struct CalendarListEventsTool: BuiltInCodeModeTool {
 
         let predicate = store.predicateForEvents(withStart: start, end: end, calendars: calendars)
         let events = store.events(matching: predicate).prefix(max(1, limit)).map { event in
-            EventKitBridge.eventJSON(event)
+            CalendarEvent(event)
         }
 
-        return .array(Array(events))
+        return events
         #else
         _ = arguments
         throw BridgeError.unsupportedPlatform("EventKit")
@@ -100,7 +99,6 @@ struct CalendarCreateEventTool: BuiltInCodeModeTool {
     static let codeModeTags = ["calendar", "eventkit", "schedule"]
     static let codeModeExample = "await apple.calendar.createEvent({ title: 'Standup', start: '2026-02-22T16:00:00Z', end: '2026-02-22T16:15:00Z' })"
     static let codeModeRequiredPermissions: [PermissionKind] = [.calendarWriteOnly]
-    static let codeModeResultSummary = "Object with identifier/title/startDate/endDate/notes/calendarIdentifier/calendarTitle/location/url/isAllDay."
 
     struct Arguments: Sendable {
         @ToolParam("Event title.")
@@ -121,7 +119,7 @@ struct CalendarCreateEventTool: BuiltInCodeModeTool {
         var calendarIdentifier: String?
     }
 
-    func call(arguments: Arguments, context: BridgeInvocationContext) throws -> JSONValue {
+    func call(arguments: Arguments, context: BridgeInvocationContext) throws -> CalendarEvent {
         #if canImport(EventKit)
         guard arguments.title.isEmpty == false else {
             throw BridgeError.invalidArguments("calendar.write title cannot be empty")
@@ -154,7 +152,7 @@ struct CalendarCreateEventTool: BuiltInCodeModeTool {
 
         do {
             try store.save(event, span: .thisEvent)
-            return EventKitBridge.eventJSON(event)
+            return CalendarEvent(event)
         } catch {
             throw BridgeError.nativeFailure("calendar.write failed: \(error.localizedDescription)")
         }
@@ -170,7 +168,6 @@ struct CalendarUpdateEventTool: BuiltInCodeModeTool {
     static let codeModeTags = ["calendar", "eventkit", "schedule"]
     static let codeModeExample = "await apple.calendar.updateEvent({ identifier: 'EVENT_ID', notes: null })"
     static let codeModeRequiredPermissions: [PermissionKind] = [.calendar]
-    static let codeModeResultSummary = "Object with identifier/title/startDate/endDate/notes/calendarIdentifier/calendarTitle/location/url/isAllDay."
 
     struct Arguments: Sendable {
         @ToolParam("EventKit eventIdentifier to update.")
@@ -193,7 +190,7 @@ struct CalendarUpdateEventTool: BuiltInCodeModeTool {
         var calendarIdentifier: String?
     }
 
-    func call(arguments: Arguments, context: BridgeInvocationContext) throws -> JSONValue {
+    func call(arguments: Arguments, context: BridgeInvocationContext) throws -> CalendarEvent {
         #if canImport(EventKit)
         let identifier = arguments.identifier
         guard identifier.isEmpty == false else {
@@ -213,7 +210,7 @@ struct CalendarUpdateEventTool: BuiltInCodeModeTool {
 
         do {
             try store.save(event, span: .thisEvent)
-            return EventKitBridge.eventJSON(event)
+            return CalendarEvent(event)
         } catch {
             throw BridgeError.nativeFailure("calendar.write failed: \(error.localizedDescription)")
         }
@@ -256,7 +253,6 @@ struct CalendarDeleteEventTool: BuiltInCodeModeTool {
     static let codeModeTags = ["calendar", "eventkit", "schedule", "delete"]
     static let codeModeExample = "await apple.calendar.deleteEvent({ identifier: 'EVENT_ID', span: 'thisEvent' })"
     static let codeModeRequiredPermissions: [PermissionKind] = [.calendar]
-    static let codeModeResultSummary = "Object with identifier/deleted."
 
     struct Arguments: Sendable {
         @ToolParam("EventKit eventIdentifier from apple.calendar.listEvents.")
@@ -265,7 +261,7 @@ struct CalendarDeleteEventTool: BuiltInCodeModeTool {
         var span: CalendarEventSpan = .thisEvent
     }
 
-    func call(arguments: Arguments, context: BridgeInvocationContext) throws -> JSONValue {
+    func call(arguments: Arguments, context: BridgeInvocationContext) throws -> EventKitDeletion {
         #if canImport(EventKit)
         let identifier = arguments.identifier
         guard identifier.isEmpty == false else {
@@ -279,10 +275,7 @@ struct CalendarDeleteEventTool: BuiltInCodeModeTool {
 
         do {
             try store.remove(event, span: span)
-            return .object([
-                "identifier": .string(identifier),
-                "deleted": .bool(true),
-            ])
+            return EventKitDeletion(identifier: identifier, deleted: true)
         } catch {
             throw BridgeError.nativeFailure("calendar.delete failed: \(error.localizedDescription)")
         }
@@ -384,7 +377,6 @@ struct RemindersListTool: BuiltInCodeModeTool {
     static let codeModeTags = ["reminders", "eventkit", "task"]
     static let codeModeExample = "await apple.reminders.listReminders({ limit: 20 })"
     static let codeModeRequiredPermissions: [PermissionKind] = [.reminders]
-    static let codeModeResultSummary = "Array of reminders with identifier/title/isCompleted/dueDate/completionDate/notes/priority/calendarIdentifier/calendarTitle."
 
     struct Arguments: Sendable {
         @ToolParam("Due-date lower bound.")
@@ -401,7 +393,7 @@ struct RemindersListTool: BuiltInCodeModeTool {
         var limit: Int = 50
     }
 
-    func call(arguments: Arguments, context: BridgeInvocationContext) throws -> JSONValue {
+    func call(arguments: Arguments, context: BridgeInvocationContext) throws -> [Reminder] {
         #if canImport(EventKit)
         let store = EKEventStore()
         let includeCompleted = arguments.includeCompleted
@@ -439,11 +431,11 @@ struct RemindersListTool: BuiltInCodeModeTool {
                         return true
                     }
                     .prefix(limit)
-                complete(filtered.map { EventKitBridge.reminderJSON($0) })
+                complete(filtered.map { Reminder($0) })
             }
         }
 
-        return .array(result)
+        return result
         #else
         _ = arguments
         throw BridgeError.unsupportedPlatform("EventKit")
@@ -457,7 +449,6 @@ struct RemindersCreateTool: BuiltInCodeModeTool {
     static let codeModeTags = ["reminders", "eventkit", "task"]
     static let codeModeExample = "await apple.reminders.createReminder({ title: 'Buy batteries', dueDate: '2026-02-22T18:00:00Z' })"
     static let codeModeRequiredPermissions: [PermissionKind] = [.reminders]
-    static let codeModeResultSummary = "Object with identifier/title/isCompleted/dueDate/completionDate/notes/priority/calendarIdentifier/calendarTitle."
 
     struct Arguments: Sendable {
         @ToolParam("Reminder title.")
@@ -474,7 +465,7 @@ struct RemindersCreateTool: BuiltInCodeModeTool {
         var calendarIdentifier: String?
     }
 
-    func call(arguments: Arguments, context: BridgeInvocationContext) throws -> JSONValue {
+    func call(arguments: Arguments, context: BridgeInvocationContext) throws -> Reminder {
         #if canImport(EventKit)
         guard arguments.title.isEmpty == false else {
             throw BridgeError.invalidArguments("reminders.write title cannot be empty")
@@ -496,7 +487,7 @@ struct RemindersCreateTool: BuiltInCodeModeTool {
 
         do {
             try store.save(reminder, commit: true)
-            return EventKitBridge.reminderJSON(reminder)
+            return Reminder(reminder)
         } catch {
             throw BridgeError.nativeFailure("reminders.write failed: \(error.localizedDescription)")
         }
@@ -512,7 +503,6 @@ struct RemindersUpdateTool: BuiltInCodeModeTool {
     static let codeModeTags = ["reminders", "eventkit", "task"]
     static let codeModeExample = "await apple.reminders.updateReminder({ identifier: 'REMINDER_ID', dueDate: null })"
     static let codeModeRequiredPermissions: [PermissionKind] = [.reminders]
-    static let codeModeResultSummary = "Object with identifier/title/isCompleted/dueDate/completionDate/notes/priority/calendarIdentifier/calendarTitle."
 
     struct Arguments: Sendable {
         @ToolParam("EventKit calendarItemIdentifier to update.")
@@ -531,7 +521,7 @@ struct RemindersUpdateTool: BuiltInCodeModeTool {
         var calendarIdentifier: Patch<String>
     }
 
-    func call(arguments: Arguments, context: BridgeInvocationContext) throws -> JSONValue {
+    func call(arguments: Arguments, context: BridgeInvocationContext) throws -> Reminder {
         #if canImport(EventKit)
         let identifier = arguments.identifier
         guard identifier.isEmpty == false else {
@@ -551,7 +541,7 @@ struct RemindersUpdateTool: BuiltInCodeModeTool {
 
         do {
             try store.save(reminder, commit: true)
-            return EventKitBridge.reminderJSON(reminder)
+            return Reminder(reminder)
         } catch {
             throw BridgeError.nativeFailure("reminders.write failed: \(error.localizedDescription)")
         }
@@ -583,7 +573,6 @@ struct RemindersCompleteTool: BuiltInCodeModeTool {
     static let codeModeTags = ["reminders", "eventkit", "task"]
     static let codeModeExample = "await apple.reminders.completeReminder({ identifier: 'REMINDER_ID' })"
     static let codeModeRequiredPermissions: [PermissionKind] = [.reminders]
-    static let codeModeResultSummary = "Object with identifier/title/isCompleted/dueDate/completionDate/notes/priority/calendarIdentifier/calendarTitle."
 
     struct Arguments: Sendable {
         @ToolParam("EventKit calendarItemIdentifier to complete.")
@@ -592,7 +581,7 @@ struct RemindersCompleteTool: BuiltInCodeModeTool {
         var isCompleted: Bool = true
     }
 
-    func call(arguments: Arguments, context: BridgeInvocationContext) throws -> JSONValue {
+    func call(arguments: Arguments, context: BridgeInvocationContext) throws -> Reminder {
         #if canImport(EventKit)
         let identifier = arguments.identifier
         guard identifier.isEmpty == false else {
@@ -605,7 +594,7 @@ struct RemindersCompleteTool: BuiltInCodeModeTool {
         EventKitBridge.applyCompletion(.set(arguments.isCompleted), to: reminder)
         do {
             try store.save(reminder, commit: true)
-            return EventKitBridge.reminderJSON(reminder)
+            return Reminder(reminder)
         } catch {
             throw BridgeError.nativeFailure("reminders.write failed: \(error.localizedDescription)")
         }
@@ -621,14 +610,13 @@ struct RemindersDeleteTool: BuiltInCodeModeTool {
     static let codeModeTags = ["reminders", "eventkit", "task", "delete"]
     static let codeModeExample = "await apple.reminders.deleteReminder({ identifier: 'REMINDER_ID' })"
     static let codeModeRequiredPermissions: [PermissionKind] = [.reminders]
-    static let codeModeResultSummary = "Object with identifier/deleted."
 
     struct Arguments: Sendable {
         @ToolParam("EventKit calendarItemIdentifier from apple.reminders.listReminders.")
         var identifier: String
     }
 
-    func call(arguments: Arguments, context: BridgeInvocationContext) throws -> JSONValue {
+    func call(arguments: Arguments, context: BridgeInvocationContext) throws -> EventKitDeletion {
         #if canImport(EventKit)
         let identifier = arguments.identifier
         guard identifier.isEmpty == false else {
@@ -641,10 +629,7 @@ struct RemindersDeleteTool: BuiltInCodeModeTool {
 
         do {
             try store.remove(reminder, commit: true)
-            return .object([
-                "identifier": .string(identifier),
-                "deleted": .bool(true),
-            ])
+            return EventKitDeletion(identifier: identifier, deleted: true)
         } catch {
             throw BridgeError.nativeFailure("reminders.delete failed: \(error.localizedDescription)")
         }

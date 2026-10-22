@@ -19,6 +19,7 @@ private struct CapabilitySnapshot: Codable, Equatable {
     var argumentHints: [String: String]
     var allowedStringValues: [String: [String]]
     var resultSummary: String
+    var resultSchema: CodeModeResultSchema?
 
     init(_ registration: CapabilityRegistration) {
         let descriptor = registration.descriptor
@@ -36,6 +37,7 @@ private struct CapabilitySnapshot: Codable, Equatable {
         argumentHints = descriptor.argumentHints
         allowedStringValues = descriptor.argumentConstraints.allowedStringValues
         resultSummary = descriptor.resultSummary
+        resultSchema = descriptor.resultSchema
     }
 }
 

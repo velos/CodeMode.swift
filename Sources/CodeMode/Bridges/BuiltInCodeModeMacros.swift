@@ -3,7 +3,7 @@ import Foundation
 /// Generates the mechanical members of a `BuiltInCodeModeTool` — the identity
 /// statics, `codeModeArguments`, and `decode(arguments:)` — from the nested
 /// `Arguments` struct. Curated metadata (summary, tags, example,
-/// permissions, result summary) and `call(arguments:context:)` stay
+/// permissions, optional result summary override) and `call(arguments:context:)` stay
 /// hand-written.
 ///
 /// Annotate each argument property with `@ToolParam("hint")`. Property types
@@ -50,3 +50,13 @@ enum CodeModeToolRawArguments {
         raw[name] = .string(value.rawValue)
     }
 }
+
+/// Derives a built-in result's JSON encoding and schema from its stored var/let
+/// properties, in declaration order. Each field type must describe its result.
+@attached(member, names: named(codeModeJSONValue), named(codeModeResultSchema))
+@attached(extension, conformances: CodeModeResultDescribable)
+macro ToolResult() = #externalMacro(module: "CodeModeMacros", type: "ToolResultMacro")
+
+/// Optional documentation for one stored property of a `@ToolResult` struct.
+@attached(peer)
+macro ToolField(_ hint: String) = #externalMacro(module: "CodeModeMacros", type: "ToolFieldMacro")

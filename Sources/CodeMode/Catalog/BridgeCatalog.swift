@@ -160,7 +160,8 @@ final class BridgeCatalog: @unchecked Sendable {
             nullableArguments: function.nullableArguments,
             argumentHints: function.argumentHints,
             argumentConstraints: function.argumentConstraints,
-            resultSummary: function.resultSummary
+            resultSummary: function.resultSummary,
+            resultSchema: function.resultSchema
         )
         var withTypes = reference
         withTypes.dts = TypeScriptDeclarations.declaration(for: reference)

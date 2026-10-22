@@ -128,8 +128,11 @@ tool model).
   `CapabilityMetadataGoldenTests` pins the full advertised surface of all 115
   capabilities against a committed JSON baseline;
   `constrainedArgumentMetadataIsCoherentForAllRegistrations` + the span test pin
-  enum↔descriptor↔bridge agreement. (Golden-testing `resultSummary` against
-  bridge JSON encoders still open — the golden pins the string, not the encoder.)
+  enum↔descriptor↔bridge agreement. For `@ToolResult` tools the summary, the
+  schema and the encoder come from one struct, so they cannot disagree; the
+  caveat below applies only to families still returning hand-built `JSONValue`.
+  (Golden-testing `resultSummary` against bridge JSON encoders for those — the
+  golden pins the string, not the encoder.)
 - [x] Standardize on one registration idiom — `BuiltInCodeModeTool` /
   `@BuiltInCodeMode` is now the sole idiom for built-ins; the flat descriptor
   init survives only for the single networkFetch skip. The
@@ -140,6 +143,22 @@ tool model).
   generating the remaining families is still a follow-up.
 - [ ] Unify permission ownership across the remaining bridge families.
   EventKit requirements are now declared statically and enforced by the registry.
+- [ ] **Migrate the remaining 14 families to the EventKit template**
+  (`PLAN-typed-results.md`; `EventKitCodeModeTools.swift` is the reference):
+  typed `Arguments` with macro defaults and `Date`, `Patch<T>` on update tools,
+  `@ToolResult` structs, logic in `call` with the bridge reduced to shared
+  helpers, and that family's hand-written `globalThis.apple.*` bindings
+  deleted from `RuntimeJavaScript.swift`. Pair each with the async conversion
+  in `PLAN-async-bridges.md` phase 3 where the family's Apple API is async.
+  - [ ] Argument arrays carry no element type: `calendarIdentifiers: [String]`
+    renders as `CodeModeValue[]` while results render `Array<string>`. Give
+    `CapabilityArgumentType.array` an element type.
+  - [ ] Whole-surface declarations repeat each result object literal per helper
+    (`CalendarEvent` ×3, `Reminder` ×4). Emit named interfaces once and
+    reference them.
+  - [ ] Decide `""` vs `null` for absent result strings (`notes`, `url`,
+    `completionDate`). The schema makes it a per-field change; the JSON scripts
+    receive changes, so it is a deliberate, documented decision.
 - [x] Decide the fate of `Tools/CodeModeAuthoring` — resolved 2026-07-11: owner
   approved swift-syntax in the core graph; the package is folded into the root
   package as the `CodeModeAuthoring` product and its `CodeModeMacros` plugin now

@@ -159,11 +159,14 @@ import EventKit
     // every neighbouring field was nil-coalesced.
     #expect(event.calendar == nil)
 
-    let json = try #require(EventKitBridge.eventJSON(event).objectValue)
-    #expect(json.string("title") == "Orphaned")
-    #expect(json.string("calendarIdentifier") == "")
-    #expect(json.string("calendarTitle") == "")
-    #expect(json.string("notes") == "")
+    #expect(CalendarEvent(event).codeModeJSONValue == .object([
+        "identifier": .string(""), "title": .string("Orphaned"),
+        "startDate": .string("2023-11-14T22:13:20Z"),
+        "endDate": .string("2023-11-14T23:13:20Z"),
+        "notes": .string(""), "calendarIdentifier": .string(""),
+        "calendarTitle": .string(""), "location": .string(""),
+        "url": .string(""), "isAllDay": .bool(false),
+    ]))
 }
 
 @Test func reminderSerializationSurvivesAMissingTitle() throws {
@@ -171,10 +174,12 @@ import EventKit
     let reminder = EKReminder(eventStore: store)
 
     // `EKReminder.title` is `String!`.
-    let json = try #require(EventKitBridge.reminderJSON(reminder).objectValue)
-    #expect(json.string("title") == "")
-    #expect(json.string("calendarIdentifier") == "")
-    #expect(json.bool("isCompleted") == false)
+    #expect(Reminder(reminder).codeModeJSONValue == .object([
+        "identifier": .string(reminder.calendarItemIdentifier), "title": .string(""),
+        "isCompleted": .bool(false), "dueDate": .string(""), "completionDate": .string(""),
+        "notes": .string(""), "priority": .number(0),
+        "calendarIdentifier": .string(""), "calendarTitle": .string(""),
+    ]))
 }
 #endif
 

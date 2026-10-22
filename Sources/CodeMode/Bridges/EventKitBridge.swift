@@ -3,7 +3,7 @@ import Foundation
 import EventKit
 #endif
 
-/// Shared EventKit lookup, patching, and serialization helpers.
+/// Shared EventKit lookup and patching helpers.
 enum EventKitBridge {
     static let reminderFetchTimeoutSeconds: TimeInterval = 15
 
@@ -69,43 +69,81 @@ enum EventKitBridge {
         return calendar
     }
 
-    static func eventJSON(_ event: EKEvent) -> JSONValue {
-        .object([
-            "identifier": .string(event.eventIdentifier ?? ""),
-            "title": .string(event.title ?? ""),
-            "startDate": .string(event.startDate.ISO8601Format()),
-            "endDate": .string(event.endDate.ISO8601Format()),
-            "notes": .string(event.notes ?? ""),
-            // `EKEvent.calendar` is `EKCalendar!` and is nil for an orphaned
-            // event — every neighboring field here is nil-coalesced, and this one
-            // crashed the execution thread.
-            "calendarIdentifier": .string(event.calendar?.calendarIdentifier ?? ""),
-            "calendarTitle": .string(event.calendar?.title ?? ""),
-            "location": .string(event.location ?? ""),
-            "url": .string(event.url?.absoluteString ?? ""),
-            "isAllDay": .bool(event.isAllDay),
-        ])
-    }
-
-    static func reminderJSON(_ reminder: EKReminder) -> JSONValue {
-        var object: [String: JSONValue] = [
-            "identifier": .string(reminder.calendarItemIdentifier),
-            // `EKReminder.title` is `String!`.
-            "title": .string(reminder.title ?? ""),
-            "isCompleted": .bool(reminder.isCompleted),
-            "dueDate": .string(reminder.dueDateComponents?.date?.ISO8601Format() ?? ""),
-            "completionDate": .string(reminder.completionDate?.ISO8601Format() ?? ""),
-            "notes": .string(reminder.notes ?? ""),
-            "priority": .number(Double(reminder.priority)),
-        ]
-        if let calendar = reminder.calendar {
-            object["calendarIdentifier"] = .string(calendar.calendarIdentifier)
-            object["calendarTitle"] = .string(calendar.title)
-        } else {
-            object["calendarIdentifier"] = .string("")
-            object["calendarTitle"] = .string("")
-        }
-        return .object(object)
-    }
     #endif
 }
+
+/// EventKit's existing JSON contract: absent strings remain empty strings.
+@ToolResult
+struct CalendarEvent: Sendable {
+    var identifier: String
+    var title: String
+    @ToolField("ISO 8601 timestamp")
+    var startDate: Date
+    @ToolField("ISO 8601 timestamp")
+    var endDate: Date
+    var notes: String
+    @ToolField(#"Empty ("") when the event has no calendar"#)
+    var calendarIdentifier: String
+    @ToolField(#"Empty ("") when the event has no calendar"#)
+    var calendarTitle: String
+    var location: String
+    @ToolField(#"Absolute URL, or "" when none"#)
+    var url: String
+    var isAllDay: Bool
+}
+
+@ToolResult
+struct Reminder: Sendable {
+    var identifier: String
+    var title: String
+    var isCompleted: Bool
+    // These stay strings because an absent date has historically encoded as "".
+    @ToolField(#"ISO 8601 timestamp, or "" when none"#)
+    var dueDate: String
+    @ToolField(#"ISO 8601 timestamp, or "" when none"#)
+    var completionDate: String
+    var notes: String
+    var priority: Int
+    @ToolField(#"Empty ("") when the reminder has no calendar"#)
+    var calendarIdentifier: String
+    @ToolField(#"Empty ("") when the reminder has no calendar"#)
+    var calendarTitle: String
+}
+
+@ToolResult
+struct EventKitDeletion: Sendable {
+    var identifier: String
+    var deleted: Bool
+}
+
+#if canImport(EventKit)
+extension CalendarEvent {
+    init(_ event: EKEvent) {
+        identifier = event.eventIdentifier ?? ""
+        title = event.title ?? ""
+        startDate = event.startDate
+        endDate = event.endDate
+        notes = event.notes ?? ""
+        // An orphaned event has no calendar (EKCalendar!).
+        calendarIdentifier = event.calendar?.calendarIdentifier ?? ""
+        calendarTitle = event.calendar?.title ?? ""
+        location = event.location ?? ""
+        url = event.url?.absoluteString ?? ""
+        isAllDay = event.isAllDay
+    }
+}
+
+extension Reminder {
+    init(_ reminder: EKReminder) {
+        identifier = reminder.calendarItemIdentifier
+        title = reminder.title ?? ""
+        isCompleted = reminder.isCompleted
+        dueDate = reminder.dueDateComponents?.date?.ISO8601Format() ?? ""
+        completionDate = reminder.completionDate?.ISO8601Format() ?? ""
+        notes = reminder.notes ?? ""
+        priority = reminder.priority
+        calendarIdentifier = reminder.calendar?.calendarIdentifier ?? ""
+        calendarTitle = reminder.calendar?.title ?? ""
+    }
+}
+#endif

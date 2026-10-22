@@ -650,7 +650,19 @@
     "requiredPermissions" : [
       "calendar"
     ],
-    "resultSummary" : "Object with identifier\/deleted.",
+    "resultSchema" : {
+      "object" : [
+        {
+          "name" : "identifier",
+          "schema" : "string"
+        },
+        {
+          "name" : "deleted",
+          "schema" : "boolean"
+        }
+      ]
+    },
+    "resultSummary" : "{ identifier: string; deleted: boolean; }",
     "summary" : "Delete an existing EventKit event by identifier.",
     "tags" : [
       "calendar",
@@ -699,7 +711,58 @@
     "requiredPermissions" : [
       "calendar"
     ],
-    "resultSummary" : "Array of events with identifier\/title\/startDate\/endDate\/notes\/calendarIdentifier\/calendarTitle\/location\/url\/isAllDay.",
+    "resultSchema" : {
+      "array" : {
+        "object" : [
+          {
+            "name" : "identifier",
+            "schema" : "string"
+          },
+          {
+            "name" : "title",
+            "schema" : "string"
+          },
+          {
+            "hint" : "ISO 8601 timestamp",
+            "name" : "startDate",
+            "schema" : "string"
+          },
+          {
+            "hint" : "ISO 8601 timestamp",
+            "name" : "endDate",
+            "schema" : "string"
+          },
+          {
+            "name" : "notes",
+            "schema" : "string"
+          },
+          {
+            "hint" : "Empty (\"\") when the event has no calendar",
+            "name" : "calendarIdentifier",
+            "schema" : "string"
+          },
+          {
+            "hint" : "Empty (\"\") when the event has no calendar",
+            "name" : "calendarTitle",
+            "schema" : "string"
+          },
+          {
+            "name" : "location",
+            "schema" : "string"
+          },
+          {
+            "hint" : "Absolute URL, or \"\" when none",
+            "name" : "url",
+            "schema" : "string"
+          },
+          {
+            "name" : "isAllDay",
+            "schema" : "boolean"
+          }
+        ]
+      }
+    },
+    "resultSummary" : "Array<{ identifier: string; title: string; startDate: string; endDate: string; notes: string; calendarIdentifier: string; calendarTitle: string; location: string; url: string; isAllDay: boolean; }>",
     "summary" : "List events in a date range from EventKit.",
     "tags" : [
       "calendar",
@@ -902,7 +965,56 @@
     "requiredPermissions" : [
       "calendar.writeOnly"
     ],
-    "resultSummary" : "Object with identifier\/title\/startDate\/endDate\/notes\/calendarIdentifier\/calendarTitle\/location\/url\/isAllDay.",
+    "resultSchema" : {
+      "object" : [
+        {
+          "name" : "identifier",
+          "schema" : "string"
+        },
+        {
+          "name" : "title",
+          "schema" : "string"
+        },
+        {
+          "hint" : "ISO 8601 timestamp",
+          "name" : "startDate",
+          "schema" : "string"
+        },
+        {
+          "hint" : "ISO 8601 timestamp",
+          "name" : "endDate",
+          "schema" : "string"
+        },
+        {
+          "name" : "notes",
+          "schema" : "string"
+        },
+        {
+          "hint" : "Empty (\"\") when the event has no calendar",
+          "name" : "calendarIdentifier",
+          "schema" : "string"
+        },
+        {
+          "hint" : "Empty (\"\") when the event has no calendar",
+          "name" : "calendarTitle",
+          "schema" : "string"
+        },
+        {
+          "name" : "location",
+          "schema" : "string"
+        },
+        {
+          "hint" : "Absolute URL, or \"\" when none",
+          "name" : "url",
+          "schema" : "string"
+        },
+        {
+          "name" : "isAllDay",
+          "schema" : "boolean"
+        }
+      ]
+    },
+    "resultSummary" : "{ identifier: string; title: string; startDate: string; endDate: string; notes: string; calendarIdentifier: string; calendarTitle: string; location: string; url: string; isAllDay: boolean; }",
     "summary" : "Create a calendar event.",
     "tags" : [
       "calendar",
@@ -964,7 +1076,56 @@
     "requiredPermissions" : [
       "calendar"
     ],
-    "resultSummary" : "Object with identifier\/title\/startDate\/endDate\/notes\/calendarIdentifier\/calendarTitle\/location\/url\/isAllDay.",
+    "resultSchema" : {
+      "object" : [
+        {
+          "name" : "identifier",
+          "schema" : "string"
+        },
+        {
+          "name" : "title",
+          "schema" : "string"
+        },
+        {
+          "hint" : "ISO 8601 timestamp",
+          "name" : "startDate",
+          "schema" : "string"
+        },
+        {
+          "hint" : "ISO 8601 timestamp",
+          "name" : "endDate",
+          "schema" : "string"
+        },
+        {
+          "name" : "notes",
+          "schema" : "string"
+        },
+        {
+          "hint" : "Empty (\"\") when the event has no calendar",
+          "name" : "calendarIdentifier",
+          "schema" : "string"
+        },
+        {
+          "hint" : "Empty (\"\") when the event has no calendar",
+          "name" : "calendarTitle",
+          "schema" : "string"
+        },
+        {
+          "name" : "location",
+          "schema" : "string"
+        },
+        {
+          "hint" : "Absolute URL, or \"\" when none",
+          "name" : "url",
+          "schema" : "string"
+        },
+        {
+          "name" : "isAllDay",
+          "schema" : "boolean"
+        }
+      ]
+    },
+    "resultSummary" : "{ identifier: string; title: string; startDate: string; endDate: string; notes: string; calendarIdentifier: string; calendarTitle: string; location: string; url: string; isAllDay: boolean; }",
     "summary" : "Patch an existing event by identifier.",
     "tags" : [
       "calendar",
@@ -4599,7 +4760,19 @@
     "requiredPermissions" : [
       "reminders"
     ],
-    "resultSummary" : "Object with identifier\/deleted.",
+    "resultSchema" : {
+      "object" : [
+        {
+          "name" : "identifier",
+          "schema" : "string"
+        },
+        {
+          "name" : "deleted",
+          "schema" : "boolean"
+        }
+      ]
+    },
+    "resultSummary" : "{ identifier: string; deleted: boolean; }",
     "summary" : "Delete an existing EventKit reminder by identifier.",
     "tags" : [
       "reminders",
@@ -4651,7 +4824,53 @@
     "requiredPermissions" : [
       "reminders"
     ],
-    "resultSummary" : "Array of reminders with identifier\/title\/isCompleted\/dueDate\/completionDate\/notes\/priority\/calendarIdentifier\/calendarTitle.",
+    "resultSchema" : {
+      "array" : {
+        "object" : [
+          {
+            "name" : "identifier",
+            "schema" : "string"
+          },
+          {
+            "name" : "title",
+            "schema" : "string"
+          },
+          {
+            "name" : "isCompleted",
+            "schema" : "boolean"
+          },
+          {
+            "hint" : "ISO 8601 timestamp, or \"\" when none",
+            "name" : "dueDate",
+            "schema" : "string"
+          },
+          {
+            "hint" : "ISO 8601 timestamp, or \"\" when none",
+            "name" : "completionDate",
+            "schema" : "string"
+          },
+          {
+            "name" : "notes",
+            "schema" : "string"
+          },
+          {
+            "name" : "priority",
+            "schema" : "number"
+          },
+          {
+            "hint" : "Empty (\"\") when the reminder has no calendar",
+            "name" : "calendarIdentifier",
+            "schema" : "string"
+          },
+          {
+            "hint" : "Empty (\"\") when the reminder has no calendar",
+            "name" : "calendarTitle",
+            "schema" : "string"
+          }
+        ]
+      }
+    },
+    "resultSummary" : "Array<{ identifier: string; title: string; isCompleted: boolean; dueDate: string; completionDate: string; notes: string; priority: number; calendarIdentifier: string; calendarTitle: string; }>",
     "summary" : "Read incomplete reminders from EventKit.",
     "tags" : [
       "reminders",
@@ -4689,7 +4908,51 @@
     "requiredPermissions" : [
       "reminders"
     ],
-    "resultSummary" : "Object with identifier\/title\/isCompleted\/dueDate\/completionDate\/notes\/priority\/calendarIdentifier\/calendarTitle.",
+    "resultSchema" : {
+      "object" : [
+        {
+          "name" : "identifier",
+          "schema" : "string"
+        },
+        {
+          "name" : "title",
+          "schema" : "string"
+        },
+        {
+          "name" : "isCompleted",
+          "schema" : "boolean"
+        },
+        {
+          "hint" : "ISO 8601 timestamp, or \"\" when none",
+          "name" : "dueDate",
+          "schema" : "string"
+        },
+        {
+          "hint" : "ISO 8601 timestamp, or \"\" when none",
+          "name" : "completionDate",
+          "schema" : "string"
+        },
+        {
+          "name" : "notes",
+          "schema" : "string"
+        },
+        {
+          "name" : "priority",
+          "schema" : "number"
+        },
+        {
+          "hint" : "Empty (\"\") when the reminder has no calendar",
+          "name" : "calendarIdentifier",
+          "schema" : "string"
+        },
+        {
+          "hint" : "Empty (\"\") when the reminder has no calendar",
+          "name" : "calendarTitle",
+          "schema" : "string"
+        }
+      ]
+    },
+    "resultSummary" : "{ identifier: string; title: string; isCompleted: boolean; dueDate: string; completionDate: string; notes: string; priority: number; calendarIdentifier: string; calendarTitle: string; }",
     "summary" : "Set an existing reminder's completion state.",
     "tags" : [
       "reminders",
@@ -4739,7 +5002,51 @@
     "requiredPermissions" : [
       "reminders"
     ],
-    "resultSummary" : "Object with identifier\/title\/isCompleted\/dueDate\/completionDate\/notes\/priority\/calendarIdentifier\/calendarTitle.",
+    "resultSchema" : {
+      "object" : [
+        {
+          "name" : "identifier",
+          "schema" : "string"
+        },
+        {
+          "name" : "title",
+          "schema" : "string"
+        },
+        {
+          "name" : "isCompleted",
+          "schema" : "boolean"
+        },
+        {
+          "hint" : "ISO 8601 timestamp, or \"\" when none",
+          "name" : "dueDate",
+          "schema" : "string"
+        },
+        {
+          "hint" : "ISO 8601 timestamp, or \"\" when none",
+          "name" : "completionDate",
+          "schema" : "string"
+        },
+        {
+          "name" : "notes",
+          "schema" : "string"
+        },
+        {
+          "name" : "priority",
+          "schema" : "number"
+        },
+        {
+          "hint" : "Empty (\"\") when the reminder has no calendar",
+          "name" : "calendarIdentifier",
+          "schema" : "string"
+        },
+        {
+          "hint" : "Empty (\"\") when the reminder has no calendar",
+          "name" : "calendarTitle",
+          "schema" : "string"
+        }
+      ]
+    },
+    "resultSummary" : "{ identifier: string; title: string; isCompleted: boolean; dueDate: string; completionDate: string; notes: string; priority: number; calendarIdentifier: string; calendarTitle: string; }",
     "summary" : "Create a reminder.",
     "tags" : [
       "reminders",
@@ -4796,7 +5103,51 @@
     "requiredPermissions" : [
       "reminders"
     ],
-    "resultSummary" : "Object with identifier\/title\/isCompleted\/dueDate\/completionDate\/notes\/priority\/calendarIdentifier\/calendarTitle.",
+    "resultSchema" : {
+      "object" : [
+        {
+          "name" : "identifier",
+          "schema" : "string"
+        },
+        {
+          "name" : "title",
+          "schema" : "string"
+        },
+        {
+          "name" : "isCompleted",
+          "schema" : "boolean"
+        },
+        {
+          "hint" : "ISO 8601 timestamp, or \"\" when none",
+          "name" : "dueDate",
+          "schema" : "string"
+        },
+        {
+          "hint" : "ISO 8601 timestamp, or \"\" when none",
+          "name" : "completionDate",
+          "schema" : "string"
+        },
+        {
+          "name" : "notes",
+          "schema" : "string"
+        },
+        {
+          "name" : "priority",
+          "schema" : "number"
+        },
+        {
+          "hint" : "Empty (\"\") when the reminder has no calendar",
+          "name" : "calendarIdentifier",
+          "schema" : "string"
+        },
+        {
+          "hint" : "Empty (\"\") when the reminder has no calendar",
+          "name" : "calendarTitle",
+          "schema" : "string"
+        }
+      ]
+    },
+    "resultSummary" : "{ identifier: string; title: string; isCompleted: boolean; dueDate: string; completionDate: string; notes: string; priority: number; calendarIdentifier: string; calendarTitle: string; }",
     "summary" : "Patch an existing reminder by identifier.",
     "tags" : [
       "reminders",

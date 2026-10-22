@@ -257,3 +257,78 @@ private struct DynamicPermissionFixtureTool: BuiltInCodeModeTool {
     _ = try registration.handler(["mode": .string("alias")], context)
     #expect(context.allPermissionEvents().contains { $0.permission == .calendarWriteOnly && $0.status == .granted })
 }
+
+@ToolResult
+public struct TypedResultFixture {
+    @ToolResult
+    struct Child {
+        let name: String
+    }
+
+    let child: Child
+    @ToolField("May be absent.")
+    var label: String?
+    var dates: [Date]
+    var counts: [String: Int?]
+    var ratio: Double
+    var fraction: Float
+    var enabled: Bool
+    var raw: JSONValue
+}
+
+@BuiltInCodeMode(.calendarRead, path: "apple.calendar.typedResultFixture")
+private struct TypedResultFixtureTool: BuiltInCodeModeTool {
+    static let codeModeSummary = "Exercise result composition."
+    static let codeModeTags: [String] = []
+    static let codeModeExample = ""
+    struct Arguments: Sendable {}
+
+    func call(arguments: Arguments, context: BridgeInvocationContext) throws -> [TypedResultFixture]? {
+        [TypedResultFixture(
+            child: .init(name: "nested"), label: nil,
+            dates: [Date(timeIntervalSince1970: 0)], counts: ["one": 1, "missing": nil],
+            ratio: 1.5, fraction: 0.25, enabled: true, raw: .array([.null])
+        )]
+    }
+}
+
+@Test func typedResultsEncodeThroughRegistrationAndDescribeTheirComposition() throws {
+    let registration = CapabilityRegistration(tool: TypedResultFixtureTool())
+    let (context, sandbox) = try makeInvocationContext()
+    defer { cleanup(sandbox) }
+    #expect(try registration.handler([:], context) == .array([.object([
+        "child": .object(["name": .string("nested")]), "label": .null,
+        "dates": .array([.string("1970-01-01T00:00:00Z")]),
+        "counts": .object(["one": .number(1), "missing": .null]),
+        "ratio": .number(1.5), "fraction": .number(0.25), "enabled": .bool(true),
+        "raw": .array([.null]),
+    ])]))
+    let expected: CodeModeResultSchema = .nullable(.array(.object([
+        .init(name: "child", schema: .object([.init(name: "name", schema: .string)])),
+        .init(name: "label", schema: .nullable(.string), hint: "May be absent."),
+        .init(name: "dates", schema: .array(.string)),
+        .init(name: "counts", schema: .dictionary(.nullable(.number))),
+        .init(name: "ratio", schema: .number),
+        .init(name: "fraction", schema: .number),
+        .init(name: "enabled", schema: .bool),
+        .init(name: "raw", schema: .any),
+    ])))
+    #expect(registration.descriptor.resultSchema == expected)
+    #expect(Optional<[TypedResultFixture]>.none.codeModeJSONValue == .null)
+    let reference = try #require(BridgeCatalog(registry: CapabilityRegistry(registrations: [registration])).allReferences().first)
+    #expect(reference.resultSchema == expected)
+    #expect(reference.dts.contains("/** May be absent. */"))
+    #expect(reference.dts.contains("label?: string | null;"))
+    #expect(reference.dts.contains("dates: Array<string>;"))
+    #expect(reference.dts.contains("counts: { [key: string]: number | null };"))
+    #expect(reference.dts.contains("}> | null>"))
+}
+
+@Test func untypedResultsRetainTheirSummaryOverrideAndOmitTheirSchema() throws {
+    let registry = CapabilityRegistry(registrations: DefaultCapabilityLoader.loadAllRegistrations())
+    let reference = try #require(BridgeCatalog(registry: registry).reference(forJavaScriptName: "apple.fs.read"))
+    #expect(JSONValue.codeModeResultSchema.summary == "JSON value")
+    #expect(reference.resultSummary == "Object with path plus text or base64 field.")
+    #expect(reference.resultSchema == nil)
+    #expect(reference.dts.contains("Promise<CodeModeValue>"))
+}

@@ -104,6 +104,7 @@ public struct JavaScriptAPIReference: Sendable, Codable, Equatable {
     public var argumentHints: [String: String]
     public var argumentConstraints: CapabilityArgumentConstraints
     public var resultSummary: String
+    public var resultSchema: CodeModeResultSchema?
     /// TypeScript declaration for this helper, generated from the fields above.
     /// Return it from `searchJavaScriptAPI` to give the model real types rather
     /// than a coarse `argumentTypes` map plus prose.
@@ -124,6 +125,7 @@ public struct JavaScriptAPIReference: Sendable, Codable, Equatable {
         argumentHints: [String: String],
         argumentConstraints: CapabilityArgumentConstraints = .none,
         resultSummary: String,
+        resultSchema: CodeModeResultSchema? = nil,
         dts: String = ""
     ) {
         self.capability = capability
@@ -140,19 +142,19 @@ public struct JavaScriptAPIReference: Sendable, Codable, Equatable {
         self.argumentHints = argumentHints
         self.argumentConstraints = argumentConstraints
         self.resultSummary = resultSummary
+        self.resultSchema = resultSchema
         self.dts = dts
     }
 
     private enum CodingKeys: String, CodingKey {
         case capability, capabilityKey, builtInCapability, jsNames, summary, tags, example
         case requiredArguments, optionalArguments, argumentTypes, argumentHints
-        case nullableArguments, argumentConstraints, resultSummary, dts
+        case nullableArguments, argumentConstraints, resultSummary, resultSchema, dts
     }
 
-    /// `dts` is optional on the way in. References encoded before it existed —
-    /// cached search results, eval fixtures — would otherwise fail to decode with
-    /// `keyNotFound`; when it is absent, the declaration is regenerated from the
-    /// decoded fields rather than left empty.
+    /// Older cached references may omit `resultSchema` and `dts`. A missing
+    /// schema preserves the JSON fallback; a missing declaration is regenerated
+    /// from the decoded fields rather than left empty.
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         self.capability = try container.decode(String.self, forKey: .capability)
@@ -169,6 +171,7 @@ public struct JavaScriptAPIReference: Sendable, Codable, Equatable {
         self.argumentHints = try container.decode([String: String].self, forKey: .argumentHints)
         self.argumentConstraints = try container.decode(CapabilityArgumentConstraints.self, forKey: .argumentConstraints)
         self.resultSummary = try container.decode(String.self, forKey: .resultSummary)
+        self.resultSchema = try container.decodeIfPresent(CodeModeResultSchema.self, forKey: .resultSchema)
         self.dts = try container.decodeIfPresent(String.self, forKey: .dts) ?? ""
         if self.dts.isEmpty {
             self.dts = TypeScriptDeclarations.declaration(for: self)

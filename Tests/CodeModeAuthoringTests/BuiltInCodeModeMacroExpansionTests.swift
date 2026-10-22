@@ -1,3 +1,4 @@
+import Foundation
 import SwiftSyntaxMacros
 import SwiftSyntaxMacrosTestSupport
 import Testing
@@ -7,6 +8,8 @@ private func builtInTestMacros() -> [String: Macro.Type] {
     [
         "BuiltInCodeMode": BuiltInCodeModeMacro.self,
         "ToolParam": ToolParamMacro.self,
+        "ToolResult": ToolResultMacro.self,
+        "ToolField": ToolFieldMacro.self,
     ]
 }
 
@@ -391,6 +394,201 @@ func builtInCodeModeExpansionDiagnosesUnsupportedDefaults(type: String, initiali
             static func hasChanges(_ arguments: Arguments) -> Bool {
                 !arguments.notes.isUnchanged || arguments.timeZone != nil
             }
+        }
+        """,
+        macros: builtInTestMacros()
+    )
+}
+
+@Test func toolResultExpansionComposesNestedOptionalArrayAndDateFields() {
+    assertMacroExpansion(
+        """
+        struct Envelope {
+            @ToolResult
+            struct Result {
+                let child: Detail
+                @ToolField("May be absent.")
+                var label: String?
+                var dates: [Date]
+                var updated: Foundation.Date
+            }
+        }
+        """,
+        expandedSource: """
+        struct Envelope {
+            struct Result {
+                let child: Detail
+                var label: String?
+                var dates: [Date]
+                var updated: Foundation.Date
+
+                var codeModeJSONValue: JSONValue {
+                    .object([
+                        "child": self.child.codeModeJSONValue,
+                        "label": self.label.codeModeJSONValue,
+                        "dates": self.dates.codeModeJSONValue,
+                        "updated": self.updated.codeModeJSONValue,
+                    ])
+                }
+
+                static var codeModeResultSchema: CodeModeResultSchema {
+                    .object([
+                        CodeModeResultSchema.Field(name: "child", describing: (Detail).self, hint: nil),
+                        CodeModeResultSchema.Field(name: "label", describing: (String?).self, hint: "May be absent."),
+                        CodeModeResultSchema.Field(name: "dates", describing: ([Date]).self, hint: nil),
+                        CodeModeResultSchema.Field(name: "updated", describing: (Foundation.Date).self, hint: nil),
+                    ])
+                }
+            }
+        }
+
+        extension Envelope.Result: CodeModeResultDescribable {
+        }
+        """,
+        macros: builtInTestMacros()
+    )
+}
+
+@Test func toolResultExpansionSupportsEmptyResults() {
+    assertMacroExpansion(
+        """
+        @ToolResult
+        struct Empty {}
+        """,
+        expandedSource: """
+        struct Empty {
+
+            var codeModeJSONValue: JSONValue {
+                .object([:])
+            }
+
+            static var codeModeResultSchema: CodeModeResultSchema {
+                .object([])
+            }
+        }
+
+        extension Empty: CodeModeResultDescribable {
+        }
+        """,
+        macros: builtInTestMacros()
+    )
+}
+
+@Test func toolResultExpansionRequiresAStruct() {
+    assertMacroExpansion(
+        """
+        @ToolResult
+        class Broken {}
+        """,
+        expandedSource: "class Broken {}",
+        diagnostics: [DiagnosticSpec(message: "@ToolResult can only be attached to a struct", line: 1, column: 1)],
+        macros: builtInTestMacros()
+    )
+}
+
+@Test(arguments: [
+    ("var value: String { \"computed\" }", "@ToolResult properties must be stored instance properties"),
+    ("lazy var value: String = \"lazy\"", "@ToolResult does not support lazy properties"),
+    ("var codeModeJSONValue: String", "@ToolResult property name 'codeModeJSONValue' is reserved for generated members"),
+    ("let codeModeResultSchema: String", "@ToolResult property name 'codeModeResultSchema' is reserved for generated members"),
+    ("static let codeModeResultSchema: String = \"reserved\"", "@ToolResult property name 'codeModeResultSchema' is reserved for generated members"),
+    ("#if DEBUG\nvar value: String\n#endif", "@ToolResult does not support conditional compilation blocks"),
+])
+func toolResultExpansionDiagnosesUnsupportedProperties(property: String, message: String) {
+    assertMacroExpansion(
+        """
+        @ToolResult
+        struct Broken {
+            \(property.replacingOccurrences(of: "\n", with: "\n    "))
+        }
+        """,
+        expandedSource: """
+        struct Broken {
+            \(property.replacingOccurrences(of: "\n", with: "\n    "))
+        }
+
+        extension Broken: CodeModeResultDescribable {
+        }
+        """,
+        diagnostics: [DiagnosticSpec(message: message, line: 3, column: 5)],
+        macros: builtInTestMacros()
+    )
+}
+
+@Test(arguments: ["var value = 1", "var first: Int, second: Int"])
+func toolResultExpansionRequiresExplicitIndividualTypes(property: String) {
+    assertMacroExpansion(
+        """
+        @ToolResult
+        struct Broken {
+            \(property)
+        }
+        """,
+        expandedSource: """
+        struct Broken {
+            \(property)
+        }
+
+        extension Broken: CodeModeResultDescribable {
+        }
+        """,
+        diagnostics: [DiagnosticSpec(message: "@ToolResult requires one named property with an explicit type per declaration", line: 3, column: 5)],
+        macros: builtInTestMacros()
+    )
+}
+
+@Test func toolResultExpansionRequiresLiteralHints() {
+    assertMacroExpansion(
+        """
+        @ToolResult
+        struct Broken {
+            @ToolField(makeHint())
+            var value: String
+        }
+        """,
+        expandedSource: """
+        struct Broken {
+            var value: String
+        }
+
+        extension Broken: CodeModeResultDescribable {
+        }
+        """,
+        diagnostics: [DiagnosticSpec(message: "@ToolField requires one string literal hint", line: 3, column: 5)],
+        macros: builtInTestMacros()
+    )
+}
+
+
+@Test(arguments: ["public", "package"])
+func toolResultExpansionMirrorsAccessAndSkipsStaticProperties(access: String) {
+    assertMacroExpansion(
+        """
+        @ToolResult
+        \(access) struct Result {
+            static let shared = "metadata"
+            let count: Int
+        }
+        """,
+        expandedSource: """
+        \(access) struct Result {
+            static let shared = "metadata"
+            let count: Int
+
+            \(access) var codeModeJSONValue: JSONValue {
+                .object([
+                    "count": self.count.codeModeJSONValue,
+                ])
+            }
+
+            \(access) static var codeModeResultSchema: CodeModeResultSchema {
+                .object([
+                    CodeModeResultSchema.Field(name: "count", describing: (Int).self, hint: nil),
+                ])
+            }
+        }
+
+        extension Result: CodeModeResultDescribable {
         }
         """,
         macros: builtInTestMacros()

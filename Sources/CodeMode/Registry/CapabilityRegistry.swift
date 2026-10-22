@@ -137,6 +137,95 @@ public struct CapabilityArgumentConstraints: Sendable, Codable, Equatable {
     }
 }
 
+/// The JSON shape produced by a typed built-in result, composed from Swift types.
+public indirect enum CodeModeResultSchema: Sendable, Codable, Equatable {
+    case string, number, bool, any
+    case nullable(CodeModeResultSchema)
+    case array(CodeModeResultSchema)
+    case dictionary(CodeModeResultSchema)
+    case object([Field])
+
+    private enum CodingKeys: String, CodingKey {
+        case nullable, array, dictionary, object
+    }
+
+    public init(from decoder: Decoder) throws {
+        let scalar = try decoder.singleValueContainer()
+        if let name = try? scalar.decode(String.self) {
+            switch name {
+            case "string": self = .string
+            case "number": self = .number
+            case "boolean": self = .bool
+            case "any": self = .any
+            default:
+                throw DecodingError.dataCorruptedError(in: scalar, debugDescription: "Unknown result schema scalar: \(name)")
+            }
+            return
+        }
+
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        guard container.allKeys.count == 1, let key = container.allKeys.first else {
+            throw DecodingError.dataCorrupted(.init(
+                codingPath: decoder.codingPath,
+                debugDescription: "Expected one result schema composite: nullable, array, dictionary, or object"
+            ))
+        }
+        switch key {
+        case .nullable: self = .nullable(try container.decode(Self.self, forKey: key))
+        case .array: self = .array(try container.decode(Self.self, forKey: key))
+        case .dictionary: self = .dictionary(try container.decode(Self.self, forKey: key))
+        case .object: self = .object(try container.decode([Field].self, forKey: key))
+        }
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        switch self {
+        case .string: try "string".encode(to: encoder)
+        case .number: try "number".encode(to: encoder)
+        case .bool: try "boolean".encode(to: encoder)
+        case .any: try "any".encode(to: encoder)
+        case let .nullable(schema):
+            var container = encoder.container(keyedBy: CodingKeys.self)
+            try container.encode(schema, forKey: .nullable)
+        case let .array(schema):
+            var container = encoder.container(keyedBy: CodingKeys.self)
+            try container.encode(schema, forKey: .array)
+        case let .dictionary(schema):
+            var container = encoder.container(keyedBy: CodingKeys.self)
+            try container.encode(schema, forKey: .dictionary)
+        case let .object(fields):
+            var container = encoder.container(keyedBy: CodingKeys.self)
+            try container.encode(fields, forKey: .object)
+        }
+    }
+
+    public struct Field: Sendable, Codable, Equatable {
+        public var name: String
+        public var schema: CodeModeResultSchema
+        public var hint: String?
+
+        public init(name: String, schema: CodeModeResultSchema, hint: String? = nil) {
+            self.name = name
+            self.schema = schema
+            self.hint = hint
+        }
+
+        // The generated code uses this constrained initializer, so even a type
+        // with coincidentally matching members must explicitly conform.
+        init<Value: CodeModeResultDescribable>(name: String, describing type: Value.Type, hint: String? = nil) {
+            self.init(name: name, schema: Value.codeModeResultSchema, hint: hint)
+        }
+    }
+
+    /// A single-line type for catalog search results. Unrestricted JSON keeps
+    /// the migration default rather than exposing the TypeScript alias.
+    /// This deliberately shares the catalog's type renderer so search summaries
+    /// and declarations use the same type spelling as the schema evolves.
+    var summary: String {
+        self == .any ? "JSON value" : TypeScriptDeclarations.resultType(for: self, multiline: false)
+    }
+}
+
 public struct CapabilityDescriptor: Sendable, Equatable {
     public var id: CapabilityID
     public var title: String
@@ -151,6 +240,7 @@ public struct CapabilityDescriptor: Sendable, Equatable {
     public var argumentHints: [String: String]
     public var argumentConstraints: CapabilityArgumentConstraints
     public var resultSummary: String
+    public var resultSchema: CodeModeResultSchema?
 
     public init(
         id: CapabilityID,
@@ -165,7 +255,8 @@ public struct CapabilityDescriptor: Sendable, Equatable {
         nullableArguments: [String] = [],
         argumentHints: [String: String] = [:],
         argumentConstraints: CapabilityArgumentConstraints? = nil,
-        resultSummary: String = "JSON value"
+        resultSummary: String = "JSON value",
+        resultSchema: CodeModeResultSchema? = nil
     ) {
         self.id = id
         self.title = title
@@ -180,6 +271,7 @@ public struct CapabilityDescriptor: Sendable, Equatable {
         self.argumentHints = argumentHints
         self.argumentConstraints = argumentConstraints ?? CapabilityArgumentConstraints.defaults(for: id)
         self.resultSummary = resultSummary
+        self.resultSchema = resultSchema
     }
 
     private static func inferArgumentTypes(required: [String], optional: [String]) -> [String: CapabilityArgumentType] {
@@ -388,6 +480,7 @@ struct RegisteredCodeModeFunction: Sendable {
     var argumentHints: [String: String]
     var argumentConstraints: CapabilityArgumentConstraints
     var resultSummary: String
+    var resultSchema: CodeModeResultSchema?
     var handler: CapabilityHandler
 
     var catalogCapability: String {
@@ -415,6 +508,7 @@ struct RegisteredCodeModeFunction: Sendable {
         self.argumentHints = descriptor.argumentHints
         self.argumentConstraints = descriptor.argumentConstraints
         self.resultSummary = descriptor.resultSummary
+        self.resultSchema = descriptor.resultSchema
         self.handler = registration.handler
     }
 
@@ -434,6 +528,7 @@ struct RegisteredCodeModeFunction: Sendable {
         self.argumentHints = registration.argumentHints
         self.argumentConstraints = registration.argumentConstraints
         self.resultSummary = registration.resultSummary
+        self.resultSchema = nil
         self.handler = registration.handler
     }
 }
