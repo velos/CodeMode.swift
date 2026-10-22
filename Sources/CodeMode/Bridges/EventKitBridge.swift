@@ -9,24 +9,17 @@ public final class EventKitBridge: @unchecked Sendable {
 
     public init() {}
 
-    public func readEvents(arguments: [String: JSONValue], context: BridgeInvocationContext) throws -> JSONValue {
-        let status = resolvePermission(.calendar, context: context)
-        guard status == .granted else {
-            throw BridgeError.permissionDenied(.calendar)
-        }
-
+    func readEvents(arguments: CalendarListEventsTool.Arguments) throws -> JSONValue {
         #if canImport(EventKit)
         let store = EKEventStore()
-        // A value that is present but unparseable is an error, not a reason to
-        // fall back to now/+14d: that handed the script a plausible but wrong
-        // window with no diagnostic to notice it by.
-        let start = try CodeModeDate.optional(arguments.string("start"), argument: "start", capability: "calendar.read") ?? Date()
-        let end = try CodeModeDate.optional(arguments.string("end"), argument: "end", capability: "calendar.read")
+        let start = arguments.start ?? Date()
+        let end = arguments.end
             ?? Calendar.current.date(byAdding: .day, value: 14, to: start)
             ?? start
-        let limit = arguments.int("limit") ?? 50
+        let limit = arguments.limit
         let calendars = try resolveCalendars(
-            from: arguments,
+            identifier: arguments.calendarIdentifier,
+            identifiers: arguments.calendarIdentifiers,
             in: store,
             entityType: .event,
             capability: "calendar.read"
@@ -44,16 +37,9 @@ public final class EventKitBridge: @unchecked Sendable {
         #endif
     }
 
-    public func writeEvent(arguments: [String: JSONValue], context: BridgeInvocationContext) throws -> JSONValue {
-        let operation = try eventOperation(arguments)
-        let permission: PermissionKind = operation == .update ? .calendar : .calendarWriteOnly
-        let status = resolvePermission(permission, context: context)
-        guard status == .granted else {
-            throw BridgeError.permissionDenied(permission)
-        }
-
+    func writeEvent(arguments: CalendarWriteEventTool.Arguments) throws -> JSONValue {
         #if canImport(EventKit)
-        switch operation {
+        switch arguments.resolvedOperation {
         case .create:
             return try createEvent(arguments: arguments)
         case .update:
@@ -65,21 +51,17 @@ public final class EventKitBridge: @unchecked Sendable {
         #endif
     }
 
-    public func deleteEvent(arguments: [String: JSONValue], context: BridgeInvocationContext) throws -> JSONValue {
-        let status = resolvePermission(.calendar, context: context)
-        guard status == .granted else {
-            throw BridgeError.permissionDenied(.calendar)
-        }
-
+    func deleteEvent(arguments: CalendarDeleteEventTool.Arguments) throws -> JSONValue {
         #if canImport(EventKit)
-        guard let identifier = arguments.string("identifier"), identifier.isEmpty == false else {
+        let identifier = arguments.identifier
+        guard identifier.isEmpty == false else {
             throw BridgeError.invalidArguments("calendar.delete requires identifier")
         }
         let store = EKEventStore()
         guard let event = store.event(withIdentifier: identifier) else {
             throw BridgeError.invalidArguments("calendar.delete could not find event identifier \(identifier)")
         }
-        let span = try eventSpan(arguments.string("span"))
+        let span = arguments.span.ekSpan
 
         do {
             try store.remove(event, span: span)
@@ -96,20 +78,16 @@ public final class EventKitBridge: @unchecked Sendable {
         #endif
     }
 
-    public func readReminders(arguments: [String: JSONValue], context: BridgeInvocationContext) throws -> JSONValue {
-        let status = resolvePermission(.reminders, context: context)
-        guard status == .granted else {
-            throw BridgeError.permissionDenied(.reminders)
-        }
-
+    func readReminders(arguments: RemindersListTool.Arguments) throws -> JSONValue {
         #if canImport(EventKit)
         let store = EKEventStore()
-        let includeCompleted = arguments.bool("includeCompleted") ?? false
-        let start = try CodeModeDate.optional(arguments.string("start"), argument: "start", capability: "reminders.read")
-        let end = try CodeModeDate.optional(arguments.string("end"), argument: "end", capability: "reminders.read")
-        let limit = max(1, arguments.int("limit") ?? 50)
+        let includeCompleted = arguments.includeCompleted
+        let start = arguments.start
+        let end = arguments.end
+        let limit = max(1, arguments.limit)
         let calendars = try resolveCalendars(
-            from: arguments,
+            identifier: arguments.calendarIdentifier,
+            identifiers: arguments.calendarIdentifiers,
             in: store,
             entityType: .reminder,
             capability: "reminders.read"
@@ -149,14 +127,9 @@ public final class EventKitBridge: @unchecked Sendable {
         #endif
     }
 
-    public func writeReminder(arguments: [String: JSONValue], context: BridgeInvocationContext) throws -> JSONValue {
-        let status = resolvePermission(.reminders, context: context)
-        guard status == .granted else {
-            throw BridgeError.permissionDenied(.reminders)
-        }
-
+    func writeReminder(arguments: RemindersWriteTool.Arguments) throws -> JSONValue {
         #if canImport(EventKit)
-        switch try reminderOperation(arguments) {
+        switch arguments.resolvedOperation {
         case .create:
             return try createReminder(arguments: arguments)
         case .update, .complete:
@@ -168,14 +141,10 @@ public final class EventKitBridge: @unchecked Sendable {
         #endif
     }
 
-    public func deleteReminder(arguments: [String: JSONValue], context: BridgeInvocationContext) throws -> JSONValue {
-        let status = resolvePermission(.reminders, context: context)
-        guard status == .granted else {
-            throw BridgeError.permissionDenied(.reminders)
-        }
-
+    func deleteReminder(arguments: RemindersDeleteTool.Arguments) throws -> JSONValue {
         #if canImport(EventKit)
-        guard let identifier = arguments.string("identifier"), identifier.isEmpty == false else {
+        let identifier = arguments.identifier
+        guard identifier.isEmpty == false else {
             throw BridgeError.invalidArguments("reminders.delete requires identifier")
         }
         let store = EKEventStore()
@@ -198,41 +167,13 @@ public final class EventKitBridge: @unchecked Sendable {
         #endif
     }
 
-    private func resolvePermission(_ permission: PermissionKind, context: BridgeInvocationContext) -> PermissionStatus {
-        context.resolvedPermission(for: permission)
-    }
-
-    private func isoDate(_ text: String?) -> Date? {
-        CodeModeDate.parse(text)
-    }
-
-    private func eventOperation(_ arguments: [String: JSONValue]) throws -> CalendarWriteOperation {
-        if let text = arguments.string("operation") {
-            guard let operation = CalendarWriteOperation.codeModeValue(matching: text) else {
-                throw BridgeError.invalidArguments("calendar.write operation must be one of \(CalendarWriteOperation.codeModeAllowedValues.joined(separator: ", "))")
-            }
-            return operation
-        }
-        return arguments.string("identifier") == nil ? .create : .update
-    }
-
-    private func reminderOperation(_ arguments: [String: JSONValue]) throws -> ReminderWriteOperation {
-        if let text = arguments.string("operation") {
-            guard let operation = ReminderWriteOperation.codeModeValue(matching: text) else {
-                throw BridgeError.invalidArguments("reminders.write operation must be one of \(ReminderWriteOperation.codeModeAllowedValues.joined(separator: ", "))")
-            }
-            return operation
-        }
-        return arguments.string("identifier") == nil ? .create : .update
-    }
-
     #if canImport(EventKit)
-    private func createEvent(arguments: [String: JSONValue]) throws -> JSONValue {
-        guard let title = arguments.string("title"), title.isEmpty == false,
-              let startText = arguments.string("start"),
-              let endText = arguments.string("end"),
-              let start = isoDate(startText),
-              let end = isoDate(endText)
+    private func createEvent(arguments: CalendarWriteEventTool.Arguments) throws -> JSONValue {
+        guard let title = arguments.title, title.isEmpty == false,
+              let startText = arguments.start,
+              let endText = arguments.end,
+              let start = CodeModeDate.parse(startText),
+              let end = CodeModeDate.parse(endText)
         else {
             throw BridgeError.invalidArguments("calendar.write create requires title/start/end ISO8601")
         }
@@ -242,16 +183,16 @@ public final class EventKitBridge: @unchecked Sendable {
         event.title = title
         event.startDate = start
         event.endDate = end
-        event.notes = arguments.string("notes")
-        event.location = arguments.string("location")
-        event.isAllDay = arguments.bool("isAllDay") ?? false
-        if let urlText = arguments.string("url"), urlText.isEmpty == false {
+        event.notes = arguments.notes
+        event.location = arguments.location
+        event.isAllDay = arguments.isAllDay ?? false
+        if let urlText = arguments.url, urlText.isEmpty == false {
             guard let url = URL(string: urlText) else {
                 throw BridgeError.invalidArguments("calendar.write url must be valid when provided")
             }
             event.url = url
         }
-        if let calendarIdentifier = arguments.string("calendarIdentifier") {
+        if let calendarIdentifier = arguments.calendarIdentifier {
             event.calendar = try calendar(
                 calendarIdentifier,
                 in: store,
@@ -270,13 +211,13 @@ public final class EventKitBridge: @unchecked Sendable {
         }
     }
 
-    private func updateEvent(arguments: [String: JSONValue]) throws -> JSONValue {
-        guard let identifier = arguments.string("identifier"), identifier.isEmpty == false else {
+    private func updateEvent(arguments: CalendarWriteEventTool.Arguments) throws -> JSONValue {
+        guard let identifier = arguments.identifier, identifier.isEmpty == false else {
             throw BridgeError.invalidArguments("calendar.write update requires identifier")
         }
 
         let patchFields = ["title", "start", "end", "notes", "location", "url", "isAllDay", "calendarIdentifier"]
-        guard patchFields.contains(where: { arguments.keys.contains($0) }) else {
+        guard patchFields.contains(where: { arguments.providedArguments.contains($0) }) else {
             throw BridgeError.invalidArguments("calendar.write update requires at least one patch field")
         }
 
@@ -285,48 +226,7 @@ public final class EventKitBridge: @unchecked Sendable {
             throw BridgeError.invalidArguments("calendar.write could not find event identifier \(identifier)")
         }
 
-        if arguments.keys.contains("title") {
-            guard let title = arguments.string("title"), title.isEmpty == false else {
-                throw BridgeError.invalidArguments("calendar.write title cannot be empty")
-            }
-            event.title = title
-        }
-        if arguments.keys.contains("start") {
-            guard let start = isoDate(arguments.string("start")) else {
-                throw BridgeError.invalidArguments("calendar.write start must be ISO8601 when provided")
-            }
-            event.startDate = start
-        }
-        if arguments.keys.contains("end") {
-            guard let end = isoDate(arguments.string("end")) else {
-                throw BridgeError.invalidArguments("calendar.write end must be ISO8601 when provided")
-            }
-            event.endDate = end
-        }
-        if arguments.keys.contains("notes") {
-            event.notes = arguments.string("notes")
-        }
-        if arguments.keys.contains("location") {
-            event.location = arguments.string("location")
-        }
-        if arguments.keys.contains("url") {
-            let urlText = arguments.string("url") ?? ""
-            event.url = urlText.isEmpty ? nil : URL(string: urlText)
-            if urlText.isEmpty == false, event.url == nil {
-                throw BridgeError.invalidArguments("calendar.write url must be valid when provided")
-            }
-        }
-        if arguments.keys.contains("isAllDay") {
-            event.isAllDay = arguments.bool("isAllDay") ?? false
-        }
-        if let calendarIdentifier = arguments.string("calendarIdentifier") {
-            event.calendar = try calendar(
-                calendarIdentifier,
-                in: store,
-                entityType: .event,
-                capability: "calendar.write"
-            )
-        }
+        try applyEventPatch(arguments: arguments, to: event, in: store)
 
         do {
             try store.save(event, span: .thisEvent)
@@ -336,20 +236,20 @@ public final class EventKitBridge: @unchecked Sendable {
         }
     }
 
-    private func createReminder(arguments: [String: JSONValue]) throws -> JSONValue {
-        guard let title = arguments.string("title"), title.isEmpty == false else {
+    private func createReminder(arguments: RemindersWriteTool.Arguments) throws -> JSONValue {
+        guard let title = arguments.title, title.isEmpty == false else {
             throw BridgeError.invalidArguments("reminders.write create requires title")
         }
 
         let store = EKEventStore()
         let reminder = EKReminder(eventStore: store)
-        reminder.calendar = try reminderCalendar(from: arguments, in: store)
+        reminder.calendar = try reminderCalendar(identifier: arguments.calendarIdentifier, in: store)
         reminder.title = title
-        reminder.notes = arguments.string("notes")
-        reminder.priority = arguments.int("priority") ?? 0
+        reminder.notes = arguments.notes
+        reminder.priority = arguments.priority ?? 0
 
-        if let dueDateText = arguments.string("dueDate"), dueDateText.isEmpty == false {
-            guard let dueDate = isoDate(dueDateText) else {
+        if let dueDateText = arguments.dueDate, dueDateText.isEmpty == false {
+            guard let dueDate = CodeModeDate.parse(dueDateText) else {
                 throw BridgeError.invalidArguments("reminders.write dueDate must be ISO8601 when provided")
             }
             reminder.dueDateComponents = Calendar.current.dateComponents(in: .current, from: dueDate)
@@ -363,13 +263,13 @@ public final class EventKitBridge: @unchecked Sendable {
         }
     }
 
-    private func updateReminder(arguments: [String: JSONValue]) throws -> JSONValue {
-        guard let identifier = arguments.string("identifier"), identifier.isEmpty == false else {
+    private func updateReminder(arguments: RemindersWriteTool.Arguments) throws -> JSONValue {
+        guard let identifier = arguments.identifier, identifier.isEmpty == false else {
             throw BridgeError.invalidArguments("reminders.write update requires identifier")
         }
 
         let patchFields = ["title", "dueDate", "notes", "isCompleted", "priority", "calendarIdentifier"]
-        guard patchFields.contains(where: { arguments.keys.contains($0) }) else {
+        guard patchFields.contains(where: { arguments.providedArguments.contains($0) }) else {
             throw BridgeError.invalidArguments("reminders.write update requires at least one patch field")
         }
 
@@ -378,36 +278,7 @@ public final class EventKitBridge: @unchecked Sendable {
             throw BridgeError.invalidArguments("reminders.write could not find reminder identifier \(identifier)")
         }
 
-        if arguments.keys.contains("title") {
-            guard let title = arguments.string("title"), title.isEmpty == false else {
-                throw BridgeError.invalidArguments("reminders.write title cannot be empty")
-            }
-            reminder.title = title
-        }
-        if arguments.keys.contains("dueDate") {
-            if let dueDateText = arguments.string("dueDate"), dueDateText.isEmpty == false {
-                guard let dueDate = isoDate(dueDateText) else {
-                    throw BridgeError.invalidArguments("reminders.write dueDate must be ISO8601 when provided")
-                }
-                reminder.dueDateComponents = Calendar.current.dateComponents(in: .current, from: dueDate)
-            } else {
-                reminder.dueDateComponents = nil
-            }
-        }
-        if arguments.keys.contains("notes") {
-            reminder.notes = arguments.string("notes")
-        }
-        if arguments.keys.contains("isCompleted") {
-            let isCompleted = arguments.bool("isCompleted") ?? false
-            reminder.isCompleted = isCompleted
-            reminder.completionDate = isCompleted ? (reminder.completionDate ?? Date()) : nil
-        }
-        if let priority = arguments.int("priority") {
-            reminder.priority = priority
-        }
-        if arguments.keys.contains("calendarIdentifier") {
-            reminder.calendar = try reminderCalendar(from: arguments, in: store)
-        }
+        try applyReminderPatch(arguments: arguments, to: reminder, in: store)
 
         do {
             try store.save(reminder, commit: true)
@@ -417,24 +288,94 @@ public final class EventKitBridge: @unchecked Sendable {
         }
     }
 
+    /// Applies decoded patch values independently of item lookup and persistence.
+    func applyEventPatch(arguments: CalendarWriteEventTool.Arguments, to event: EKEvent, in store: EKEventStore) throws {
+        if arguments.providedArguments.contains("title") {
+            guard let title = arguments.title, title.isEmpty == false else {
+                throw BridgeError.invalidArguments("calendar.write title cannot be empty")
+            }
+            event.title = title
+        }
+        if arguments.providedArguments.contains("start") {
+            guard let start = CodeModeDate.parse(arguments.start) else {
+                throw BridgeError.invalidArguments("calendar.write start must be ISO8601 when provided")
+            }
+            event.startDate = start
+        }
+        if arguments.providedArguments.contains("end") {
+            guard let end = CodeModeDate.parse(arguments.end) else {
+                throw BridgeError.invalidArguments("calendar.write end must be ISO8601 when provided")
+            }
+            event.endDate = end
+        }
+        if arguments.providedArguments.contains("notes") {
+            event.notes = arguments.notes
+        }
+        if arguments.providedArguments.contains("location") {
+            event.location = arguments.location
+        }
+        if arguments.providedArguments.contains("url") {
+            let urlText = arguments.url ?? ""
+            event.url = urlText.isEmpty ? nil : URL(string: urlText)
+            if urlText.isEmpty == false, event.url == nil {
+                throw BridgeError.invalidArguments("calendar.write url must be valid when provided")
+            }
+        }
+        if arguments.providedArguments.contains("isAllDay") {
+            event.isAllDay = arguments.isAllDay ?? false
+        }
+        if let calendarIdentifier = arguments.calendarIdentifier {
+            event.calendar = try calendar(
+                calendarIdentifier,
+                in: store,
+                entityType: .event,
+                capability: "calendar.write"
+            )
+        }
+    }
+
+    /// Applies decoded patch values independently of item lookup and persistence.
+    func applyReminderPatch(arguments: RemindersWriteTool.Arguments, to reminder: EKReminder, in store: EKEventStore) throws {
+        if arguments.providedArguments.contains("title") {
+            guard let title = arguments.title, title.isEmpty == false else {
+                throw BridgeError.invalidArguments("reminders.write title cannot be empty")
+            }
+            reminder.title = title
+        }
+        if arguments.providedArguments.contains("dueDate") {
+            if let dueDateText = arguments.dueDate, dueDateText.isEmpty == false {
+                guard let dueDate = CodeModeDate.parse(dueDateText) else {
+                    throw BridgeError.invalidArguments("reminders.write dueDate must be ISO8601 when provided")
+                }
+                reminder.dueDateComponents = Calendar.current.dateComponents(in: .current, from: dueDate)
+            } else {
+                reminder.dueDateComponents = nil
+            }
+        }
+        if arguments.providedArguments.contains("notes") {
+            reminder.notes = arguments.notes
+        }
+        if arguments.providedArguments.contains("isCompleted") {
+            let isCompleted = arguments.isCompleted ?? false
+            reminder.isCompleted = isCompleted
+            reminder.completionDate = isCompleted ? (reminder.completionDate ?? Date()) : nil
+        }
+        if let priority = arguments.priority {
+            reminder.priority = priority
+        }
+        if arguments.providedArguments.contains("calendarIdentifier") {
+            reminder.calendar = try reminderCalendar(identifier: arguments.calendarIdentifier, in: store)
+        }
+    }
+
     private func resolveCalendars(
-        from arguments: [String: JSONValue],
+        identifier: String?,
+        identifiers: [String]?,
         in store: EKEventStore,
         entityType: EKEntityType,
         capability: String
     ) throws -> [EKCalendar]? {
-        var identifiers: [String] = []
-        if let identifier = arguments.string("calendarIdentifier") {
-            identifiers.append(identifier)
-        }
-        if let values = arguments.array("calendarIdentifiers") {
-            for value in values {
-                guard let identifier = value.stringValue else {
-                    throw BridgeError.invalidArguments("\(capability) calendarIdentifiers must contain strings")
-                }
-                identifiers.append(identifier)
-            }
-        }
+        let identifiers = (identifier.map { [$0] } ?? []) + (identifiers ?? [])
 
         guard identifiers.isEmpty == false else {
             return nil
@@ -466,8 +407,8 @@ public final class EventKitBridge: @unchecked Sendable {
         return calendar
     }
 
-    private func reminderCalendar(from arguments: [String: JSONValue], in store: EKEventStore) throws -> EKCalendar {
-        if let calendarIdentifier = arguments.string("calendarIdentifier") {
+    private func reminderCalendar(identifier: String?, in store: EKEventStore) throws -> EKCalendar {
+        if let calendarIdentifier = identifier {
             return try calendar(
                 calendarIdentifier,
                 in: store,
@@ -479,16 +420,6 @@ public final class EventKitBridge: @unchecked Sendable {
             throw BridgeError.nativeFailure("reminders.write could not resolve a default reminders calendar")
         }
         return calendar
-    }
-
-    private func eventSpan(_ text: String?) throws -> EKSpan {
-        guard let text, text.isEmpty == false else {
-            return .thisEvent
-        }
-        guard let span = CalendarEventSpan.codeModeValue(matching: text) else {
-            throw BridgeError.invalidArguments("calendar.delete span must be one of \(CalendarEventSpan.codeModeAllowedValues.joined(separator: ", "))")
-        }
-        return span.ekSpan
     }
 
     /// Test seam: these serializers are the only EventKit logic reachable

@@ -66,22 +66,21 @@ struct CalendarListEventsTool: BuiltInCodeModeTool {
 
     struct Arguments: Sendable {
         @ToolParam("ISO8601 timestamp; defaults to now.")
-        var start: String?
+        var start: Date?
         @ToolParam("ISO8601 timestamp; defaults to start + 14 days.")
-        var end: String?
-        @ToolParam("Max number of items, default 50.")
-        var limit: Int?
+        var end: Date?
+        @ToolParam("Max number of items.")
+        var limit: Int = 50
         @ToolParam("Optional EventKit calendarIdentifier to restrict results.")
         var calendarIdentifier: String?
         @ToolParam("Optional array of EventKit calendarIdentifier strings to restrict results.")
         var calendarIdentifiers: [String]?
-        var raw: [String: JSONValue]
     }
 
     let eventKit: EventKitBridge
 
     func call(arguments: Arguments, context: BridgeInvocationContext) throws -> JSONValue {
-        try eventKit.readEvents(arguments: arguments.raw, context: context)
+        try eventKit.readEvents(arguments: arguments)
     }
 }
 
@@ -114,13 +113,19 @@ struct CalendarWriteEventTool: BuiltInCodeModeTool {
         var isAllDay: Bool?
         @ToolParam("Optional destination EventKit calendarIdentifier.")
         var calendarIdentifier: String?
-        var raw: [String: JSONValue]
+        // Presence is separate from value: null clears a patch field, omission
+        // leaves it alone. No raw values escape the generated decoder.
+        var providedArguments: Set<String>
     }
 
     let eventKit: EventKitBridge
 
+    func argumentDependentPermissions(for arguments: Arguments) -> [PermissionKind] {
+        [arguments.resolvedOperation == .update ? .calendar : .calendarWriteOnly]
+    }
+
     func call(arguments: Arguments, context: BridgeInvocationContext) throws -> JSONValue {
-        try eventKit.writeEvent(arguments: arguments.raw, context: context)
+        try eventKit.writeEvent(arguments: arguments)
     }
 }
 
@@ -136,15 +141,14 @@ struct CalendarDeleteEventTool: BuiltInCodeModeTool {
     struct Arguments: Sendable {
         @ToolParam("EventKit eventIdentifier from apple.calendar.listEvents.")
         var identifier: String
-        @ToolParam("thisEvent (default) or futureEvents for recurring events.")
-        var span: CalendarEventSpan?
-        var raw: [String: JSONValue]
+        @ToolParam("thisEvent or futureEvents for recurring events.")
+        var span: CalendarEventSpan = .thisEvent
     }
 
     let eventKit: EventKitBridge
 
     func call(arguments: Arguments, context: BridgeInvocationContext) throws -> JSONValue {
-        try eventKit.deleteEvent(arguments: arguments.raw, context: context)
+        try eventKit.deleteEvent(arguments: arguments)
     }
 }
 
@@ -247,24 +251,23 @@ struct RemindersListTool: BuiltInCodeModeTool {
 
     struct Arguments: Sendable {
         @ToolParam("Optional ISO8601 due-date lower bound.")
-        var start: String?
+        var start: Date?
         @ToolParam("Optional ISO8601 due-date upper bound.")
-        var end: String?
-        @ToolParam("Whether completed reminders are included; default false.")
-        var includeCompleted: Bool?
+        var end: Date?
+        @ToolParam("Whether completed reminders are included.")
+        var includeCompleted: Bool = false
         @ToolParam("Optional EventKit reminder calendarIdentifier to restrict results.")
         var calendarIdentifier: String?
         @ToolParam("Optional array of EventKit reminder calendarIdentifier strings to restrict results.")
         var calendarIdentifiers: [String]?
-        @ToolParam("Max number of reminder items, default 50.")
-        var limit: Int?
-        var raw: [String: JSONValue]
+        @ToolParam("Max number of reminder items.")
+        var limit: Int = 50
     }
 
     let eventKit: EventKitBridge
 
     func call(arguments: Arguments, context: BridgeInvocationContext) throws -> JSONValue {
-        try eventKit.readReminders(arguments: arguments.raw, context: context)
+        try eventKit.readReminders(arguments: arguments)
     }
 }
 
@@ -294,13 +297,15 @@ struct RemindersWriteTool: BuiltInCodeModeTool {
         var priority: Int?
         @ToolParam("Optional destination EventKit reminders calendarIdentifier.")
         var calendarIdentifier: String?
-        var raw: [String: JSONValue]
+        // Presence is separate from value: null clears a patch field, omission
+        // leaves it alone. No raw values escape the generated decoder.
+        var providedArguments: Set<String>
     }
 
     let eventKit: EventKitBridge
 
     func call(arguments: Arguments, context: BridgeInvocationContext) throws -> JSONValue {
-        try eventKit.writeReminder(arguments: arguments.raw, context: context)
+        try eventKit.writeReminder(arguments: arguments)
     }
 }
 
@@ -316,12 +321,20 @@ struct RemindersDeleteTool: BuiltInCodeModeTool {
     struct Arguments: Sendable {
         @ToolParam("EventKit calendarItemIdentifier from apple.reminders.listReminders.")
         var identifier: String
-        var raw: [String: JSONValue]
     }
 
     let eventKit: EventKitBridge
 
     func call(arguments: Arguments, context: BridgeInvocationContext) throws -> JSONValue {
-        try eventKit.deleteReminder(arguments: arguments.raw, context: context)
+        try eventKit.deleteReminder(arguments: arguments)
     }
+}
+
+// Operation inference is shared by permission selection and execution.
+extension CalendarWriteEventTool.Arguments {
+    var resolvedOperation: CalendarWriteOperation { operation ?? (identifier == nil ? .create : .update) }
+}
+
+extension RemindersWriteTool.Arguments {
+    var resolvedOperation: ReminderWriteOperation { operation ?? (identifier == nil ? .create : .update) }
 }

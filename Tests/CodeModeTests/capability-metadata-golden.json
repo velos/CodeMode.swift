@@ -582,7 +582,7 @@
     },
     "argumentHints" : {
       "identifier" : "EventKit eventIdentifier from apple.calendar.listEvents.",
-      "span" : "thisEvent (default) or futureEvents for recurring events."
+      "span" : "thisEvent or futureEvents for recurring events. Default: \"thisEvent\"."
     },
     "argumentTypes" : {
       "identifier" : "string",
@@ -620,7 +620,7 @@
       "calendarIdentifier" : "Optional EventKit calendarIdentifier to restrict results.",
       "calendarIdentifiers" : "Optional array of EventKit calendarIdentifier strings to restrict results.",
       "end" : "ISO8601 timestamp; defaults to start + 14 days.",
-      "limit" : "Max number of items, default 50.",
+      "limit" : "Max number of items. Default: 50.",
       "start" : "ISO8601 timestamp; defaults to now."
     },
     "argumentTypes" : {
@@ -4257,8 +4257,8 @@
       "calendarIdentifier" : "Optional EventKit reminder calendarIdentifier to restrict results.",
       "calendarIdentifiers" : "Optional array of EventKit reminder calendarIdentifier strings to restrict results.",
       "end" : "Optional ISO8601 due-date upper bound.",
-      "includeCompleted" : "Whether completed reminders are included; default false.",
-      "limit" : "Max number of reminder items, default 50.",
+      "includeCompleted" : "Whether completed reminders are included. Default: false.",
+      "limit" : "Max number of reminder items. Default: 50.",
       "start" : "Optional ISO8601 due-date lower bound."
     },
     "argumentTypes" : {

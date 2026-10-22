@@ -10,7 +10,15 @@ import Foundation
 /// may be JSON primitives (`String`, `Bool`, `Int`, `Double`, `[JSONValue]`,
 /// `[String: JSONValue]`, `JSONValue`, optionals thereof) or a
 /// `CodeModeStringEnum`, whose accepted values become the argument's
-/// constraint metadata. A trailing un-annotated `var raw: [String: JSONValue]`
+/// constraint metadata. `Date`/`Date?` decode ISO 8601 strings through
+/// `CodeModeDate`, retaining the capability and argument in date errors.
+/// Nonoptional scalar properties may have literal defaults (or `.case` enum
+/// defaults): omission uses the initializer, and catalog hints advertise it.
+/// Dynamic defaults belong in `call` and use optional properties.
+///
+/// An unannotated `var providedArguments: Set<String>` receives the supplied
+/// keys, so patch tools can distinguish omission from explicit null without
+/// retaining raw values. A trailing unannotated `var raw: [String: JSONValue]`
 /// receives the full argument dictionary with constrained values canonicalized
 /// — the passthrough transitional tools use while bridges consume raw
 /// dictionaries.

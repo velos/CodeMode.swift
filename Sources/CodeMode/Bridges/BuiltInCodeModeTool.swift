@@ -6,27 +6,44 @@ struct BuiltInToolArgument {
     var type: CapabilityArgumentType
     var optional: Bool
     var hint: String
+    var defaultValue: JSONValue?
     /// Accepted spellings when the argument is constrained to a closed set;
     /// nil for unconstrained arguments.
     var allowedValues: [String]?
 
-    init(_ name: String, _ type: CapabilityArgumentType, optional: Bool = false, hint: String) {
+    init(_ name: String, _ type: CapabilityArgumentType, optional: Bool = false, hint: String, defaultValue: JSONValue? = nil) {
         self.name = name
         self.type = type
         self.optional = optional
-        self.hint = hint
+        self.defaultValue = defaultValue
+        self.hint = Self.hint(hint, defaultValue: defaultValue)
         self.allowedValues = nil
     }
 
     /// A string argument constrained to a `CodeModeStringEnum`'s accepted
     /// values. The advertised constraint and the decode behavior both come
     /// from the enum, so they cannot drift.
-    init<Value: CodeModeStringEnum>(_ name: String, oneOf: Value.Type, optional: Bool = false, hint: String) {
+    init<Value: CodeModeStringEnum>(_ name: String, oneOf: Value.Type, optional: Bool = false, hint: String, defaultValue: JSONValue? = nil) {
         self.name = name
         self.type = .string
         self.optional = optional
-        self.hint = hint
+        self.defaultValue = defaultValue
+        self.hint = Self.hint(hint, defaultValue: defaultValue)
         self.allowedValues = Value.codeModeAllowedValues
+    }
+
+    private static let defaultValueEncoder: JSONEncoder = {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.withoutEscapingSlashes, .sortedKeys]
+        return encoder
+    }()
+
+    private static func hint(_ hint: String, defaultValue: JSONValue?) -> String {
+        guard let defaultValue else { return hint }
+        // JSON spelling quotes strings (including enum raw values) and preserves
+        // escapes; all defaults admitted by the macro are JSON scalars.
+        let text = String(decoding: try! defaultValueEncoder.encode(defaultValue), as: UTF8.self)
+        return "\(hint) Default: \(text)."
     }
 }
 
