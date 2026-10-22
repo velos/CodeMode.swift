@@ -90,23 +90,38 @@ public final class BridgeInvocationContext: @unchecked Sendable {
             return .granted
         }
 
-        let status = permissionBroker.status(for: permission)
-        recordPermission(permission, status: status)
-
-        let resolved: PermissionStatus
-        if status == .notDetermined {
-            let requested = permissionBroker.request(for: permission)
-            recordPermission(permission, status: requested)
-            resolved = requested
-        } else {
-            resolved = status
-        }
-
+        let resolved = observePermission(permission)
         if resolved == .granted {
             markPermissionValidated(permission)
         }
 
         return resolved
+    }
+
+    /// Enforces a permission using the same satisfaction rules for static
+    /// registry checks and argument-dependent built-in checks. Each invocation
+    /// observes and records the broker's current status, even after a previous
+    /// grant. Legacy bridge rechecks may still use `resolvedPermission`'s cache.
+    func requirePermission(_ permission: PermissionKind) throws {
+        try checkCancellation()
+        let resolvedStatus = observePermission(permission)
+        guard resolvedStatus == .granted || (permission == .calendarWriteOnly && resolvedStatus == .writeOnly) else {
+            throw BridgeError.permissionDenied(permission)
+        }
+        markPermissionValidated(permission)
+    }
+
+    /// Asks the broker for the current status, requesting access when it is
+    /// undetermined, and records each answer in the transcript.
+    private func observePermission(_ permission: PermissionKind) -> PermissionStatus {
+        let status = permissionBroker.status(for: permission)
+        recordPermission(permission, status: status)
+        guard status == .notDetermined else {
+            return status
+        }
+        let requested = permissionBroker.request(for: permission)
+        recordPermission(permission, status: requested)
+        return requested
     }
 
     /// True when the request declared this identifier but the host's

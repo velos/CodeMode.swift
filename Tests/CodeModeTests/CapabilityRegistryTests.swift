@@ -3,7 +3,6 @@ import JavaScriptCore
 import Testing
 @testable import CodeMode
 
-
 private func jsNames(for capability: CapabilityID) -> [String] {
     DefaultCapabilityLoader.loadAllRegistrations()
         .first { $0.descriptor.id == capability }?
@@ -617,4 +616,43 @@ private func jsNames(for capability: CapabilityID) -> [String] {
     } catch {
         #expect(requireBridgeErrorCode(error) == "INVALID_ARGUMENTS")
     }
+}
+
+private final class StatusObservingPermissionBroker: PermissionBroker, @unchecked Sendable {
+    private let lock = NSLock()
+    private var observations: [PermissionKind] = []
+
+    var statusObservations: [PermissionKind] {
+        lock.withLock { observations }
+    }
+
+    func status(for permission: PermissionKind) -> PermissionStatus {
+        lock.withLock { observations.append(permission) }
+        return .granted
+    }
+
+    func request(for permission: PermissionKind) -> PermissionStatus { .denied }
+}
+
+@Test func registryObservesStaticPermissionOnEveryInvocation() throws {
+    let registry = CapabilityRegistry(registrations: [CapabilityRegistration(
+        descriptor: CapabilityDescriptor(
+            id: .calendarRead,
+            title: "Calendar read",
+            summary: "Exercise static permission enforcement without a live store.",
+            tags: [],
+            example: "",
+            requiredPermissions: [.calendar]
+        ),
+        handler: { _, _ in .string("ok") }
+    )])
+    let broker = StatusObservingPermissionBroker()
+    let (context, sandbox) = try makeInvocationContext(permissionBroker: broker)
+    defer { cleanup(sandbox) }
+
+    #expect(try registry.invoke("calendar.read", arguments: [:], context: context) == .string("ok"))
+    #expect(try registry.invoke("calendar.read", arguments: [:], context: context) == .string("ok"))
+    #expect(broker.statusObservations == [.calendar, .calendar])
+    #expect(context.allPermissionEvents().map(\.permission) == [.calendar, .calendar])
+    #expect(context.allPermissionEvents().map(\.status) == [.granted, .granted])
 }

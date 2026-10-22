@@ -709,32 +709,8 @@ public final class CapabilityRegistry: @unchecked Sendable {
 
     private func validatePermissions(_ permissions: [PermissionKind], context: BridgeInvocationContext) throws {
         for permission in permissions {
-            try context.checkCancellation()
-            let status = context.permissionBroker.status(for: permission)
-            context.recordPermission(permission, status: status)
-
-            let resolvedStatus: PermissionStatus
-            if status == .notDetermined {
-                let requested = context.permissionBroker.request(for: permission)
-                context.recordPermission(permission, status: requested)
-                resolvedStatus = requested
-            } else {
-                resolvedStatus = status
-            }
-
-            guard permissionStatus(resolvedStatus, satisfies: permission) else {
-                throw BridgeError.permissionDenied(permission)
-            }
-
-            context.markPermissionValidated(permission)
+            try context.requirePermission(permission)
         }
-    }
-
-    private func permissionStatus(_ status: PermissionStatus, satisfies permission: PermissionKind) -> Bool {
-        if permission == .calendarWriteOnly, status == .writeOnly {
-            return true
-        }
-        return status == .granted
     }
 
     private func value(atPath path: String, in root: [String: JSONValue]) -> JSONValue? {

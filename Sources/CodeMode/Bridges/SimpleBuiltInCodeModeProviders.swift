@@ -142,6 +142,10 @@ private struct LocationReadTool: BuiltInCodeModeTool {
         Arguments(mode: try CodeModeArgumentDecoder.optional("mode", as: String.self, in: arguments))
     }
 
+    func argumentDependentPermissions(for arguments: Arguments) -> [PermissionKind] {
+        (arguments.mode ?? "current") == "current" ? [.locationWhenInUse] : []
+    }
+
     func call(arguments: Arguments, context: BridgeInvocationContext) throws -> JSONValue {
         var payload: [String: JSONValue] = [:]
         if let mode = arguments.mode {

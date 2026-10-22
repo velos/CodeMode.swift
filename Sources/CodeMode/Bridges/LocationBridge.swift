@@ -16,7 +16,7 @@ public final class LocationBridge: @unchecked Sendable {
             context.recordPermission(.locationWhenInUse, status: status)
             return .string(status.rawValue)
         case "current":
-            let status = resolvedPermission(for: .locationWhenInUse, context: context)
+            let status = context.resolvedPermission(for: .locationWhenInUse)
             guard status == .granted else {
                 throw BridgeError.permissionDenied(.locationWhenInUse)
             }
@@ -45,16 +45,5 @@ public final class LocationBridge: @unchecked Sendable {
         let status = context.permissionBroker.request(for: .locationWhenInUse)
         context.recordPermission(.locationWhenInUse, status: status)
         return .string(status.rawValue)
-    }
-
-    private func resolvedPermission(for permission: PermissionKind, context: BridgeInvocationContext) -> PermissionStatus {
-        let status = context.permissionBroker.status(for: permission)
-        context.recordPermission(permission, status: status)
-        if status == .notDetermined {
-            let requested = context.permissionBroker.request(for: permission)
-            context.recordPermission(permission, status: requested)
-            return requested
-        }
-        return status
     }
 }

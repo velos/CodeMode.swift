@@ -56,12 +56,16 @@ protocol BuiltInCodeModeTool: Sendable {
     static var codeModeResultSummary: String { get }
 
     func decode(arguments: [String: JSONValue]) throws -> Arguments
+    /// Additional permissions selected from decoded arguments. Static
+    /// requirements are enforced by the registry before the handler runs.
+    func argumentDependentPermissions(for arguments: Arguments) -> [PermissionKind]
     func call(arguments: Arguments, context: BridgeInvocationContext) throws -> JSONValue
 }
 
 extension BuiltInCodeModeTool {
     static var codeModeAliasPaths: [String] { [] }
     static var codeModeRequiredPermissions: [PermissionKind] { [] }
+    func argumentDependentPermissions(for arguments: Arguments) -> [PermissionKind] { [] }
 }
 
 extension CapabilityRegistration {
@@ -96,6 +100,9 @@ extension CapabilityRegistration {
             ),
             handler: { rawArguments, context in
                 let decoded = try tool.decode(arguments: rawArguments)
+                for permission in tool.argumentDependentPermissions(for: decoded) {
+                    try context.requirePermission(permission)
+                }
                 return try tool.call(arguments: decoded, context: context)
             }
         )
