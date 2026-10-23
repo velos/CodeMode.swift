@@ -232,7 +232,7 @@ private struct ManualProvider: CodeModeProvider {
             jsNames: registration.jsNames,
             descriptor: registration.descriptor
         ) { _, _ in
-            invocations.mutate { $0.append(registration.descriptor.id.rawValue) }
+            invocations.mutate { $0.append(registration.jsNames.first ?? registration.descriptor.id.rawValue) }
             return fakeRuntimeValue(for: registration.descriptor.id)
         }
     }
@@ -287,7 +287,12 @@ private struct ManualProvider: CodeModeProvider {
     let observed = await observe(call)
     let output = try #require(observed.result?.output?.objectValue)
     #expect(output.array("failures") == [])
-    #expect(invocations.get() == checks.map { $0.descriptor.id.rawValue })
+    // Shared capability IDs must still invoke the registration for the called
+    // helper, including every alias of that registration.
+    let owners = Dictionary(fakeRegistrations.flatMap { registration in
+        registration.jsNames.map { ($0, registration.jsNames.first!) }
+    }, uniquingKeysWith: { first, _ in first })
+    #expect(invocations.get() == checks.map { owners[$0.jsName]! })
 
     let macRegistrations = CapabilityPlatformSupport.filter(fakeRegistrations, for: .macOS)
     let unsupportedMacNames = CapabilityPlatformSupport.unsupportedJavaScriptNames(from: fakeRegistrations, for: .macOS)

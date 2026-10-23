@@ -161,7 +161,7 @@ enum RuntimeJavaScript {
 
     static func builtInBootstrap(for registrations: [CapabilityRegistration]) -> String {
         let commands = registrations
-            .sorted { $0.descriptor.id.rawValue < $1.descriptor.id.rawValue }
+            .sorted { ($0.descriptor.id.rawValue, $0.jsNames.first ?? "") < ($1.descriptor.id.rawValue, $1.jsNames.first ?? "") }
             .flatMap { registration in
                 registration.jsNames.sorted().map { jsName in
                     "__codemodeInstallBindingIfMissing(\(jsonString(jsName)), \(jsonString(registration.descriptor.id.codeModeKey.rawValue)));"
@@ -227,13 +227,14 @@ enum RuntimeJavaScript {
     globalThis.__codemode.result = null;
     globalThis.__codemode.error = null;
 
-    function __invoke(capability, args) {
+    function __invoke(capability, args, jsName) {
         const payload = JSON.stringify(args ?? {});
-        const raw = __codemodeInvokeSync(String(capability), payload);
+        const raw = __codemodeInvokeSync(String(capability), payload, jsName || '');
         const envelope = JSON.parse(String(raw || '{}'));
         if (!envelope.ok) {
             const error = new Error(envelope.error && envelope.error.message ? envelope.error.message : 'Bridge call failed');
             error.code = envelope.error && envelope.error.code ? envelope.error.code : 'BRIDGE_ERROR';
+            error.functionName = envelope.error && envelope.error.functionName ? envelope.error.functionName : null;
             error.capability = envelope.error && envelope.error.capability ? envelope.error.capability : null;
             error.suggestions = envelope.error && Array.isArray(envelope.error.suggestions) ? envelope.error.suggestions.map(function(value){ return String(value); }) : [];
             throw error;
@@ -241,8 +242,8 @@ enum RuntimeJavaScript {
         return envelope.value;
     }
 
-    function __invokeAsync(capability, args) {
-        return Promise.resolve().then(function(){ return __invoke(capability, args); });
+    function __invokeAsync(capability, args, jsName) {
+        return Promise.resolve().then(function(){ return __invoke(capability, args, jsName); });
     }
 
     function __codemodeResolveBinding(jsPath) {
@@ -261,20 +262,20 @@ enum RuntimeJavaScript {
         return { target: target, property: segments[segments.length - 1] };
     }
 
-    function __codemodeInstallResolvedBinding(binding, capability) {
+    function __codemodeInstallResolvedBinding(binding, capability, jsPath) {
         binding.target[binding.property] = function(args) {
-            return __invokeAsync(capability, args || {});
+            return __invokeAsync(capability, args || {}, jsPath);
         };
     }
 
     function __codemodeInstallBinding(jsPath, capability) {
-        __codemodeInstallResolvedBinding(__codemodeResolveBinding(jsPath), capability);
+        __codemodeInstallResolvedBinding(__codemodeResolveBinding(jsPath), capability, jsPath);
     }
 
     function __codemodeInstallBindingIfMissing(jsPath, capability) {
         const binding = __codemodeResolveBinding(jsPath);
         if (typeof binding.target[binding.property] === 'undefined') {
-            __codemodeInstallResolvedBinding(binding, capability);
+            __codemodeInstallResolvedBinding(binding, capability, jsPath);
         }
     }
 
@@ -363,24 +364,6 @@ enum RuntimeJavaScript {
         getPermissionStatus: function(args) { return __invokeAsync('location.read', Object.assign({ mode: 'permissionStatus' }, args || {})); },
         requestPermission: function() { return __invokeAsync('location.permission.request', {}); },
         getCurrentPosition: function(args) { return __invokeAsync('location.read', Object.assign({ mode: 'current' }, args || {})); }
-    };
-
-    globalThis.apple.calendar = {
-        listEvents: function(args) { return __invokeAsync('calendar.read', args || {}); },
-        createEvent: function(args) { return __invokeAsync('calendar.write', Object.assign({}, args || {}, { operation: 'create' })); },
-        updateEvent: function(args) { return __invokeAsync('calendar.write', Object.assign({}, args || {}, { operation: 'update' })); },
-        deleteEvent: function(args) { return __invokeAsync('calendar.delete', args || {}); },
-        pickCalendar: function(args) { return __invokeAsync('calendar.ui.pickCalendar', args || {}); },
-        presentEvent: function(args) { return __invokeAsync('calendar.ui.presentEvent', args || {}); },
-        presentNewEvent: function(args) { return __invokeAsync('calendar.ui.presentNewEvent', args || {}); }
-    };
-
-    globalThis.apple.reminders = {
-        listReminders: function(args) { return __invokeAsync('reminders.read', args || {}); },
-        createReminder: function(args) { return __invokeAsync('reminders.write', Object.assign({}, args || {}, { operation: 'create' })); },
-        updateReminder: function(args) { return __invokeAsync('reminders.write', Object.assign({}, args || {}, { operation: 'update' })); },
-        completeReminder: function(args) { return __invokeAsync('reminders.write', Object.assign({ isCompleted: true }, args || {}, { operation: 'complete' })); },
-        deleteReminder: function(args) { return __invokeAsync('reminders.delete', args || {}); }
     };
 
     globalThis.apple.contacts = {

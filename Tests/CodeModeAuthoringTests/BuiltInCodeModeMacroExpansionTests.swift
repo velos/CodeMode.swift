@@ -1,3 +1,4 @@
+import Foundation
 import SwiftSyntaxMacros
 import SwiftSyntaxMacrosTestSupport
 import Testing
@@ -7,6 +8,8 @@ private func builtInTestMacros() -> [String: Macro.Type] {
     [
         "BuiltInCodeMode": BuiltInCodeModeMacro.self,
         "ToolParam": ToolParamMacro.self,
+        "ToolResult": ToolResultMacro.self,
+        "ToolField": ToolFieldMacro.self,
     ]
 }
 
@@ -186,6 +189,408 @@ private func builtInTestMacros() -> [String: Macro.Type] {
         diagnostics: [
             DiagnosticSpec(message: "@BuiltInCodeMode raw passthrough must be the last stored property of Arguments", line: 3, column: 12),
         ],
+        macros: builtInTestMacros()
+    )
+}
+
+@Test func builtInCodeModeExpansionSupportsScalarAndEnumDefaults() {
+    assertMacroExpansion(
+        """
+        @BuiltInCodeMode(.calendarRead, path: "apple.calendar.listEvents")
+        struct DefaultsTool: BuiltInCodeModeTool {
+            struct Arguments: Sendable {
+                @ToolParam("limit hint.")
+                var limit: Int = 50
+                @ToolParam("offset hint.")
+                var offset: Int = -2
+                @ToolParam("ratio hint.")
+                var ratio: Double = 0.5
+                @ToolParam("fraction hint.")
+                var fraction: Float = 0.1
+                @ToolParam("enabled hint.")
+                var enabled: Bool = true
+                @ToolParam("label hint.")
+                var label: String = "hello"
+                @ToolParam("span hint.")
+                var span: CalendarEventSpan = .thisEvent
+            }
+        }
+        """,
+        expandedSource: """
+        struct DefaultsTool: BuiltInCodeModeTool {
+            struct Arguments: Sendable {
+                var limit: Int = 50
+                var offset: Int = -2
+                var ratio: Double = 0.5
+                var fraction: Float = 0.1
+                var enabled: Bool = true
+                var label: String = "hello"
+                var span: CalendarEventSpan = .thisEvent
+            }
+
+            static let codeModeCapability: CapabilityID = .calendarRead
+
+            static let codeModePath: String = "apple.calendar.listEvents"
+
+            static let codeModeArguments: [BuiltInToolArgument] = [
+                BuiltInToolArgument("limit", .number, optional: true, hint: "limit hint.", defaultValue: .number(Double(50))),
+                BuiltInToolArgument("offset", .number, optional: true, hint: "offset hint.", defaultValue: .number(Double(-2))),
+                BuiltInToolArgument("ratio", .number, optional: true, hint: "ratio hint.", defaultValue: .number(Double(0.5))),
+                BuiltInToolArgument("fraction", .number, optional: true, hint: "fraction hint.", defaultValue: .number(Double(0.1))),
+                BuiltInToolArgument("enabled", .bool, optional: true, hint: "enabled hint.", defaultValue: .bool(true)),
+                BuiltInToolArgument("label", .string, optional: true, hint: "label hint.", defaultValue: .string("hello")),
+                BuiltInToolArgument("span", oneOf: CalendarEventSpan.self, optional: true, hint: "span hint.", defaultValue: .string(CalendarEventSpan.thisEvent.rawValue)),
+            ]
+
+            func decode(arguments: [String: JSONValue]) throws -> Arguments {
+                let limit = try CodeModeArgumentDecoder.optional("limit", as: Int.self, in: arguments) ?? 50
+                let offset = try CodeModeArgumentDecoder.optional("offset", as: Int.self, in: arguments) ?? -2
+                let ratio = try CodeModeArgumentDecoder.optional("ratio", as: Double.self, in: arguments) ?? 0.5
+                let fraction = try CodeModeArgumentDecoder.optional("fraction", as: Float.self, in: arguments) ?? 0.1
+                let enabled = try CodeModeArgumentDecoder.optional("enabled", as: Bool.self, in: arguments) ?? true
+                let label = try CodeModeArgumentDecoder.optional("label", as: String.self, in: arguments) ?? "hello"
+                let span = try CodeModeArgumentDecoder.optional("span", as: CalendarEventSpan.self, in: arguments) ?? .thisEvent
+                return Arguments(limit: limit, offset: offset, ratio: ratio, fraction: fraction, enabled: enabled, label: label, span: span)
+            }
+        }
+        """,
+        macros: builtInTestMacros()
+    )
+}
+
+@Test func builtInCodeModeExpansionSupportsDates() {
+    assertMacroExpansion(
+        """
+        @BuiltInCodeMode(.calendarRead, path: "apple.calendar.listEvents")
+        struct DatesTool: BuiltInCodeModeTool {
+            struct Arguments: Sendable {
+                @ToolParam("Start timestamp.")
+                var start: Date
+                @ToolParam("End timestamp.")
+                var end: Foundation.Date?
+                var raw: [String: JSONValue]
+            }
+        }
+        """,
+        expandedSource: """
+        struct DatesTool: BuiltInCodeModeTool {
+            struct Arguments: Sendable {
+                var start: Date
+                var end: Foundation.Date?
+                var raw: [String: JSONValue]
+            }
+
+            static let codeModeCapability: CapabilityID = .calendarRead
+
+            static let codeModePath: String = "apple.calendar.listEvents"
+
+            static let codeModeArguments: [BuiltInToolArgument] = [
+                BuiltInToolArgument("start", .string, hint: "Start timestamp. ISO 8601 timestamp."),
+                BuiltInToolArgument("end", .string, optional: true, hint: "End timestamp. ISO 8601 timestamp."),
+            ]
+
+            func decode(arguments: [String: JSONValue]) throws -> Arguments {
+                let raw = arguments
+                let start = try CodeModeDate.require(arguments.string("start"), argument: "start", capability: Self.codeModeCapability.rawValue)
+                let end = try CodeModeDate.optional(arguments.string("end"), argument: "end", capability: Self.codeModeCapability.rawValue)
+                return Arguments(start: start, end: end, raw: raw)
+            }
+        }
+        """,
+        macros: builtInTestMacros()
+    )
+}
+
+@Test(arguments: [
+    ("Int?", "5", true, "var"),
+    ("Optional<Int>", "5", true, "var"),
+    ("Date", "Date()", false, "var"),
+    ("Int", "makeLimit()", false, "var"),
+    ("Int", "1 + 2", false, "var"),
+    ("Int", "1.5", false, "var"),
+    ("String", "5", false, "var"),
+    ("[Int]", "[1]", false, "var"),
+    ("String", #""\(value)""#, false, "var"),
+    ("Int", "50", false, "let"),
+])
+func builtInCodeModeExpansionDiagnosesUnsupportedDefaults(type: String, initializer: String, optional: Bool, binding: String) {
+    assertMacroExpansion(
+        """
+        @BuiltInCodeMode(.calendarRead, path: "apple.calendar.listEvents")
+        struct BrokenTool: BuiltInCodeModeTool {
+            struct Arguments: Sendable {
+                @ToolParam("Value hint.")
+                \(binding) value: \(type) = \(initializer)
+            }
+        }
+        """,
+        expandedSource: """
+        struct BrokenTool: BuiltInCodeModeTool {
+            struct Arguments: Sendable {
+                \(binding) value: \(type) = \(initializer)
+            }
+        }
+        """,
+        diagnostics: [DiagnosticSpec(
+            message: binding == "let"
+                ? "@BuiltInCodeMode Arguments properties must be var"
+                : optional
+                ? "@ToolParam optional properties cannot have initializers; resolve dynamic defaults in call"
+                : "@ToolParam defaults must be a matching integer, float, bool, or string literal, or .case for a CodeModeStringEnum",
+            line: 5,
+            column: binding == "let" ? 9 : 9 + "\(binding) value: \(type) = ".count
+        )],
+        macros: builtInTestMacros()
+    )
+}
+
+@Test func builtInCodeModeExpansionDetectsPatchAndOptionalChanges() {
+    assertMacroExpansion(
+        """
+        @BuiltInCodeMode(.calendarWrite, path: "apple.calendar.updateEvent")
+        struct PatchTool: BuiltInCodeModeTool {
+            struct Arguments: Sendable {
+                @ToolParam("Identifier.")
+                var identifier: String
+                @ToolParam("Notes patch.")
+                var notes: Patch<String>
+                @ToolParam("Time zone.")
+                var timeZone: String?
+                @ToolParam("Limit.")
+                var limit: Int = 50
+            }
+        }
+        """,
+        expandedSource: """
+        struct PatchTool: BuiltInCodeModeTool {
+            struct Arguments: Sendable {
+                var identifier: String
+                var notes: Patch<String>
+                var timeZone: String?
+                var limit: Int = 50
+            }
+
+            static let codeModeCapability: CapabilityID = .calendarWrite
+
+            static let codeModePath: String = "apple.calendar.updateEvent"
+
+            static let codeModeArguments: [BuiltInToolArgument] = [
+                BuiltInToolArgument("identifier", .string, hint: "Identifier."),
+                BuiltInToolArgument("notes", .string, optional: true, nullable: true, hint: "Notes patch."),
+                BuiltInToolArgument("timeZone", .string, optional: true, hint: "Time zone."),
+                BuiltInToolArgument("limit", .number, optional: true, hint: "Limit.", defaultValue: .number(Double(50))),
+            ]
+
+            func decode(arguments: [String: JSONValue]) throws -> Arguments {
+                let identifier = try CodeModeArgumentDecoder.require("identifier", as: String.self, in: arguments)
+                let notes: Patch<String> = try Patch.decode(arguments["notes"]) {
+                    try CodeModeArgumentDecoder.optional("notes", as: String.self, in: arguments)
+                }
+                let timeZone = try CodeModeArgumentDecoder.optional("timeZone", as: String.self, in: arguments)
+                let limit = try CodeModeArgumentDecoder.optional("limit", as: Int.self, in: arguments) ?? 50
+                return Arguments(identifier: identifier, notes: notes, timeZone: timeZone, limit: limit)
+            }
+
+            static func hasChanges(_ arguments: Arguments) -> Bool {
+                !arguments.notes.isUnchanged || arguments.timeZone != nil
+            }
+        }
+        """,
+        macros: builtInTestMacros()
+    )
+}
+
+@Test func toolResultExpansionComposesNestedOptionalArrayAndDateFields() {
+    assertMacroExpansion(
+        """
+        struct Envelope {
+            @ToolResult
+            struct Result {
+                let child: Detail
+                @ToolField("May be absent.")
+                var label: String?
+                var dates: [Date]
+                var updated: Foundation.Date
+            }
+        }
+        """,
+        expandedSource: """
+        struct Envelope {
+            struct Result {
+                let child: Detail
+                var label: String?
+                var dates: [Date]
+                var updated: Foundation.Date
+
+                var codeModeJSONValue: JSONValue {
+                    .object([
+                        "child": self.child.codeModeJSONValue,
+                        "label": self.label.codeModeJSONValue,
+                        "dates": self.dates.codeModeJSONValue,
+                        "updated": self.updated.codeModeJSONValue,
+                    ])
+                }
+
+                static var codeModeResultSchema: CodeModeResultSchema {
+                    .object([
+                        CodeModeResultSchema.Field(name: "child", describing: (Detail).self, hint: nil),
+                        CodeModeResultSchema.Field(name: "label", describing: (String?).self, hint: "May be absent."),
+                        CodeModeResultSchema.Field(name: "dates", describing: ([Date]).self, hint: nil),
+                        CodeModeResultSchema.Field(name: "updated", describing: (Foundation.Date).self, hint: nil),
+                    ])
+                }
+            }
+        }
+
+        extension Envelope.Result: CodeModeResultDescribable {
+        }
+        """,
+        macros: builtInTestMacros()
+    )
+}
+
+@Test func toolResultExpansionSupportsEmptyResults() {
+    assertMacroExpansion(
+        """
+        @ToolResult
+        struct Empty {}
+        """,
+        expandedSource: """
+        struct Empty {
+
+            var codeModeJSONValue: JSONValue {
+                .object([:])
+            }
+
+            static var codeModeResultSchema: CodeModeResultSchema {
+                .object([])
+            }
+        }
+
+        extension Empty: CodeModeResultDescribable {
+        }
+        """,
+        macros: builtInTestMacros()
+    )
+}
+
+@Test func toolResultExpansionRequiresAStruct() {
+    assertMacroExpansion(
+        """
+        @ToolResult
+        class Broken {}
+        """,
+        expandedSource: "class Broken {}",
+        diagnostics: [DiagnosticSpec(message: "@ToolResult can only be attached to a struct", line: 1, column: 1)],
+        macros: builtInTestMacros()
+    )
+}
+
+@Test(arguments: [
+    ("var value: String { \"computed\" }", "@ToolResult properties must be stored instance properties"),
+    ("lazy var value: String = \"lazy\"", "@ToolResult does not support lazy properties"),
+    ("var codeModeJSONValue: String", "@ToolResult property name 'codeModeJSONValue' is reserved for generated members"),
+    ("let codeModeResultSchema: String", "@ToolResult property name 'codeModeResultSchema' is reserved for generated members"),
+    ("static let codeModeResultSchema: String = \"reserved\"", "@ToolResult property name 'codeModeResultSchema' is reserved for generated members"),
+    ("#if DEBUG\nvar value: String\n#endif", "@ToolResult does not support conditional compilation blocks"),
+])
+func toolResultExpansionDiagnosesUnsupportedProperties(property: String, message: String) {
+    assertMacroExpansion(
+        """
+        @ToolResult
+        struct Broken {
+            \(property.replacingOccurrences(of: "\n", with: "\n    "))
+        }
+        """,
+        expandedSource: """
+        struct Broken {
+            \(property.replacingOccurrences(of: "\n", with: "\n    "))
+        }
+
+        extension Broken: CodeModeResultDescribable {
+        }
+        """,
+        diagnostics: [DiagnosticSpec(message: message, line: 3, column: 5)],
+        macros: builtInTestMacros()
+    )
+}
+
+@Test(arguments: ["var value = 1", "var first: Int, second: Int"])
+func toolResultExpansionRequiresExplicitIndividualTypes(property: String) {
+    assertMacroExpansion(
+        """
+        @ToolResult
+        struct Broken {
+            \(property)
+        }
+        """,
+        expandedSource: """
+        struct Broken {
+            \(property)
+        }
+
+        extension Broken: CodeModeResultDescribable {
+        }
+        """,
+        diagnostics: [DiagnosticSpec(message: "@ToolResult requires one named property with an explicit type per declaration", line: 3, column: 5)],
+        macros: builtInTestMacros()
+    )
+}
+
+@Test func toolResultExpansionRequiresLiteralHints() {
+    assertMacroExpansion(
+        """
+        @ToolResult
+        struct Broken {
+            @ToolField(makeHint())
+            var value: String
+        }
+        """,
+        expandedSource: """
+        struct Broken {
+            var value: String
+        }
+
+        extension Broken: CodeModeResultDescribable {
+        }
+        """,
+        diagnostics: [DiagnosticSpec(message: "@ToolField requires one string literal hint", line: 3, column: 5)],
+        macros: builtInTestMacros()
+    )
+}
+
+
+@Test(arguments: ["public", "package"])
+func toolResultExpansionMirrorsAccessAndSkipsStaticProperties(access: String) {
+    assertMacroExpansion(
+        """
+        @ToolResult
+        \(access) struct Result {
+            static let shared = "metadata"
+            let count: Int
+        }
+        """,
+        expandedSource: """
+        \(access) struct Result {
+            static let shared = "metadata"
+            let count: Int
+
+            \(access) var codeModeJSONValue: JSONValue {
+                .object([
+                    "count": self.count.codeModeJSONValue,
+                ])
+            }
+
+            \(access) static var codeModeResultSchema: CodeModeResultSchema {
+                .object([
+                    CodeModeResultSchema.Field(name: "count", describing: (Int).self, hint: nil),
+                ])
+            }
+        }
+
+        extension Result: CodeModeResultDescribable {
+        }
+        """,
         macros: builtInTestMacros()
     )
 }

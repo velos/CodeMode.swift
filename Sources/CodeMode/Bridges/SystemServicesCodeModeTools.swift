@@ -10,7 +10,6 @@ import Foundation
 
 @BuiltInCodeMode(.visionImageAnalyze, path: "apple.vision.analyzeImage")
 struct VisionImageAnalyzeTool: BuiltInCodeModeTool {
-    static let codeModeTitle = "Analyze image with Vision"
     static let codeModeSummary = "Run on-device image analysis for labels/text/barcodes on sandbox image paths."
     static let codeModeTags = ["vision", "image-analysis", "ml"]
     static let codeModeExample = "await apple.vision.analyzeImage({ path: 'tmp:receipt.jpg', features: ['text'], maxResults: 10 })"
@@ -37,7 +36,6 @@ struct VisionImageAnalyzeTool: BuiltInCodeModeTool {
 
 @BuiltInCodeMode(.notificationsPermissionRequest, path: "apple.notifications.requestPermission")
 struct NotificationsPermissionRequestTool: BuiltInCodeModeTool {
-    static let codeModeTitle = "Request notification permission"
     static let codeModeSummary = "Request local notification authorization from the user."
     static let codeModeTags = ["notifications", "permission"]
     static let codeModeExample = "await apple.notifications.requestPermission()"
@@ -54,7 +52,6 @@ struct NotificationsPermissionRequestTool: BuiltInCodeModeTool {
 
 @BuiltInCodeMode(.notificationsSchedule, path: "apple.notifications.schedule")
 struct NotificationsScheduleTool: BuiltInCodeModeTool {
-    static let codeModeTitle = "Schedule local notification"
     static let codeModeSummary = "Schedule a local notification using time interval or fireDate trigger."
     static let codeModeTags = ["notifications", "local", "schedule"]
     static let codeModeExample = "await apple.notifications.schedule({ title: 'Stand up', body: 'Stretch break', secondsFromNow: 900 })"
@@ -98,7 +95,6 @@ struct NotificationsScheduleTool: BuiltInCodeModeTool {
 
 @BuiltInCodeMode(.notificationsPendingRead, path: "apple.notifications.listPending")
 struct NotificationsPendingReadTool: BuiltInCodeModeTool {
-    static let codeModeTitle = "List pending local notifications"
     static let codeModeSummary = "List pending local notification requests."
     static let codeModeTags = ["notifications", "local", "schedule"]
     static let codeModeExample = "await apple.notifications.listPending({ limit: 20 })"
@@ -120,7 +116,6 @@ struct NotificationsPendingReadTool: BuiltInCodeModeTool {
 
 @BuiltInCodeMode(.notificationsPendingDelete, path: "apple.notifications.cancelPending")
 struct NotificationsPendingDeleteTool: BuiltInCodeModeTool {
-    static let codeModeTitle = "Delete pending local notifications"
     static let codeModeSummary = "Delete pending local notifications by identifier list or clear all."
     static let codeModeTags = ["notifications", "local", "schedule"]
     static let codeModeExample = "await apple.notifications.cancelPending({ identifiers: ['codemode.1', 'codemode.2'] })"
@@ -144,7 +139,6 @@ struct NotificationsPendingDeleteTool: BuiltInCodeModeTool {
 
 @BuiltInCodeMode(.notificationsDeliveredRead, path: "apple.notifications.listDelivered")
 struct NotificationsDeliveredReadTool: BuiltInCodeModeTool {
-    static let codeModeTitle = "List delivered local notifications"
     static let codeModeSummary = "List notifications currently delivered in Notification Center."
     static let codeModeTags = ["notifications", "local", "delivered"]
     static let codeModeExample = "await apple.notifications.listDelivered({ limit: 20 })"
@@ -166,7 +160,6 @@ struct NotificationsDeliveredReadTool: BuiltInCodeModeTool {
 
 @BuiltInCodeMode(.notificationsDeliveredDelete, path: "apple.notifications.removeDelivered")
 struct NotificationsDeliveredDeleteTool: BuiltInCodeModeTool {
-    static let codeModeTitle = "Delete delivered local notifications"
     static let codeModeSummary = "Delete delivered notifications by identifier list or clear all."
     static let codeModeTags = ["notifications", "local", "delivered", "delete"]
     static let codeModeExample = "await apple.notifications.removeDelivered({ identifiers: ['codemode.1', 'codemode.2'] })"
@@ -192,7 +185,6 @@ struct NotificationsDeliveredDeleteTool: BuiltInCodeModeTool {
 
 @BuiltInCodeMode(.alarmPermissionRequest, path: "ios.alarm.requestPermission")
 struct AlarmPermissionRequestTool: BuiltInCodeModeTool {
-    static let codeModeTitle = "Request AlarmKit permission"
     static let codeModeSummary = "Request AlarmKit authorization from the user."
     static let codeModeTags = ["alarmkit", "permission", "alarms"]
     static let codeModeExample = "await ios.alarm.requestPermission()"
@@ -209,7 +201,6 @@ struct AlarmPermissionRequestTool: BuiltInCodeModeTool {
 
 @BuiltInCodeMode(.alarmRead, path: "ios.alarm.list")
 struct AlarmReadTool: BuiltInCodeModeTool {
-    static let codeModeTitle = "List scheduled alarms"
     static let codeModeSummary = "List scheduled alarms known to the bridge runtime."
     static let codeModeTags = ["alarmkit", "alarms", "schedule"]
     static let codeModeExample = "await ios.alarm.list({ limit: 20 })"
@@ -231,7 +222,6 @@ struct AlarmReadTool: BuiltInCodeModeTool {
 
 @BuiltInCodeMode(.alarmSchedule, path: "ios.alarm.schedule")
 struct AlarmScheduleTool: BuiltInCodeModeTool {
-    static let codeModeTitle = "Schedule AlarmKit alarm"
     static let codeModeSummary = "Schedule an AlarmKit alarm using secondsFromNow or fireDate."
     static let codeModeTags = ["alarmkit", "alarms", "schedule"]
     static let codeModeExample = "await ios.alarm.schedule({ title: 'Wake up', secondsFromNow: 1800 })"
@@ -259,7 +249,6 @@ struct AlarmScheduleTool: BuiltInCodeModeTool {
 
 @BuiltInCodeMode(.alarmCancel, path: "ios.alarm.cancel")
 struct AlarmCancelTool: BuiltInCodeModeTool {
-    static let codeModeTitle = "Cancel scheduled alarms"
     static let codeModeSummary = "Cancel one or more scheduled alarms by identifier, or clear all known alarms."
     static let codeModeTags = ["alarmkit", "alarms", "schedule"]
     static let codeModeExample = "await ios.alarm.cancel({ identifiers: ['8F11679B-92E8-4D2F-84B4-4D0A7C95E3C3'] })"
@@ -285,7 +274,6 @@ struct AlarmCancelTool: BuiltInCodeModeTool {
 
 @BuiltInCodeMode(.healthPermissionRequest, path: "apple.health.requestPermission")
 struct HealthPermissionRequestTool: BuiltInCodeModeTool {
-    static let codeModeTitle = "Request HealthKit permission"
     static let codeModeSummary = "Request HealthKit authorization for requested read/write types."
     static let codeModeTags = ["healthkit", "health", "permission"]
     static let codeModeExample = "await apple.health.requestPermission({ readTypes: ['stepCount', 'heartRate'], writeTypes: ['stepCount'] })"
@@ -308,7 +296,6 @@ struct HealthPermissionRequestTool: BuiltInCodeModeTool {
 
 @BuiltInCodeMode(.healthRead, path: "apple.health.read")
 struct HealthReadTool: BuiltInCodeModeTool {
-    static let codeModeTitle = "Read HealthKit samples"
     static let codeModeSummary = "Read HealthKit samples for a supported type and date range."
     static let codeModeTags = ["healthkit", "health", "query"]
     static let codeModeExample = "await apple.health.read({ type: 'stepCount', start: '2026-03-03T00:00:00Z', end: '2026-03-04T00:00:00Z', limit: 25, unit: 'count' })"
@@ -337,7 +324,6 @@ struct HealthReadTool: BuiltInCodeModeTool {
 
 @BuiltInCodeMode(.healthWrite, path: "apple.health.write")
 struct HealthWriteTool: BuiltInCodeModeTool {
-    static let codeModeTitle = "Write HealthKit quantity sample"
     static let codeModeSummary = "Write a HealthKit quantity sample for supported writable quantity types."
     static let codeModeTags = ["healthkit", "health", "write"]
     static let codeModeExample = "await apple.health.write({ type: 'stepCount', value: 1200, unit: 'count', start: '2026-03-04T08:00:00Z', end: '2026-03-04T08:30:00Z' })"
@@ -368,7 +354,6 @@ struct HealthWriteTool: BuiltInCodeModeTool {
 
 @BuiltInCodeMode(.homeRead, path: "apple.home.list")
 struct HomeReadTool: BuiltInCodeModeTool {
-    static let codeModeTitle = "Read HomeKit graph"
     static let codeModeSummary = "Read homes/accessories/services (and optional characteristics) from HomeKit."
     static let codeModeTags = ["homekit", "iot", "devices"]
     static let codeModeExample = "await apple.home.list({ includeCharacteristics: true, limit: 5 })"
@@ -392,7 +377,6 @@ struct HomeReadTool: BuiltInCodeModeTool {
 
 @BuiltInCodeMode(.homeWrite, path: "apple.home.writeCharacteristic")
 struct HomeWriteTool: BuiltInCodeModeTool {
-    static let codeModeTitle = "Write HomeKit characteristic"
     static let codeModeSummary = "Write a value to a writable HomeKit characteristic for a target accessory."
     static let codeModeTags = ["homekit", "iot", "devices", "control"]
     static let codeModeExample = "await apple.home.writeCharacteristic({ accessoryIdentifier: 'UUID', characteristicType: 'HMCharacteristicTypePowerState', value: true })"
@@ -422,7 +406,6 @@ struct HomeWriteTool: BuiltInCodeModeTool {
 
 @BuiltInCodeMode(.mediaMetadataRead, path: "apple.media.metadata")
 struct MediaMetadataReadTool: BuiltInCodeModeTool {
-    static let codeModeTitle = "Read media metadata"
     static let codeModeSummary = "Read duration and track metadata from media files."
     static let codeModeTags = ["media", "avfoundation", "metadata"]
     static let codeModeExample = "await apple.media.metadata({ path: 'tmp:video.mov' })"
@@ -443,7 +426,6 @@ struct MediaMetadataReadTool: BuiltInCodeModeTool {
 
 @BuiltInCodeMode(.mediaFrameExtract, path: "apple.media.extractFrame")
 struct MediaFrameExtractTool: BuiltInCodeModeTool {
-    static let codeModeTitle = "Extract video frame"
     static let codeModeSummary = "Extract frame at time offset and persist JPEG output."
     static let codeModeTags = ["media", "avfoundation", "thumbnail"]
     static let codeModeExample = "await apple.media.extractFrame({ path: 'tmp:video.mov', timeMs: 1500 })"
@@ -468,7 +450,6 @@ struct MediaFrameExtractTool: BuiltInCodeModeTool {
 
 @BuiltInCodeMode(.mediaTranscode, path: "apple.media.transcode")
 struct MediaTranscodeTool: BuiltInCodeModeTool {
-    static let codeModeTitle = "Transcode media"
     static let codeModeSummary = "Transcode media into MP4 with preset quality."
     static let codeModeTags = ["media", "avfoundation", "transcode"]
     static let codeModeExample = "await apple.media.transcode({ path: 'tmp:input.mov', preset: 'AVAssetExportPresetMediumQuality' })"

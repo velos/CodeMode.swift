@@ -61,6 +61,8 @@ public enum CodeModeAgentToolDescriptions {
         Search the bundled CodeMode JavaScript API catalog by executing an async JavaScript function against a preloaded api object. Use this before executeJavaScript to discover the correct JS helper names, capability IDs, required arguments, result shapes, and examples. The catalog is filtered to the current host platform, so unsupported helpers are hidden.
 
         Available in your search code:
+        type CodeModeResultSchema = "string" | "number" | "boolean" | "any" | { nullable: CodeModeResultSchema } | { array: CodeModeResultSchema }
+          | { dictionary: CodeModeResultSchema } | { object: Array<{ name: string; schema: CodeModeResultSchema; hint?: string }> };
         interface JavaScriptAPIReference {
           capability: string;
           capabilityKey: string;
@@ -72,14 +74,18 @@ public enum CodeModeAgentToolDescriptions {
           requiredArguments: string[];
           optionalArguments: string[];
           argumentTypes: Record<string, string>;
+          nullableArguments: string[];
           argumentHints: Record<string, string>;
           argumentConstraints: { allowedStringValues: Record<string, string[]> };
           resultSummary: string;
+          resultSchema?: CodeModeResultSchema; // Recursive JSON shape for typed results.
           dts: string;
         }
 
         declare const api: {
           references: JavaScriptAPIReference[];
+          // First helper when several share a capability; use byJSName or
+          // references.filter(ref => ref.capability === id) to select others.
           byCapability: Record<string, JavaScriptAPIReference>;
           byJSName: Record<string, JavaScriptAPIReference>;
         };
@@ -87,7 +93,7 @@ public enum CodeModeAgentToolDescriptions {
         Your code must evaluate to an async function and return JSON-serializable output.
         Search has a 2s budget, so slice broad result sets before returning them.
 
-        Prefer returning ref.dts: it is the TypeScript declaration for the helper, with argument names, types, string-literal unions for constrained values, optionality, and the result summary. It is more precise and usually shorter than assembling argumentTypes, argumentHints, and argumentConstraints yourself.
+        Prefer returning ref.dts: it is the TypeScript declaration for the helper, with argument names, types, string-literal unions for constrained values, optionality, typed results where available, and the result summary. It is more precise and usually shorter than assembling argumentTypes, argumentHints, and argumentConstraints yourself.
 
         Examples:
         async () => {

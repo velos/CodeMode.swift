@@ -14,10 +14,10 @@ Platforms: iOS 18+, macOS 15+, visionOS 2+. watchOS is out of scope because the 
 ## Installation
 
 ```swift
-.package(url: "https://github.com/velos/CodeMode.swift", branch: "main")
+.package(url: "https://github.com/velos/CodeMode.swift", from: "0.2.2")
 ```
 
-No release is tagged yet; once `0.1.0` is, prefer `from: "0.1.0"`. Add the product to your target:
+`main` may be ahead of the latest tag; depend on `branch: "main"` for unreleased changes. Add the product to your target:
 
 ```swift
 .product(name: "CodeMode", package: "CodeMode")

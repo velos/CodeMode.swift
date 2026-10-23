@@ -14,7 +14,6 @@ enum FileEncoding: String, CodeModeStringEnum {
 
 @BuiltInCodeMode(.fsList, path: "apple.fs.list", aliases: ["fs.promises.readdir"])
 struct FSListTool: BuiltInCodeModeTool {
-    static let codeModeTitle = "List directory"
     static let codeModeSummary = "List files/directories within allowed sandbox roots as entry objects."
     static let codeModeTags = ["filesystem", "io", "fs"]
     static let codeModeExample = "await apple.fs.list({ path: 'tmp:' })"
@@ -35,7 +34,6 @@ struct FSListTool: BuiltInCodeModeTool {
 
 @BuiltInCodeMode(.fsRead, path: "apple.fs.read", aliases: ["fs.promises.readFile"])
 struct FSReadTool: BuiltInCodeModeTool {
-    static let codeModeTitle = "Read file"
     static let codeModeSummary = "Read text/base64 file data within allowed sandbox roots."
     static let codeModeTags = ["filesystem", "io", "fs"]
     static let codeModeExample = "await apple.fs.read({ path: 'tmp:data.json', encoding: 'utf8' })"
@@ -58,7 +56,6 @@ struct FSReadTool: BuiltInCodeModeTool {
 
 @BuiltInCodeMode(.fsWrite, path: "apple.fs.write", aliases: ["fs.promises.writeFile"])
 struct FSWriteTool: BuiltInCodeModeTool {
-    static let codeModeTitle = "Write file"
     static let codeModeSummary = "Write text/base64 file data within allowed sandbox roots."
     static let codeModeTags = ["filesystem", "io", "fs"]
     static let codeModeExample = "await apple.fs.write({ path: 'tmp:data.json', data: '{\"ok\":true}' })"
@@ -83,7 +80,6 @@ struct FSWriteTool: BuiltInCodeModeTool {
 
 @BuiltInCodeMode(.fsMove, path: "apple.fs.move", aliases: ["fs.promises.rename"])
 struct FSMoveTool: BuiltInCodeModeTool {
-    static let codeModeTitle = "Move file"
     static let codeModeSummary = "Move file/directory within allowed sandbox roots. Fails rather than clobbering an existing destination unless overwrite is set, and never accepts a sandbox root as the destination."
     static let codeModeTags = ["filesystem", "io", "fs"]
     static let codeModeExample = "await apple.fs.move({ from: 'tmp:a.txt', to: 'tmp:b.txt' })"
@@ -110,7 +106,6 @@ struct FSMoveTool: BuiltInCodeModeTool {
 
 @BuiltInCodeMode(.fsCopy, path: "apple.fs.copy", aliases: ["fs.promises.copyFile"])
 struct FSCopyTool: BuiltInCodeModeTool {
-    static let codeModeTitle = "Copy file"
     static let codeModeSummary = "Copy file/directory within allowed sandbox roots. Fails rather than clobbering an existing destination unless overwrite is set, and never accepts a sandbox root as the destination."
     static let codeModeTags = ["filesystem", "io", "fs"]
     static let codeModeExample = "await apple.fs.copy({ from: 'tmp:a.txt', to: 'tmp:b.txt' })"
@@ -137,7 +132,6 @@ struct FSCopyTool: BuiltInCodeModeTool {
 
 @BuiltInCodeMode(.fsDelete, path: "apple.fs.delete", aliases: ["fs.promises.rm"])
 struct FSDeleteTool: BuiltInCodeModeTool {
-    static let codeModeTitle = "Delete file"
     static let codeModeSummary = "Delete file/directory within allowed sandbox roots."
     static let codeModeTags = ["filesystem", "io", "fs"]
     static let codeModeExample = "await apple.fs.delete({ path: 'tmp:data.json' })"
@@ -160,7 +154,6 @@ struct FSDeleteTool: BuiltInCodeModeTool {
 
 @BuiltInCodeMode(.fsStat, path: "apple.fs.stat", aliases: ["fs.promises.stat"])
 struct FSStatTool: BuiltInCodeModeTool {
-    static let codeModeTitle = "Stat path"
     static let codeModeSummary = "Read file metadata within allowed sandbox roots."
     static let codeModeTags = ["filesystem", "io", "fs"]
     static let codeModeExample = "await apple.fs.stat({ path: 'tmp:data.json' })"
@@ -181,7 +174,6 @@ struct FSStatTool: BuiltInCodeModeTool {
 
 @BuiltInCodeMode(.fsMkdir, path: "apple.fs.mkdir", aliases: ["fs.promises.mkdir"])
 struct FSMkdirTool: BuiltInCodeModeTool {
-    static let codeModeTitle = "Create directory"
     static let codeModeSummary = "Create directories within allowed sandbox roots."
     static let codeModeTags = ["filesystem", "io", "fs"]
     static let codeModeExample = "await apple.fs.mkdir({ path: 'tmp:artifacts', recursive: true })"
@@ -204,7 +196,6 @@ struct FSMkdirTool: BuiltInCodeModeTool {
 
 @BuiltInCodeMode(.fsExists, path: "apple.fs.exists")
 struct FSExistsTool: BuiltInCodeModeTool {
-    static let codeModeTitle = "Check path exists"
     static let codeModeSummary = "Check if file/directory exists within allowed sandbox roots."
     static let codeModeTags = ["filesystem", "io", "fs"]
     static let codeModeExample = "await apple.fs.exists({ path: 'tmp:data.json' })"
@@ -225,7 +216,6 @@ struct FSExistsTool: BuiltInCodeModeTool {
 
 @BuiltInCodeMode(.fsAccess, path: "apple.fs.access", aliases: ["fs.promises.access"])
 struct FSAccessTool: BuiltInCodeModeTool {
-    static let codeModeTitle = "Check path access"
     static let codeModeSummary = "Check read/write access for path within allowed sandbox roots."
     static let codeModeTags = ["filesystem", "io", "fs"]
     static let codeModeExample = "await apple.fs.access({ path: 'tmp:data.json' })"

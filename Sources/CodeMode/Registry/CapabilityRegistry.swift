@@ -51,8 +51,8 @@ public struct CapabilityArgumentConstraints: Sendable, Codable, Equatable {
             return .init(allowedStringValues: [
                 "options.responseEncoding": ["text", "base64"],
             ])
-        // calendarWrite / calendarDelete / calendarUIPickCalendar / remindersWrite
-        // constraints now come from their tools' CodeModeStringEnum arguments
+        // calendarDelete / calendarUIPickCalendar constraints now come
+        // from their tools' CodeModeStringEnum arguments
         // (EventKitCodeModeTools.swift), not this table.
         // photosRead / photosUIPick (MediaTypeFilter) and contactsUIPick
         // (ContactPickerMode) constraints now come from their tools'
@@ -77,11 +77,12 @@ public struct CapabilityArgumentConstraints: Sendable, Codable, Equatable {
         try validate(arguments: arguments, capabilityName: capability.rawValue)
     }
 
-    func validate(arguments: [String: JSONValue], capabilityName: String) throws {
+    func validate(arguments: [String: JSONValue], capabilityName: String, nullableArguments: [String] = []) throws {
         for (path, allowed) in allowedStringValues.sorted(by: { $0.key < $1.key }) {
             guard let value = Self.value(atPath: path, in: arguments) else {
                 continue
             }
+            if value == .null, nullableArguments.contains(path) { continue }
             guard let string = value.stringValue else {
                 throw BridgeError.invalidArguments("\(capabilityName) expected '\(path)' as string, received \(Self.jsonTypeName(for: value))")
             }
@@ -136,6 +137,95 @@ public struct CapabilityArgumentConstraints: Sendable, Codable, Equatable {
     }
 }
 
+/// The JSON shape produced by a typed built-in result, composed from Swift types.
+public indirect enum CodeModeResultSchema: Sendable, Codable, Equatable {
+    case string, number, bool, any
+    case nullable(CodeModeResultSchema)
+    case array(CodeModeResultSchema)
+    case dictionary(CodeModeResultSchema)
+    case object([Field])
+
+    private enum CodingKeys: String, CodingKey {
+        case nullable, array, dictionary, object
+    }
+
+    public init(from decoder: Decoder) throws {
+        let scalar = try decoder.singleValueContainer()
+        if let name = try? scalar.decode(String.self) {
+            switch name {
+            case "string": self = .string
+            case "number": self = .number
+            case "boolean": self = .bool
+            case "any": self = .any
+            default:
+                throw DecodingError.dataCorruptedError(in: scalar, debugDescription: "Unknown result schema scalar: \(name)")
+            }
+            return
+        }
+
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        guard container.allKeys.count == 1, let key = container.allKeys.first else {
+            throw DecodingError.dataCorrupted(.init(
+                codingPath: decoder.codingPath,
+                debugDescription: "Expected one result schema composite: nullable, array, dictionary, or object"
+            ))
+        }
+        switch key {
+        case .nullable: self = .nullable(try container.decode(Self.self, forKey: key))
+        case .array: self = .array(try container.decode(Self.self, forKey: key))
+        case .dictionary: self = .dictionary(try container.decode(Self.self, forKey: key))
+        case .object: self = .object(try container.decode([Field].self, forKey: key))
+        }
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        switch self {
+        case .string: try "string".encode(to: encoder)
+        case .number: try "number".encode(to: encoder)
+        case .bool: try "boolean".encode(to: encoder)
+        case .any: try "any".encode(to: encoder)
+        case let .nullable(schema):
+            var container = encoder.container(keyedBy: CodingKeys.self)
+            try container.encode(schema, forKey: .nullable)
+        case let .array(schema):
+            var container = encoder.container(keyedBy: CodingKeys.self)
+            try container.encode(schema, forKey: .array)
+        case let .dictionary(schema):
+            var container = encoder.container(keyedBy: CodingKeys.self)
+            try container.encode(schema, forKey: .dictionary)
+        case let .object(fields):
+            var container = encoder.container(keyedBy: CodingKeys.self)
+            try container.encode(fields, forKey: .object)
+        }
+    }
+
+    public struct Field: Sendable, Codable, Equatable {
+        public var name: String
+        public var schema: CodeModeResultSchema
+        public var hint: String?
+
+        public init(name: String, schema: CodeModeResultSchema, hint: String? = nil) {
+            self.name = name
+            self.schema = schema
+            self.hint = hint
+        }
+
+        // The generated code uses this constrained initializer, so even a type
+        // with coincidentally matching members must explicitly conform.
+        init<Value: CodeModeResultDescribable>(name: String, describing type: Value.Type, hint: String? = nil) {
+            self.init(name: name, schema: Value.codeModeResultSchema, hint: hint)
+        }
+    }
+
+    /// A single-line type for catalog search results. Unrestricted JSON keeps
+    /// the migration default rather than exposing the TypeScript alias.
+    /// This deliberately shares the catalog's type renderer so search summaries
+    /// and declarations use the same type spelling as the schema evolves.
+    var summary: String {
+        self == .any ? "JSON value" : TypeScriptDeclarations.resultType(for: self, multiline: false)
+    }
+}
+
 public struct CapabilityDescriptor: Sendable, Equatable {
     public var id: CapabilityID
     public var title: String
@@ -146,9 +236,11 @@ public struct CapabilityDescriptor: Sendable, Equatable {
     public var requiredArguments: [String]
     public var optionalArguments: [String]
     public var argumentTypes: [String: CapabilityArgumentType]
+    public var nullableArguments: [String]
     public var argumentHints: [String: String]
     public var argumentConstraints: CapabilityArgumentConstraints
     public var resultSummary: String
+    public var resultSchema: CodeModeResultSchema?
 
     public init(
         id: CapabilityID,
@@ -160,9 +252,11 @@ public struct CapabilityDescriptor: Sendable, Equatable {
         requiredArguments: [String] = [],
         optionalArguments: [String] = [],
         argumentTypes: [String: CapabilityArgumentType] = [:],
+        nullableArguments: [String] = [],
         argumentHints: [String: String] = [:],
         argumentConstraints: CapabilityArgumentConstraints? = nil,
-        resultSummary: String = "JSON value"
+        resultSummary: String = "JSON value",
+        resultSchema: CodeModeResultSchema? = nil
     ) {
         self.id = id
         self.title = title
@@ -173,9 +267,11 @@ public struct CapabilityDescriptor: Sendable, Equatable {
         self.requiredArguments = requiredArguments
         self.optionalArguments = optionalArguments
         self.argumentTypes = argumentTypes.isEmpty ? CapabilityDescriptor.inferArgumentTypes(required: requiredArguments, optional: optionalArguments) : argumentTypes
+        self.nullableArguments = nullableArguments
         self.argumentHints = argumentHints
         self.argumentConstraints = argumentConstraints ?? CapabilityArgumentConstraints.defaults(for: id)
         self.resultSummary = resultSummary
+        self.resultSchema = resultSchema
     }
 
     private static func inferArgumentTypes(required: [String], optional: [String]) -> [String: CapabilityArgumentType] {
@@ -380,9 +476,11 @@ struct RegisteredCodeModeFunction: Sendable {
     var requiredArguments: [String]
     var optionalArguments: [String]
     var argumentTypes: [String: CapabilityArgumentType]
+    var nullableArguments: [String]
     var argumentHints: [String: String]
     var argumentConstraints: CapabilityArgumentConstraints
     var resultSummary: String
+    var resultSchema: CodeModeResultSchema?
     var handler: CapabilityHandler
 
     var catalogCapability: String {
@@ -406,9 +504,11 @@ struct RegisteredCodeModeFunction: Sendable {
         self.requiredArguments = descriptor.requiredArguments
         self.optionalArguments = descriptor.optionalArguments
         self.argumentTypes = descriptor.argumentTypes
+        self.nullableArguments = descriptor.nullableArguments
         self.argumentHints = descriptor.argumentHints
         self.argumentConstraints = descriptor.argumentConstraints
         self.resultSummary = descriptor.resultSummary
+        self.resultSchema = descriptor.resultSchema
         self.handler = registration.handler
     }
 
@@ -424,16 +524,18 @@ struct RegisteredCodeModeFunction: Sendable {
         self.requiredArguments = registration.requiredArguments
         self.optionalArguments = registration.optionalArguments
         self.argumentTypes = registration.argumentTypes
+        self.nullableArguments = []
         self.argumentHints = registration.argumentHints
         self.argumentConstraints = registration.argumentConstraints
         self.resultSummary = registration.resultSummary
+        self.resultSchema = nil
         self.handler = registration.handler
     }
 }
 
 public final class CapabilityRegistry: @unchecked Sendable {
     private let lock = NSLock()
-    private var registrations: [CapabilityID: CapabilityRegistration] = [:]
+    private var registrations: [CapabilityID: [CapabilityRegistration]] = [:]
     private var codeModeRegistrations: [CodeModeCapabilityKey: CodeModeRegistration] = [:]
     /// Bumped on every mutation so `BridgeCatalog` can tell whether its snapshot
     /// is still current. Without it the catalog was frozen at init, which made
@@ -443,11 +545,27 @@ public final class CapabilityRegistry: @unchecked Sendable {
 
     public init(registrations: [CapabilityRegistration] = [], codeModeRegistrations: [CodeModeRegistration] = []) {
         for registration in registrations {
-            self.registrations[registration.descriptor.id] = registration
+            self.store(registration)
         }
         for registration in codeModeRegistrations {
             self.codeModeRegistrations[registration.capabilityKey] = registration
         }
+    }
+
+    /// Replace all intersecting helper registrations, preserving the first
+    /// replaced slot. An unnamed registration overrides the entire capability.
+    private func store(_ registration: CapabilityRegistration) {
+        let id = registration.descriptor.id
+        guard !registration.jsNames.isEmpty else {
+            registrations[id] = [registration]
+            return
+        }
+        let names = Set(registration.jsNames)
+        var existing = registrations[id] ?? []
+        let index = existing.firstIndex { !names.isDisjoint(with: $0.jsNames) }
+        existing.removeAll { !names.isDisjoint(with: $0.jsNames) }
+        existing.insert(registration, at: index ?? existing.endIndex)
+        registrations[id] = existing
     }
 
     /// Monotonic version of the registry's contents.
@@ -459,7 +577,7 @@ public final class CapabilityRegistry: @unchecked Sendable {
 
     public func register(_ registration: CapabilityRegistration) {
         lock.lock()
-        registrations[registration.descriptor.id] = registration
+        store(registration)
         generationValue += 1
         lock.unlock()
     }
@@ -467,7 +585,7 @@ public final class CapabilityRegistry: @unchecked Sendable {
     public func register(_ registrations: [CapabilityRegistration]) {
         lock.lock()
         for registration in registrations {
-            self.registrations[registration.descriptor.id] = registration
+            self.store(registration)
         }
         generationValue += 1
         lock.unlock()
@@ -489,28 +607,31 @@ public final class CapabilityRegistry: @unchecked Sendable {
         lock.unlock()
     }
 
+    /// Returns the first registration's descriptor when tools share an ID.
     public func descriptor(for capability: CapabilityID) -> CapabilityDescriptor? {
         lock.lock()
         defer { lock.unlock() }
-        return registrations[capability]?.descriptor
+        return registrations[capability]?.first?.descriptor
     }
 
-    public func registration(for capability: CapabilityID) -> CapabilityRegistration? {
+    /// Selects the named helper, or the first registration when jsName is omitted.
+    public func registration(for capability: CapabilityID, jsName: String? = nil) -> CapabilityRegistration? {
         lock.lock()
         defer { lock.unlock() }
-        return registrations[capability]
+        if let jsName { return registrations[capability]?.first { $0.jsNames.contains(jsName) } }
+        return registrations[capability]?.first
     }
 
     public func allCapabilityRegistrations() -> [CapabilityRegistration] {
         lock.lock()
         defer { lock.unlock() }
-        return registrations.values.map { $0 }
+        return registrations.values.flatMap { $0 }
     }
 
     public func allDescriptors() -> [CapabilityDescriptor] {
         lock.lock()
         defer { lock.unlock() }
-        return registrations.values.map(\.descriptor)
+        return registrations.values.flatMap { $0 }.map(\.descriptor)
     }
 
     public func allCodeModeRegistrations() -> [CodeModeRegistration] {
@@ -519,10 +640,13 @@ public final class CapabilityRegistry: @unchecked Sendable {
         return codeModeRegistrations.values.map { $0 }
     }
 
-    func registeredFunction(for capability: CapabilityID) -> RegisteredCodeModeFunction? {
+    func registeredFunction(for capability: CapabilityID, jsName: String? = nil) -> RegisteredCodeModeFunction? {
         lock.lock()
         defer { lock.unlock() }
-        return registrations[capability].map(RegisteredCodeModeFunction.init)
+        if let jsName {
+            return registrations[capability]?.first { $0.jsNames.contains(jsName) }.map(RegisteredCodeModeFunction.init)
+        }
+        return registrations[capability]?.first.map(RegisteredCodeModeFunction.init)
     }
 
     /// Resolves a *custom provider* key only. Built-ins are deliberately not
@@ -538,21 +662,21 @@ public final class CapabilityRegistry: @unchecked Sendable {
     func allRegisteredFunctions() -> [RegisteredCodeModeFunction] {
         lock.lock()
         defer { lock.unlock() }
-        return registrations.values.map(RegisteredCodeModeFunction.init)
+        return registrations.values.flatMap { $0 }.map(RegisteredCodeModeFunction.init)
             + codeModeRegistrations.values.map(RegisteredCodeModeFunction.init)
     }
 
-    public func invoke(_ capabilityID: String, arguments: [String: JSONValue], context: BridgeInvocationContext) throws -> JSONValue {
+    public func invoke(_ capabilityID: String, jsName: String? = nil, arguments: [String: JSONValue], context: BridgeInvocationContext) throws -> JSONValue {
         try context.checkCancellation()
 
         if let capability = CapabilityID(rawValue: capabilityID) {
-            return try invokeBuiltIn(capability, arguments: arguments, context: context)
+            return try invokeBuiltIn(capability, jsName: jsName, arguments: arguments, context: context)
         }
 
         return try invokeCodeMode(CodeModeCapabilityKey(rawValue: capabilityID), arguments: arguments, context: context)
     }
 
-    private func invokeBuiltIn(_ capability: CapabilityID, arguments: [String: JSONValue], context: BridgeInvocationContext) throws -> JSONValue {
+    private func invokeBuiltIn(_ capability: CapabilityID, jsName: String?, arguments: [String: JSONValue], context: BridgeInvocationContext) throws -> JSONValue {
         // Built-ins are gated by `allowedCapabilities` alone. `allowedCapabilityKeys`
         // accepts arbitrary strings and is not validated against `CapabilityID` at
         // decode time, so honouring it here would bypass any host that vets only
@@ -561,7 +685,7 @@ public final class CapabilityRegistry: @unchecked Sendable {
             throw BridgeError.capabilityDenied(capability)
         }
 
-        guard let function = registeredFunction(for: capability) else {
+        guard let function = registeredFunction(for: capability, jsName: jsName) else {
             throw BridgeError.capabilityNotFound(capability.rawValue)
         }
 
@@ -688,6 +812,7 @@ public final class CapabilityRegistry: @unchecked Sendable {
                 continue
             }
 
+            if value == .null, function.nullableArguments.contains(path) { continue }
             guard expectedType.matches(value) else {
                 throw BridgeError.invalidArguments(
                     "\(name) expected '\(path)' as \(expectedType.rawValue), received \(jsonTypeName(for: value))"
@@ -695,7 +820,7 @@ public final class CapabilityRegistry: @unchecked Sendable {
             }
         }
 
-        try function.argumentConstraints.validate(arguments: arguments, capabilityName: name)
+        try function.argumentConstraints.validate(arguments: arguments, capabilityName: name, nullableArguments: function.nullableArguments)
 
         let allowedNames = Set(required + optional + Array(typed.keys))
         if allowedNames.isEmpty == false {
@@ -709,32 +834,8 @@ public final class CapabilityRegistry: @unchecked Sendable {
 
     private func validatePermissions(_ permissions: [PermissionKind], context: BridgeInvocationContext) throws {
         for permission in permissions {
-            try context.checkCancellation()
-            let status = context.permissionBroker.status(for: permission)
-            context.recordPermission(permission, status: status)
-
-            let resolvedStatus: PermissionStatus
-            if status == .notDetermined {
-                let requested = context.permissionBroker.request(for: permission)
-                context.recordPermission(permission, status: requested)
-                resolvedStatus = requested
-            } else {
-                resolvedStatus = status
-            }
-
-            guard permissionStatus(resolvedStatus, satisfies: permission) else {
-                throw BridgeError.permissionDenied(permission)
-            }
-
-            context.markPermissionValidated(permission)
+            try context.requirePermission(permission)
         }
-    }
-
-    private func permissionStatus(_ status: PermissionStatus, satisfies permission: PermissionKind) -> Bool {
-        if permission == .calendarWriteOnly, status == .writeOnly {
-            return true
-        }
-        return status == .granted
     }
 
     private func value(atPath path: String, in root: [String: JSONValue]) -> JSONValue? {

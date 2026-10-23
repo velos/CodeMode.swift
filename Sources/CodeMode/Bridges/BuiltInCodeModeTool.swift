@@ -5,28 +5,48 @@ struct BuiltInToolArgument {
     var name: String
     var type: CapabilityArgumentType
     var optional: Bool
+    var nullable: Bool
     var hint: String
+    var defaultValue: JSONValue?
     /// Accepted spellings when the argument is constrained to a closed set;
     /// nil for unconstrained arguments.
     var allowedValues: [String]?
 
-    init(_ name: String, _ type: CapabilityArgumentType, optional: Bool = false, hint: String) {
+    init(_ name: String, _ type: CapabilityArgumentType, optional: Bool = false, nullable: Bool = false, hint: String, defaultValue: JSONValue? = nil) {
         self.name = name
         self.type = type
         self.optional = optional
-        self.hint = hint
+        self.nullable = nullable
+        self.defaultValue = defaultValue
+        self.hint = Self.hint(hint, defaultValue: defaultValue)
         self.allowedValues = nil
     }
 
     /// A string argument constrained to a `CodeModeStringEnum`'s accepted
     /// values. The advertised constraint and the decode behavior both come
     /// from the enum, so they cannot drift.
-    init<Value: CodeModeStringEnum>(_ name: String, oneOf: Value.Type, optional: Bool = false, hint: String) {
+    init<Value: CodeModeStringEnum>(_ name: String, oneOf: Value.Type, optional: Bool = false, nullable: Bool = false, hint: String, defaultValue: JSONValue? = nil) {
         self.name = name
         self.type = .string
         self.optional = optional
-        self.hint = hint
+        self.nullable = nullable
+        self.defaultValue = defaultValue
+        self.hint = Self.hint(hint, defaultValue: defaultValue)
         self.allowedValues = Value.codeModeAllowedValues
+    }
+
+    private static let defaultValueEncoder: JSONEncoder = {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.withoutEscapingSlashes, .sortedKeys]
+        return encoder
+    }()
+
+    private static func hint(_ hint: String, defaultValue: JSONValue?) -> String {
+        guard let defaultValue else { return hint }
+        // JSON spelling quotes strings (including enum raw values) and preserves
+        // escapes; all defaults admitted by the macro are JSON scalars.
+        let text = String(decoding: try! defaultValueEncoder.encode(defaultValue), as: UTF8.self)
+        return "\(hint) Default: \(text)."
     }
 }
 
@@ -41,13 +61,13 @@ struct BuiltInToolArgument {
 /// migration is incremental.
 protocol BuiltInCodeModeTool: Sendable {
     associatedtype Arguments: Sendable
+    associatedtype Result: CodeModeResultDescribable
 
     static var codeModeCapability: CapabilityID { get }
     static var codeModePath: String { get }
     /// Additional JavaScript names routed to this tool (same handler and
-    /// metadata), e.g. `apple.calendar.updateEvent` alongside `createEvent`.
+    /// metadata).
     static var codeModeAliasPaths: [String] { get }
-    static var codeModeTitle: String { get }
     static var codeModeSummary: String { get }
     static var codeModeTags: [String] { get }
     static var codeModeExample: String { get }
@@ -56,12 +76,17 @@ protocol BuiltInCodeModeTool: Sendable {
     static var codeModeResultSummary: String { get }
 
     func decode(arguments: [String: JSONValue]) throws -> Arguments
-    func call(arguments: Arguments, context: BridgeInvocationContext) throws -> JSONValue
+    /// Additional permissions selected from decoded arguments. Static
+    /// requirements are enforced by the registry before the handler runs.
+    func argumentDependentPermissions(for arguments: Arguments) -> [PermissionKind]
+    func call(arguments: Arguments, context: BridgeInvocationContext) throws -> Result
 }
 
 extension BuiltInCodeModeTool {
+    static var codeModeResultSummary: String { Result.codeModeResultSchema.summary }
     static var codeModeAliasPaths: [String] { [] }
     static var codeModeRequiredPermissions: [PermissionKind] { [] }
+    func argumentDependentPermissions(for arguments: Arguments) -> [PermissionKind] { [] }
 }
 
 extension CapabilityRegistration {
@@ -78,7 +103,7 @@ extension CapabilityRegistration {
             jsNames: [Tool.codeModePath] + Tool.codeModeAliasPaths,
             descriptor: CapabilityDescriptor(
                 id: Tool.codeModeCapability,
-                title: Tool.codeModeTitle,
+                title: Tool.codeModePath.split(separator: ".").last.map(String.init) ?? Tool.codeModePath,
                 summary: Tool.codeModeSummary,
                 tags: Tool.codeModeTags,
                 example: Tool.codeModeExample,
@@ -86,17 +111,22 @@ extension CapabilityRegistration {
                 requiredArguments: arguments.filter { $0.optional == false }.map(\.name),
                 optionalArguments: arguments.filter(\.optional).map(\.name),
                 argumentTypes: Dictionary(uniqueKeysWithValues: arguments.map { ($0.name, $0.type) }),
+                nullableArguments: arguments.filter(\.nullable).map(\.name),
                 argumentHints: Dictionary(uniqueKeysWithValues: arguments.map { ($0.name, $0.hint) }),
                 // nil keeps the central defaults table in play for tools without
                 // enum-typed arguments while unmigrated capabilities still rely on it.
                 argumentConstraints: allowedStringValues.isEmpty
                     ? nil
                     : CapabilityArgumentConstraints(allowedStringValues: allowedStringValues),
-                resultSummary: Tool.codeModeResultSummary
+                resultSummary: Tool.codeModeResultSummary,
+                resultSchema: Tool.Result.codeModeResultSchema == .any ? nil : Tool.Result.codeModeResultSchema
             ),
             handler: { rawArguments, context in
                 let decoded = try tool.decode(arguments: rawArguments)
-                return try tool.call(arguments: decoded, context: context)
+                for permission in tool.argumentDependentPermissions(for: decoded) {
+                    try context.requirePermission(permission)
+                }
+                return try tool.call(arguments: decoded, context: context).codeModeJSONValue
             }
         )
     }

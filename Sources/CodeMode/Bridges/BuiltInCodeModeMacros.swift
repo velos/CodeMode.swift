@@ -2,19 +2,28 @@ import Foundation
 
 /// Generates the mechanical members of a `BuiltInCodeModeTool` — the identity
 /// statics, `codeModeArguments`, and `decode(arguments:)` — from the nested
-/// `Arguments` struct. Curated metadata (title, summary, tags, example,
-/// permissions, result summary) and `call(arguments:context:)` stay
+/// `Arguments` struct. Curated metadata (summary, tags, example,
+/// permissions, optional result summary override) and `call(arguments:context:)` stay
 /// hand-written.
 ///
 /// Annotate each argument property with `@ToolParam("hint")`. Property types
 /// may be JSON primitives (`String`, `Bool`, `Int`, `Double`, `[JSONValue]`,
 /// `[String: JSONValue]`, `JSONValue`, optionals thereof) or a
 /// `CodeModeStringEnum`, whose accepted values become the argument's
-/// constraint metadata. A trailing un-annotated `var raw: [String: JSONValue]`
+/// constraint metadata. `Date`/`Date?` decode ISO 8601 strings through
+/// `CodeModeDate`, retaining the capability and argument in date errors.
+/// Nonoptional scalar properties may have literal defaults (or `.case` enum
+/// defaults): omission uses the initializer, and catalog hints advertise it.
+/// Dynamic defaults belong in `call` and use optional properties.
+///
+/// `Patch<T>` arguments distinguish omission, null, and a decoded value. Tools
+/// with Patch fields get `static hasChanges(_:)`, which checks their Patch and
+/// optional fields and skips required and defaulted fields. A
+/// trailing unannotated `var raw: [String: JSONValue]`
 /// receives the full argument dictionary with constrained values canonicalized
 /// — the passthrough transitional tools use while bridges consume raw
 /// dictionaries.
-@attached(member, names: named(codeModeCapability), named(codeModePath), named(codeModeAliasPaths), named(codeModeArguments), named(decode))
+@attached(member, names: named(codeModeCapability), named(codeModePath), named(codeModeAliasPaths), named(codeModeArguments), named(decode), named(hasChanges))
 macro BuiltInCodeMode(
     _ capability: CapabilityID,
     path: String,
@@ -41,3 +50,13 @@ enum CodeModeToolRawArguments {
         raw[name] = .string(value.rawValue)
     }
 }
+
+/// Derives a built-in result's JSON encoding and schema from its stored var/let
+/// properties, in declaration order. Each field type must describe its result.
+@attached(member, names: named(codeModeJSONValue), named(codeModeResultSchema))
+@attached(extension, conformances: CodeModeResultDescribable)
+macro ToolResult() = #externalMacro(module: "CodeModeMacros", type: "ToolResultMacro")
+
+/// Optional documentation for one stored property of a `@ToolResult` struct.
+@attached(peer)
+macro ToolField(_ hint: String) = #externalMacro(module: "CodeModeMacros", type: "ToolFieldMacro")

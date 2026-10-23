@@ -271,6 +271,7 @@ private func reference(
     let legacy = #"{"capability":"fs.read","capabilityKey":"fs.read","builtInCapability":"fs.read","jsNames":["apple.fs.read"],"summary":"Read a file.","tags":[],"example":"","requiredArguments":["path"],"optionalArguments":[],"argumentTypes":{"path":"string"},"argumentHints":{},"argumentConstraints":{"allowedStringValues":{}},"resultSummary":"Object."}"#
     let decoded = try JSONDecoder().decode(JavaScriptAPIReference.self, from: Data(legacy.utf8))
     #expect(decoded.capability == "fs.read")
+    #expect(decoded.nullableArguments.isEmpty)
     // Regenerated rather than left empty.
     #expect(decoded.dts.contains("read(args: {"))
     #expect(decoded.dts.contains("path: string;"))
@@ -317,8 +318,93 @@ func writeTypeDeclarationsForCompilerCheck() async throws {
     let references = tools.capabilities()
     for reference in references {
         try reference.dts.write(
-            to: fragments.appendingPathComponent("\(reference.capability).d.ts"), atomically: true, encoding: .utf8
+            to: fragments.appendingPathComponent("\(reference.jsNames.first ?? reference.capability).d.ts"), atomically: true, encoding: .utf8
         )
     }
     #expect(references.count > 100, "expected the full iOS catalog")
+}
+
+@Test(arguments: [
+    (
+        "apple.calendar.listEvents",
+        "Array<{ identifier: string; title: string; startDate: string; endDate: string; notes: string; calendarIdentifier: string; calendarTitle: string; location: string; url: string; isAllDay: boolean; }>",
+        """
+        Array<{
+          identifier: string;
+          title: string;
+          /** ISO 8601 timestamp */
+          startDate: string;
+          /** ISO 8601 timestamp */
+          endDate: string;
+          notes: string;
+          /** Empty ("") when the event has no calendar */
+          calendarIdentifier: string;
+          /** Empty ("") when the event has no calendar */
+          calendarTitle: string;
+          location: string;
+          /** Absolute URL, or "" when none */
+          url: string;
+          isAllDay: boolean;
+        }>
+        """
+    ),
+    (
+        "apple.reminders.updateReminder",
+        "{ identifier: string; title: string; isCompleted: boolean; dueDate: string; completionDate: string; notes: string; priority: number; calendarIdentifier: string; calendarTitle: string; }",
+        """
+        {
+          identifier: string;
+          title: string;
+          isCompleted: boolean;
+          /** ISO 8601 timestamp, or "" when none */
+          dueDate: string;
+          /** ISO 8601 timestamp, or "" when none */
+          completionDate: string;
+          notes: string;
+          priority: number;
+          /** Empty ("") when the reminder has no calendar */
+          calendarIdentifier: string;
+          /** Empty ("") when the reminder has no calendar */
+          calendarTitle: string;
+        }
+        """
+    ),
+])
+func eventKitCatalogDerivesSummariesAndPromiseTypes(path: String, summary: String, resultType: String) throws {
+    let registry = CapabilityRegistry(registrations: DefaultCapabilityLoader.loadAllRegistrations())
+    let reference = try #require(BridgeCatalog(registry: registry).reference(forJavaScriptName: path))
+    #expect(reference.resultSchema != nil)
+    #expect(reference.resultSummary == summary)
+    #expect(!reference.dts.contains(" * Returns:"))
+    // Namespace indentation does not affect the return type's contract.
+    let unindented = reference.dts.components(separatedBy: "\n").map { line in
+        line.hasPrefix("    ") ? String(line.dropFirst(4)) : line
+    }.joined(separator: "\n")
+    #expect(unindented.contains("Promise<\(resultType)>"))
+}
+
+@Test func referencesEncodedWithoutResultSchemaStillDecode() throws {
+    let legacy = #"{"capability":"calendar.read","capabilityKey":"calendar.read","jsNames":["apple.calendar.listEvents"],"summary":"List events.","tags":[],"example":"","requiredArguments":[],"optionalArguments":[],"argumentTypes":{},"argumentHints":{},"argumentConstraints":{"allowedStringValues":{}},"resultSummary":"Events.","dts":"cached declaration"}"#
+    let decoded = try JSONDecoder().decode(JavaScriptAPIReference.self, from: Data(legacy.utf8))
+    #expect(decoded.resultSchema == nil)
+    #expect(decoded.resultSummary == "Events.")
+    #expect(decoded.dts == "cached declaration")
+}
+
+
+@Test func typedResultDocumentationPreservesProseOverrides() {
+    var typed = reference()
+    typed.resultSchema = .object([.init(name: "text", schema: .string)])
+    typed.resultSummary = "Decoded file contents."
+    let dts = TypeScriptDeclarations.declaration(for: typed)
+    #expect(dts.contains(" * Returns: Decoded file contents."))
+    #expect(dts.contains("Promise<{\n      text: string;\n    }>"))
+}
+
+@Test func resultFieldNamesAreQuotedAsTypeScriptStringLiterals() {
+    var typed = reference()
+    typed.resultSchema = .object([.init(name: "quote\"\\\n\t\r\u{0001}\u{2028}\u{2029}", schema: .string)])
+    #expect(TypeScriptDeclarations.declaration(for: typed).contains(
+        #""quote\"\\\n\t\r\u0001\u2028\u2029": string;"#
+    ))
 }

@@ -11,7 +11,6 @@ enum ContactPickerMode: String, CodeModeStringEnum {
 
 @BuiltInCodeMode(.contactsRead, path: "apple.contacts.list")
 struct ContactsReadTool: BuiltInCodeModeTool {
-    static let codeModeTitle = "Read contacts"
     static let codeModeSummary = "Read contacts with bounded fields."
     static let codeModeTags = ["contacts", "address-book", "people"]
     static let codeModeExample = "await apple.contacts.list({ limit: 25 })"
@@ -35,7 +34,6 @@ struct ContactsReadTool: BuiltInCodeModeTool {
 
 @BuiltInCodeMode(.contactsSearch, path: "apple.contacts.search")
 struct ContactsSearchTool: BuiltInCodeModeTool {
-    static let codeModeTitle = "Search contacts"
     static let codeModeSummary = "Search contacts by name."
     static let codeModeTags = ["contacts", "search", "people"]
     static let codeModeExample = "await apple.contacts.search({ query: 'Alex', limit: 10 })"
@@ -59,7 +57,6 @@ struct ContactsSearchTool: BuiltInCodeModeTool {
 
 @BuiltInCodeMode(.contactsUIPick, path: "apple.contacts.pick")
 struct ContactsUIPickTool: BuiltInCodeModeTool {
-    static let codeModeTitle = "Pick contacts with system UI"
     static let codeModeSummary = "Present system contact picker UI and return selected contacts without requiring full Contacts permission."
     static let codeModeTags = ["contacts", "people", "system-ui", "picker"]
     static let codeModeExample = "await apple.contacts.pick({ mode: 'single', displayedPropertyKeys: ['phoneNumbers', 'emailAddresses'] })"
@@ -84,7 +81,6 @@ struct ContactsUIPickTool: BuiltInCodeModeTool {
 
 @BuiltInCodeMode(.contactsUIPresentContact, path: "apple.contacts.presentContact")
 struct ContactsUIPresentContactTool: BuiltInCodeModeTool {
-    static let codeModeTitle = "Present contact card"
     static let codeModeSummary = "Present system contact card UI for a contact identifier."
     static let codeModeTags = ["contacts", "people", "system-ui", "details"]
     static let codeModeExample = "await apple.contacts.presentContact({ identifier: 'CONTACT_ID', allowsEditing: false })"
@@ -114,7 +110,6 @@ struct ContactsUIPresentContactTool: BuiltInCodeModeTool {
 
 @BuiltInCodeMode(.contactsUIPresentNewContact, path: "apple.contacts.presentNewContact")
 struct ContactsUIPresentNewContactTool: BuiltInCodeModeTool {
-    static let codeModeTitle = "Present new contact editor"
     static let codeModeSummary = "Present system UI for creating a new contact draft."
     static let codeModeTags = ["contacts", "people", "system-ui", "create"]
     static let codeModeExample = "await apple.contacts.presentNewContact({ givenName: 'Alex', familyName: 'Lee', emailAddresses: ['alex@example.com'] })"
@@ -148,7 +143,6 @@ struct ContactsUIPresentNewContactTool: BuiltInCodeModeTool {
 
 @BuiltInCodeMode(.photosRead, path: "apple.photos.list")
 struct PhotosReadTool: BuiltInCodeModeTool {
-    static let codeModeTitle = "List photo library assets"
     static let codeModeSummary = "List photos/videos from the user photo library."
     static let codeModeTags = ["photos", "photo-library", "media"]
     static let codeModeExample = "await apple.photos.list({ mediaType: 'image', limit: 20 })"
@@ -172,7 +166,6 @@ struct PhotosReadTool: BuiltInCodeModeTool {
 
 @BuiltInCodeMode(.photosExport, path: "apple.photos.export")
 struct PhotosExportTool: BuiltInCodeModeTool {
-    static let codeModeTitle = "Export photo library asset"
     static let codeModeSummary = "Export a photo/video asset to sandbox file path and register artifact handle."
     static let codeModeTags = ["photos", "photo-library", "artifact"]
     static let codeModeExample = "await apple.photos.export({ localIdentifier: 'ABC/L0/001', outputPath: 'tmp:exported.jpg' })"
@@ -196,7 +189,6 @@ struct PhotosExportTool: BuiltInCodeModeTool {
 
 @BuiltInCodeMode(.photosUIPick, path: "apple.photos.pick")
 struct PhotosUIPickTool: BuiltInCodeModeTool {
-    static let codeModeTitle = "Pick photos with system UI"
     static let codeModeSummary = "Present system photo picker UI and export selected assets into the sandbox artifact store."
     static let codeModeTags = ["photos", "photo-library", "system-ui", "picker", "artifact"]
     static let codeModeExample = "await apple.photos.pick({ mediaType: 'image', limit: 3, outputDirectory: 'tmp:picks' })"
@@ -223,7 +215,6 @@ struct PhotosUIPickTool: BuiltInCodeModeTool {
 
 @BuiltInCodeMode(.photosUIPresentLimitedLibraryPicker, path: "apple.photos.presentLimitedLibraryPicker")
 struct PhotosUIPresentLimitedLibraryPickerTool: BuiltInCodeModeTool {
-    static let codeModeTitle = "Present limited Photos picker"
     static let codeModeSummary = "Present the Photos limited-library management UI so the user can update the app's selected photo set."
     static let codeModeTags = ["photos", "photo-library", "system-ui", "permission", "picker"]
     static let codeModeExample = "await apple.photos.presentLimitedLibraryPicker()"
@@ -246,7 +237,6 @@ struct PhotosUIPresentLimitedLibraryPickerTool: BuiltInCodeModeTool {
 
 @BuiltInCodeMode(.documentsUIPick, path: "apple.documents.pick")
 struct DocumentsUIPickTool: BuiltInCodeModeTool {
-    static let codeModeTitle = "Pick documents with system UI"
     static let codeModeSummary = "Present Files document picker UI and copy selected documents into the sandbox artifact store."
     static let codeModeTags = ["documents", "files", "system-ui", "picker", "artifact"]
     static let codeModeExample = "await apple.documents.pick({ contentTypes: ['public.item'], allowMultiple: true, outputDirectory: 'tmp:imports' })"
@@ -273,7 +263,6 @@ struct DocumentsUIPickTool: BuiltInCodeModeTool {
 
 @BuiltInCodeMode(.documentsUIExport, path: "apple.documents.export", aliases: ["apple.documents.save"])
 struct DocumentsUIExportTool: BuiltInCodeModeTool {
-    static let codeModeTitle = "Export documents with system UI"
     static let codeModeSummary = "Present Files export UI to save one or more sandbox files to a user-selected destination."
     static let codeModeTags = ["documents", "files", "system-ui", "export", "save"]
     static let codeModeExample = "await apple.documents.export({ path: 'tmp:report.pdf' })"
@@ -300,7 +289,6 @@ struct DocumentsUIExportTool: BuiltInCodeModeTool {
 
 @BuiltInCodeMode(.documentsUIOpenIn, path: "apple.documents.openIn")
 struct DocumentsUIOpenInTool: BuiltInCodeModeTool {
-    static let codeModeTitle = "Open document in another app"
     static let codeModeSummary = "Present the system Open In menu for a sandbox file."
     static let codeModeTags = ["documents", "files", "system-ui", "open-in", "handoff"]
     static let codeModeExample = "await apple.documents.openIn({ path: 'tmp:report.pdf' })"
@@ -327,7 +315,6 @@ struct DocumentsUIOpenInTool: BuiltInCodeModeTool {
 
 @BuiltInCodeMode(.documentsUIScan, path: "apple.documents.scan")
 struct DocumentsUIScanTool: BuiltInCodeModeTool {
-    static let codeModeTitle = "Scan documents with system UI"
     static let codeModeSummary = "Present VisionKit document scanner UI and export scanned pages into the sandbox artifact store."
     static let codeModeTags = ["documents", "scan", "camera", "system-ui", "artifact"]
     static let codeModeExample = "await apple.documents.scan({ outputDirectory: 'tmp:scans' })"

@@ -69,7 +69,7 @@ Allowed golden diffs:
      for spellings the bridge demonstrably accepts.
    - Use it as the property type; the macro derives the constraint from it.
    - Rewire the bridge's own parsing of that value to
-     `EnumType.codeModeValue(matching:)` (see `EventKitBridge.eventSpan`,
+     `EnumType.codeModeValue(matching:)` (see
      `SystemUIBridge.validateCalendarPickerArguments` for the pattern), so the
      enum is the single source of truth.
    - Delete the row from the `defaults(for:)` table in the same commit.

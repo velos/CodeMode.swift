@@ -3,11 +3,10 @@ import JavaScriptCore
 import Testing
 @testable import CodeMode
 
-
 private func jsNames(for capability: CapabilityID) -> [String] {
     DefaultCapabilityLoader.loadAllRegistrations()
-        .first { $0.descriptor.id == capability }?
-        .jsNames ?? []
+        .filter { $0.descriptor.id == capability }
+        .flatMap(\.jsNames)
 }
 
 @Test func defaultCapabilityLoaderCoversAllCapabilityIDs() {
@@ -114,7 +113,8 @@ private func jsNames(for capability: CapabilityID) -> [String] {
 
 @Test func systemUIDescriptorsExposeExpectedJavaScriptNames() throws {
     let descriptors = Dictionary(
-        uniqueKeysWithValues: DefaultCapabilityLoader.loadAllRegistrations().map { ($0.descriptor.id, $0.descriptor) }
+        DefaultCapabilityLoader.loadAllRegistrations().map { ($0.descriptor.id, $0.descriptor) },
+        uniquingKeysWith: { first, _ in first }
     )
 
     let calendar = try #require(descriptors[.calendarUIPresentNewEvent])
@@ -161,11 +161,12 @@ private func jsNames(for capability: CapabilityID) -> [String] {
 
 @Test func expandedAPIDescriptorsExposeExpectedJavaScriptNames() throws {
     let descriptors = Dictionary(
-        uniqueKeysWithValues: DefaultCapabilityLoader.loadAllRegistrations().map { ($0.descriptor.id, $0.descriptor) }
+        DefaultCapabilityLoader.loadAllRegistrations().map { ($0.descriptor.id, $0.descriptor) },
+        uniquingKeysWith: { first, _ in first }
     )
 
     let calendarWrite = try #require(descriptors[.calendarWrite])
-    #expect(calendarWrite.requiredPermissions.isEmpty)
+    #expect(calendarWrite.requiredPermissions == [.calendarWriteOnly])
     #expect(calendarWrite.optionalArguments.contains("calendarIdentifier"))
     #expect(jsNames(for: .calendarWrite) == ["apple.calendar.createEvent", "apple.calendar.updateEvent"])
 
@@ -210,7 +211,8 @@ private func jsNames(for capability: CapabilityID) -> [String] {
 
 @Test func bigTicketAPIDescriptorsExposeExpectedJavaScriptNames() throws {
     let descriptors = Dictionary(
-        uniqueKeysWithValues: DefaultCapabilityLoader.loadAllRegistrations().map { ($0.descriptor.id, $0.descriptor) }
+        DefaultCapabilityLoader.loadAllRegistrations().map { ($0.descriptor.id, $0.descriptor) },
+        uniquingKeysWith: { first, _ in first }
     )
 
     let cloudKit = try #require(descriptors[.cloudKitRecordsQuery])
@@ -616,5 +618,84 @@ private func jsNames(for capability: CapabilityID) -> [String] {
         Issue.record("Expected unknown argument validation to throw")
     } catch {
         #expect(requireBridgeErrorCode(error) == "INVALID_ARGUMENTS")
+    }
+}
+
+private final class StatusObservingPermissionBroker: PermissionBroker, @unchecked Sendable {
+    private let lock = NSLock()
+    private var observations: [PermissionKind] = []
+
+    var statusObservations: [PermissionKind] {
+        lock.withLock { observations }
+    }
+
+    func status(for permission: PermissionKind) -> PermissionStatus {
+        lock.withLock { observations.append(permission) }
+        return .granted
+    }
+
+    func request(for permission: PermissionKind) -> PermissionStatus { .denied }
+}
+
+@Test func registryObservesStaticPermissionOnEveryInvocation() throws {
+    let registry = CapabilityRegistry(registrations: [CapabilityRegistration(
+        descriptor: CapabilityDescriptor(
+            id: .calendarRead,
+            title: "Calendar read",
+            summary: "Exercise static permission enforcement without a live store.",
+            tags: [],
+            example: "",
+            requiredPermissions: [.calendar]
+        ),
+        handler: { _, _ in .string("ok") }
+    )])
+    let broker = StatusObservingPermissionBroker()
+    let (context, sandbox) = try makeInvocationContext(permissionBroker: broker)
+    defer { cleanup(sandbox) }
+
+    #expect(try registry.invoke("calendar.read", arguments: [:], context: context) == .string("ok"))
+    #expect(try registry.invoke("calendar.read", arguments: [:], context: context) == .string("ok"))
+    #expect(broker.statusObservations == [.calendar, .calendar])
+    #expect(context.allPermissionEvents().map(\.permission) == [.calendar, .calendar])
+    #expect(context.allPermissionEvents().map(\.status) == [.granted, .granted])
+}
+
+@Test(arguments: ["matching", "empty", "split"])
+func builtInOverridesReplaceIntersectingNamesAndPreserveOtherTools(mode: String) throws {
+    var create = CapabilityRegistration(tool: CalendarCreateEventTool())
+    create.jsNames.append("apple.calendar.legacyCreate")
+    create.handler = { _, _ in .string("create") }
+    var update = CapabilityRegistration(tool: CalendarUpdateEventTool())
+    update.handler = { _, _ in .string("update") }
+    let registry = CapabilityRegistry(registrations: [create, update])
+    let catalog = BridgeCatalog(registry: registry)
+    #expect(catalog.allReferences().count == 2)
+    var replacement = create
+    replacement.descriptor.requiredPermissions = []
+    replacement.descriptor.title = "Override"
+    replacement.jsNames = switch mode {
+    case "matching": ["apple.calendar.legacyCreate", "apple.calendar.updateEvent"]
+    case "empty": []
+    default: ["apple.calendar.updateEvent"]
+    }
+    replacement.handler = { _, _ in .string("override") }
+    registry.register(replacement)
+    let (context, sandbox) = try makeInvocationContext(permissionBroker: FixedPermissionBroker(statuses: [.calendarWriteOnly: .granted]))
+    defer { cleanup(sandbox) }
+    let args: [String: JSONValue] = [
+        "title": .string("T"), "start": .string("2026-02-22T16:00:00Z"), "end": .string("2026-02-22T17:00:00Z"),
+    ]
+    #expect(registry.allCapabilityRegistrations().count == (mode == "split" ? 2 : 1))
+    #expect(catalog.allReferences().count == (mode == "split" ? 2 : 1))
+    if mode == "split" {
+        #expect(try registry.invoke("calendar.write", jsName: "apple.calendar.createEvent", arguments: args, context: context) == .string("create"))
+        #expect(try registry.invoke("calendar.write", jsName: "apple.calendar.updateEvent", arguments: args, context: context) == .string("override"))
+        #expect(registry.descriptor(for: .calendarWrite)?.title == "createEvent")
+    } else {
+        #expect(try registry.invoke("calendar.write", arguments: args, context: context) == .string("override"))
+        #expect(registry.registration(for: .calendarWrite)?.descriptor.title == "Override")
+        if mode == "matching" {
+            #expect(try registry.invoke("calendar.write", jsName: "apple.calendar.updateEvent", arguments: args, context: context) == .string("override"))
+        }
     }
 }

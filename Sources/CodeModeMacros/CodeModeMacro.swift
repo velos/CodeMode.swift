@@ -13,6 +13,8 @@ struct CodeModePlugin: CompilerPlugin {
         CodeModeResultMacro.self,
         BuiltInCodeModeMacro.self,
         ToolParamMacro.self,
+        ToolResultMacro.self,
+        ToolFieldMacro.self,
     ]
 }
 

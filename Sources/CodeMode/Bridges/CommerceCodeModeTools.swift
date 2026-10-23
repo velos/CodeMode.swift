@@ -16,7 +16,6 @@ enum MusicPlaybackAction: String, CodeModeStringEnum {
 
 @BuiltInCodeMode(.musicPermissionRequest, path: "apple.music.requestPermission")
 struct MusicPermissionRequestTool: BuiltInCodeModeTool {
-    static let codeModeTitle = "Request Music permission"
     static let codeModeSummary = "Request Apple Music/media-library permission before library or playback actions."
     static let codeModeTags = ["music", "musickit", "permission"]
     static let codeModeExample = "await apple.music.requestPermission()"
@@ -33,7 +32,6 @@ struct MusicPermissionRequestTool: BuiltInCodeModeTool {
 
 @BuiltInCodeMode(.musicSubscriptionStatus, path: "apple.music.getSubscriptionStatus")
 struct MusicSubscriptionStatusTool: BuiltInCodeModeTool {
-    static let codeModeTitle = "Read Music subscription status"
     static let codeModeSummary = "Read MusicKit subscription/capability status exposed by the host."
     static let codeModeTags = ["music", "musickit", "subscription", "catalog"]
     static let codeModeExample = "await apple.music.getSubscriptionStatus()"
@@ -52,7 +50,6 @@ struct MusicSubscriptionStatusTool: BuiltInCodeModeTool {
 
 @BuiltInCodeMode(.musicCatalogSearch, path: "apple.music.search")
 struct MusicCatalogSearchTool: BuiltInCodeModeTool {
-    static let codeModeTitle = "Search Music catalog"
     static let codeModeSummary = "Search the Apple Music catalog for songs, albums, artists, playlists, or stations."
     static let codeModeTags = ["music", "musickit", "catalog", "search"]
     static let codeModeExample = "await apple.music.search({ term: 'Miles Davis', types: ['artists', 'albums'], limit: 5 })"
@@ -79,7 +76,6 @@ struct MusicCatalogSearchTool: BuiltInCodeModeTool {
 
 @BuiltInCodeMode(.musicCatalogDetails, path: "apple.music.getDetails")
 struct MusicCatalogDetailsTool: BuiltInCodeModeTool {
-    static let codeModeTitle = "Read Music catalog details"
     static let codeModeSummary = "Read details for a catalog item identifier through MusicKit."
     static let codeModeTags = ["music", "musickit", "catalog", "details"]
     static let codeModeExample = "await apple.music.getDetails({ identifier: '123', type: 'albums' })"
@@ -104,7 +100,6 @@ struct MusicCatalogDetailsTool: BuiltInCodeModeTool {
 
 @BuiltInCodeMode(.musicLibraryRead, path: "apple.music.readLibrary")
 struct MusicLibraryReadTool: BuiltInCodeModeTool {
-    static let codeModeTitle = "Read Music library"
     static let codeModeSummary = "Read the user's Music library playlists or items after Music permission is granted."
     static let codeModeTags = ["music", "musickit", "library"]
     static let codeModeExample = "await apple.music.readLibrary({ type: 'playlists', limit: 20 })"
@@ -128,7 +123,6 @@ struct MusicLibraryReadTool: BuiltInCodeModeTool {
 
 @BuiltInCodeMode(.musicPlaylistWrite, path: "apple.music.writePlaylist")
 struct MusicPlaylistWriteTool: BuiltInCodeModeTool {
-    static let codeModeTitle = "Write Music playlist"
     static let codeModeSummary = "Create or update a user-library playlist through a host MusicKit adapter."
     static let codeModeTags = ["music", "musickit", "library", "playlist", "write"]
     static let codeModeExample = "await apple.music.writePlaylist({ name: 'Focus', catalogIDs: ['song-id'] })"
@@ -160,7 +154,6 @@ struct MusicPlaylistWriteTool: BuiltInCodeModeTool {
 
 @BuiltInCodeMode(.musicPlaybackControl, path: "apple.music.play")
 struct MusicPlaybackControlTool: BuiltInCodeModeTool {
-    static let codeModeTitle = "Control Music playback"
     static let codeModeSummary = "Control Music playback queue through a user-authorized host adapter."
     static let codeModeTags = ["music", "musickit", "playback", "queue"]
     static let codeModeExample = "await apple.music.play({ action: 'playCatalog', catalogID: 'song-id' })"
@@ -192,7 +185,6 @@ struct MusicPlaybackControlTool: BuiltInCodeModeTool {
 
 @BuiltInCodeMode(.passKitWalletStatus, path: "apple.wallet.getStatus")
 struct PassKitWalletStatusTool: BuiltInCodeModeTool {
-    static let codeModeTitle = "Read Wallet status"
     static let codeModeSummary = "Read PassKit Wallet availability and pass-library access status."
     static let codeModeTags = ["passkit", "wallet", "passes"]
     static let codeModeExample = "await apple.wallet.getStatus()"
@@ -211,7 +203,6 @@ struct PassKitWalletStatusTool: BuiltInCodeModeTool {
 
 @BuiltInCodeMode(.passKitPassesRead, path: "apple.wallet.listPasses")
 struct PassKitPassesReadTool: BuiltInCodeModeTool {
-    static let codeModeTitle = "List Wallet passes"
     static let codeModeSummary = "List Wallet passes accessible to the host app through PassKit."
     static let codeModeTags = ["passkit", "wallet", "passes", "read"]
     static let codeModeExample = "await apple.wallet.listPasses({ limit: 20 })"
@@ -236,7 +227,6 @@ struct PassKitPassesReadTool: BuiltInCodeModeTool {
 
 @BuiltInCodeMode(.passKitPassAdd, path: "apple.wallet.addPass")
 struct PassKitPassAddTool: BuiltInCodeModeTool {
-    static let codeModeTitle = "Add Wallet pass"
     static let codeModeSummary = "Present user-mediated UI to add a sandbox .pkpass file to Wallet."
     static let codeModeTags = ["passkit", "wallet", "passes", "add", "system-ui"]
     static let codeModeExample = "await apple.wallet.addPass({ path: 'tmp:ticket.pkpass' })"
@@ -259,7 +249,6 @@ struct PassKitPassAddTool: BuiltInCodeModeTool {
 
 @BuiltInCodeMode(.passKitPassPresent, path: "apple.wallet.presentPass")
 struct PassKitPassPresentTool: BuiltInCodeModeTool {
-    static let codeModeTitle = "Present Wallet pass"
     static let codeModeSummary = "Present user-mediated details for an accessible Wallet pass."
     static let codeModeTags = ["passkit", "wallet", "passes", "system-ui"]
     static let codeModeExample = "await apple.wallet.presentPass({ identifier: 'pass-id' })"
@@ -282,7 +271,6 @@ struct PassKitPassPresentTool: BuiltInCodeModeTool {
 
 @BuiltInCodeMode(.passKitApplePayStatus, path: "apple.wallet.canMakePayments")
 struct PassKitApplePayStatusTool: BuiltInCodeModeTool {
-    static let codeModeTitle = "Read Apple Pay status"
     static let codeModeSummary = "Read Apple Pay capability using host merchant configuration; no merchant setup is accepted from JavaScript."
     static let codeModeTags = ["passkit", "apple-pay", "payments", "safety"]
     static let codeModeExample = "await apple.wallet.canMakePayments()"
@@ -303,7 +291,6 @@ struct PassKitApplePayStatusTool: BuiltInCodeModeTool {
 
 @BuiltInCodeMode(.passKitApplePayPresent, path: "apple.wallet.presentPayment")
 struct PassKitApplePayPresentTool: BuiltInCodeModeTool {
-    static let codeModeTitle = "Present Apple Pay request"
     static let codeModeSummary = "Present a host-defined Apple Pay payment request using host merchant configuration after explicit user-visible confirmation."
     static let codeModeTags = ["passkit", "apple-pay", "payments", "system-ui", "safety"]
     static let codeModeExample = "await apple.wallet.presentPayment({ paymentRequestID: 'checkout-123', confirmed: true })"
@@ -330,7 +317,6 @@ struct PassKitApplePayPresentTool: BuiltInCodeModeTool {
 
 @BuiltInCodeMode(.storeKitProductsRead, path: "apple.storekit.listProducts")
 struct StoreKitProductsReadTool: BuiltInCodeModeTool {
-    static let codeModeTitle = "Read StoreKit products"
     static let codeModeSummary = "Read StoreKit product metadata for host-configured product identifiers."
     static let codeModeTags = ["storekit", "commerce", "products"]
     static let codeModeExample = "await apple.storekit.listProducts({ productIDs: ['pro.monthly'] })"
@@ -351,7 +337,6 @@ struct StoreKitProductsReadTool: BuiltInCodeModeTool {
 
 @BuiltInCodeMode(.storeKitEntitlementsRead, path: "apple.storekit.listEntitlements")
 struct StoreKitEntitlementsReadTool: BuiltInCodeModeTool {
-    static let codeModeTitle = "Read StoreKit entitlements"
     static let codeModeSummary = "Read current StoreKit entitlements and verified transaction state."
     static let codeModeTags = ["storekit", "commerce", "entitlements"]
     static let codeModeExample = "await apple.storekit.listEntitlements()"
@@ -370,7 +355,6 @@ struct StoreKitEntitlementsReadTool: BuiltInCodeModeTool {
 
 @BuiltInCodeMode(.storeKitPurchase, path: "apple.storekit.purchase")
 struct StoreKitPurchaseTool: BuiltInCodeModeTool {
-    static let codeModeTitle = "Purchase StoreKit product"
     static let codeModeSummary = "Present StoreKit purchase UI for a host-configured product after explicit user-visible confirmation."
     static let codeModeTags = ["storekit", "commerce", "purchase", "safety"]
     static let codeModeExample = "await apple.storekit.purchase({ productID: 'pro.monthly', confirmed: true })"
@@ -395,7 +379,6 @@ struct StoreKitPurchaseTool: BuiltInCodeModeTool {
 
 @BuiltInCodeMode(.storeKitRestore, path: "apple.storekit.restore")
 struct StoreKitRestoreTool: BuiltInCodeModeTool {
-    static let codeModeTitle = "Restore StoreKit purchases"
     static let codeModeSummary = "Trigger StoreKit restore/sync after explicit user-visible confirmation."
     static let codeModeTags = ["storekit", "commerce", "restore", "safety"]
     static let codeModeExample = "await apple.storekit.restore({ confirmed: true })"
@@ -416,7 +399,6 @@ struct StoreKitRestoreTool: BuiltInCodeModeTool {
 
 @BuiltInCodeMode(.storeKitTransactionsRead, path: "apple.storekit.listTransactions")
 struct StoreKitTransactionsReadTool: BuiltInCodeModeTool {
-    static let codeModeTitle = "Read StoreKit transaction inbox"
     static let codeModeSummary = "Read bounded transaction updates captured by the host StoreKit adapter."
     static let codeModeTags = ["storekit", "commerce", "transactions", "inbox", "events"]
     static let codeModeExample = "await apple.storekit.listTransactions({ limit: 20 })"
